@@ -1,0 +1,61 @@
+repository_root: "/home/arthur/AMRL/Research/UTPeDa"
+dataset_output_root: "/home/arthur/AMRL/Datasets/UTPeDa_pub"
+
+#Bag Decoder Settings
+gen_data: True
+viz_points: False
+verbose: True
+
+sensor_topics: [ 
+  #OS1
+  "/ouster/lidar_packets", 
+
+  #Kinect
+  "/camera/depth/image_raw/compressed",
+
+  #FLIR
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed",
+
+  #Vectornav
+  "/vectornav/GPS",
+  "/vectornav/IMU",
+  "/vectornav/Mag",
+  "/vectornav/Odom",
+
+  #ZED
+  "/zed/zed_node/depth/depth_registered/compressedDepth",
+  "/zed/zed_node/left/image_rect_color/compressed",
+
+  #Odometry
+  "/husky_velocity_controller/odom"
+]
+
+sensor_types: [ 
+  #OS1
+  "/ouster/lidar_packets", 
+
+  #Kinect
+  "/camera/depth/image_raw/compressed",
+
+  #FLIR
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed",
+
+  #Vectornav
+  "/vectornav/GPS",
+  "/vectornav/IMU",
+  "/vectornav/Mag",
+  "/vectornav/Odom",
+
+  #ZED
+  "/zed/zed_node/depth/depth_registered/compressedDepth",
+  "/zed/zed_node/left/image_rect_color/compressed",
+
+  #Odometry
+  "/husky_velocity_controller/odom"
+]
+
+bags_to_process: [] #Leave empty to process all bags in directory
+  
+
