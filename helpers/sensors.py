@@ -1,11 +1,13 @@
 import os
 import pdb
+from xml.sax.handler import property_interning_dict
 
 #Sys Tools
 from more_itertools import nth
 
 #ROS
 from sensor_msgs.msg import CompressedImage
+import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
 #Libraries
 import cv2
@@ -33,7 +35,8 @@ def process_ouster_packet(os1_info, packet_arr):
 
 def pc_to_bin(pc, save_dir, frame):
     pc_filename = os.path.join(save_dir, str(frame).replace('.', '')+ ".bin")
-    flat_pc = pc.reshape(-1)
+    pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
+    flat_pc = pc_np.reshape(-1)
 
     flat_pc.tofile(pc_filename) # empty sep=bytes
 
@@ -48,7 +51,7 @@ def get_ouster_packet_info(os1_info, data):
 def process_compressed_image(img_data):
     sensor_ts = img_data.header.stamp
     np_arr = np.fromstring(img_data.data, np.uint8)
-    image_np = cv2.imdecode(np_arr, cv2.COLOR_BAYER_BG2BGR)
+    image_np = np.array(cv2.imdecode(np_arr, cv2.COLOR_BAYER_BG2BGR))
 
     return image_np, sensor_ts
 

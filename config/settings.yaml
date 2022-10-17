@@ -1,10 +1,16 @@
 repository_root: "/home/arthur/AMRL/Research/UTPeDa"
-dataset_output_root: "/home/arthur/AMRL/Datasets/UTPeDa_pub"
+dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
 
 #Bag Decoder Settings
 gen_data: True
 viz_points: False
-verbose: True
+verbose: False
+
+sync_topics: [
+  "/ouster/lidar_packets",
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed"
+]
 
 sensor_topics: [ 
   #OS1
