@@ -2,8 +2,8 @@ repository_root: "/home/arthur/AMRL/Research/UTPeDa"
 dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
 
 #Bag Decoder Settings
-gen_data: True
-viz_points: False
+gen_data: False   # Generates data files
+viz_imu: True     # Republish imu messages
 verbose: False
 
 sync_topics: [

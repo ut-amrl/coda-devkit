@@ -1,0 +1,23 @@
+# Path to processed CODa dataset root directort
+dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
+manifest_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
+
+sensor_topics: [
+  "/ouster/lidar_packets",
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed"
+]
+
+s3_prefix: "s3://awsexamplebucket/example_lidar_sequence_dataset/seq1/"
+
+downsample_rate: 5
+
+# Set what trajectories and each trajectories' frames to process
+trajectories: [
+  0
+]
+trajectory_frames:
+  0: [
+    [100, 200], 
+    [200, 300] 
+  ]

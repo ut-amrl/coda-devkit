@@ -1,12 +1,7 @@
 import os
 import pdb
-import queue
-from struct import pack
-from tabnanny import verbose
 
 # Utility Libraries
-import cv2 as cv
-import numpy as np
 import yaml
 
 # ROS Libraries
@@ -14,19 +9,28 @@ import rospy
 import rosbag
 import message_filters
 from visualization_msgs.msg import *
-from sensor_msgs.msg import PointCloud2, CompressedImage
+from sensor_msgs.msg import PointCloud2, CompressedImage, Imu
+
+from rosgraph_msgs.msg import Clock
 
 from helpers.sensors import *
 from helpers.visualization import pub_pc_to_rviz
-from helpers.constants import OS1_PACKETS_PER_FRAME, DATASET_L1_DIR_LIST, SENSOR_DIRECTORY_SUBPATH
+from helpers.constants import *
 
 class BagDecoder(object):
+    """
+    Decodes directory of bag files into dataset structure defined in README.md
+    
+    This decoder requires the bag files to contain /ouster/lidar_packets and
+    two compressed image topics to be published within 50 milliseconds of each other. It
+    also requires that a ros master be running as well to synchronize these three topics. 
+    """
     def __init__(
         self, 
         bag_dir):
         
         self._bag_dir = bag_dir
-        self._settings_fp = os.path.join(os.getcwd(), "config/settings.yaml")
+        self._settings_fp = os.path.join(os.getcwd(), "config/decoder.yaml")
 
         assert os.path.isdir(self._bag_dir), '%s does not exist' % self._bag_dir
         assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
@@ -41,9 +45,8 @@ class BagDecoder(object):
         self.load_settings()
 
         #Load visualization
-        if self._viz_points:
-            rospy.init_node('bagdecoder')
-            self.pc_pub = rospy.Publisher('/ouster/points', PointCloud2, queue_size=10)
+        if self._viz_imu:
+            self._imu_pub = rospy.Publisher('/vectornav/IMU', Imu, queue_size=10)
         
         #Generate Dataset
         if self._gen_data:
@@ -54,6 +57,10 @@ class BagDecoder(object):
         #Load sync publisher
         rospy.init_node('bagdecoder', anonymous=True)
         self._topic_to_type = None
+
+        self._qp_counter = 0
+        self._qp_frame_id= -1
+        self._qp_scan_queue = []
 
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
@@ -69,10 +76,10 @@ class BagDecoder(object):
         with open(self._settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
             # Load decoder settings
-            self._viz_points = settings['viz_points']
-            self._gen_data   = settings['gen_data']
-            self._verbose    = settings['verbose']
-            self._outdir     = settings['dataset_output_root']
+            self._gen_data  = settings['gen_data']
+            self._viz_imu   = settings['viz_imu']
+            self._verbose   = settings['verbose']
+            self._outdir    = settings['dataset_output_root']
             if not os.path.exists(self._outdir):
                 os.mkdir(self._outdir)
     
@@ -83,13 +90,12 @@ class BagDecoder(object):
             if self._verbose:
                 print("Saving topics: ", self._topics)
 
-            self.bags_to_process = settings['bags_to_process']
-            if len(self.bags_to_process)==0:
-                self.bags_to_process = [
+            self._bags_to_process = settings['bags_to_process']
+            if len(self._bags_to_process)==0:
+                self._bags_to_process = [
                     file for file in sorted(os.listdir(self._bag_dir)) 
                     if os.path.splitext(file)[-1]==".bag"]
     
-
         if "/ouster/lidar_packets" in self._topics:
             os_metadata = os.path.join(self._bag_dir, "OS1metadata.json")
             assert os.path.isfile(os_metadata), '%s does not exist' % os_metadata
@@ -145,7 +151,7 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for trajectory, bag_file in enumerate(self.bags_to_process):
+        for trajectory, bag_file in enumerate(self._bags_to_process):
             self._trajectory = trajectory
             self._curr_frame = 0
             bag_fp = os.path.join(self._bag_dir, bag_file)
@@ -156,33 +162,40 @@ class BagDecoder(object):
                 for topic_entry in rosbag_info['topics']}
             self.setup_sync_filter()
 
-            num_lidar_packets = 0
-            frame_id = -1
-            scan_queue = []
             for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
                 if topic in self._sync_topics:
                     topic_type = self._topic_to_type[topic]
                     if topic_type=="ouster_ros/PacketMsg":
-                        packet = get_ouster_packet_info(self._os1_info, msg.buf)
-
-                        if packet.frame_id!=frame_id:
-                            if num_lidar_packets==OS1_PACKETS_PER_FRAME: # 64 columns per packet
-                                pc, _ = self.process_topic(topic_type, scan_queue, ts)
-                                pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
-                            num_lidar_packets   = 0
-                            frame_id            = packet.frame_id
-                            scan_queue          = []
-
-                        num_lidar_packets +=1
-                        scan_queue.append(packet)
+                        self.qpacket(topic, msg, ts)
+                        # self._clock_pub.publish(ts)
                     else:
                         self._sync_pubs[topic].publish(msg)
                 else:
-                    pass
+                    data, ts = self.process_topic(topic, msg, ts)
+
+    def qpacket(self, topic, msg, ts):
+        packet = get_ouster_packet_info(self._os1_info, msg.buf)
+
+        if packet.frame_id!=self._qp_frame_id:
+            if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
+                pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
+                # pdb.set_trace()
+                pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                
+            self._qp_counter     = 0
+
+            self._qp_frame_id    = packet.frame_id
+            self._qp_scan_queue  = []
+
+        self._qp_counter +=1
+        self._qp_scan_queue.append(packet)
+
 
     def save_topic(self, data, topic, trajectory, frame):
-        topic_type      = self._topic_to_type[topic]
+        if not self._gen_data:
+            return
 
+        topic_type      = self._topic_to_type[topic]
         topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
         save_dir = os.path.join(self._outdir, topic_type_subpath, str(trajectory))
         if not os.path.exists(save_dir):
@@ -196,21 +209,24 @@ class BagDecoder(object):
         elif topic_type=="sensor_msgs/CompressedImage":
             img, _ = self.process_topic(topic_type, data, data.header.stamp)
             img_to_png(img, save_dir, frame)
-
         else:
             print("Entered undefined topic to be saved...")
             pass
 
-    def process_topic(self, type, msg, t):
+    def process_topic(self, topic, msg, t):
+        topic_type = self._topic_to_type[topic]
         data        = None
         sensor_ts   = t
-        if type=="ouster_ros/PacketMsg":
-            # pdb.set_trace()
+        if topic_type=="ouster_ros/PacketMsg":
             data, sensor_ts = process_ouster_packet(self._os1_info, msg)
-        elif type=="sensor_msgs/CompressedImage":
+        elif topic_type=="sensor_msgs/CompressedImage":
             data, sensor_ts = process_compressed_image(msg)
-        elif type=="sensor_msgs/Imu":
-            pass
-        elif type=="sensor_msgs/MagneticField":
+        elif topic_type=="sensor_msgs/Imu":
+            imu_to_wcs = wcs_mat(SENSOR_TO_WCS[topic])
+            data = process_imu(msg, imu_to_wcs)
+            if self._viz_imu: 
+                self._imu_pub.publish(msg)
+            data = msg
+        elif topic_type=="sensor_msgs/MagneticField":
             pass
         return data, sensor_ts
