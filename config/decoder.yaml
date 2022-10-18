@@ -4,7 +4,7 @@ dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
 #Bag Decoder Settings
 gen_data: False   # Generates data files
 viz_imu: True     # Republish imu messages
-verbose: False
+verbose: False    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
