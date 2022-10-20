@@ -3,6 +3,7 @@ import pdb
 
 # Utility Libraries
 import yaml
+import time
 
 # ROS Libraries
 import rospy
@@ -10,7 +11,6 @@ import rosbag
 import message_filters
 from visualization_msgs.msg import *
 from sensor_msgs.msg import PointCloud2, CompressedImage, Imu
-
 from rosgraph_msgs.msg import Clock
 
 from helpers.sensors import *
@@ -25,18 +25,11 @@ class BagDecoder(object):
     two compressed image topics to be published within 50 milliseconds of each other. It
     also requires that a ros master be running as well to synchronize these three topics. 
     """
-    def __init__(
-        self, 
-        bag_dir):
-        
-        self._bag_dir = bag_dir
+    def __init__(self):
         self._settings_fp = os.path.join(os.getcwd(), "config/decoder.yaml")
-
-        assert os.path.isdir(self._bag_dir), '%s does not exist' % self._bag_dir
         assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
 
         #Load available bag files
-        print("Loading bags from  ", self._bag_dir)
         print("Loading settings from ", self._settings_fp)
 
         #Load topics to process
@@ -75,6 +68,15 @@ class BagDecoder(object):
     def load_settings(self):
         with open(self._settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
+
+            #Load bag file directory
+            self._repository_root   = settings["repository_root"]
+            self._bag_date          = settings["bag_date"]
+            self._bag_dir           = os.path.join(self._repository_root, self._bag_date)
+            assert os.path.isdir(self._bag_dir), '%s does not exist' % self._bag_dir
+            print("Loading bags from  ", self._bag_dir)
+
+
             # Load decoder settings
             self._gen_data  = settings['gen_data']
             self._viz_imu   = settings['viz_imu']
@@ -151,36 +153,51 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
+
         for trajectory, bag_file in enumerate(self._bags_to_process):
             self._trajectory = trajectory
             self._curr_frame = 0
             bag_fp = os.path.join(self._bag_dir, bag_file)
             print("Processing bag ", bag_fp)
 
+            #Preprocess topics
             rosbag_info = yaml.safe_load( rosbag.Bag(bag_fp)._get_yaml_info())
             self._topic_to_type = {topic_entry['topic']:topic_entry['type'] \
                 for topic_entry in rosbag_info['topics']}
             self.setup_sync_filter()
 
+            #Create frame to timestamp map
+            frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+            frame_to_ts     = open(frame_to_ts_path, 'w+')
+            if self._verbose:
+                print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
+
             for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
                 if topic in self._sync_topics:
                     topic_type = self._topic_to_type[topic]
                     if topic_type=="ouster_ros/PacketMsg":
-                        self.qpacket(topic, msg, ts)
-                        # self._clock_pub.publish(ts)
+                        did_publish = self.qpacket(topic, msg, ts)
+                        
+                        if did_publish:
+                            frame_to_ts.write("%10.6f\n" % ts.to_sec())
                     else:
                         self._sync_pubs[topic].publish(msg)
                 else:
                     data, ts = self.process_topic(topic, msg, ts)
+            
+            frame_to_ts.close()
+            print("Completed processing bag ", bag_fp)
+            pdb.set_trace()
 
     def qpacket(self, topic, msg, ts):
+        published_packet = False
         packet = get_ouster_packet_info(self._os1_info, msg.buf)
 
         if packet.frame_id!=self._qp_frame_id:
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
-                # pdb.set_trace()
                 pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                published_packet = True
                 
             self._qp_counter     = 0
 
@@ -189,6 +206,7 @@ class BagDecoder(object):
 
         self._qp_counter +=1
         self._qp_scan_queue.append(packet)
+        return published_packet
 
 
     def save_topic(self, data, topic, trajectory, frame):
@@ -225,8 +243,7 @@ class BagDecoder(object):
             imu_to_wcs = wcs_mat(SENSOR_TO_WCS[topic])
             data = process_imu(msg, imu_to_wcs)
             if self._viz_imu: 
-                self._imu_pub.publish(msg)
-            data = msg
+                self._imu_pub.publish(data) 
         elif topic_type=="sensor_msgs/MagneticField":
             pass
         return data, sensor_ts

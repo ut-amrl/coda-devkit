@@ -18,6 +18,5 @@ trajectories: [
 ]
 trajectory_frames:
   0: [
-    [100, 200], 
-    [200, 300] 
+    [4, 125]
   ]

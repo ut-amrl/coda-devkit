@@ -28,10 +28,19 @@ DATASET_L1_DIR_LIST = [
     "poses"
 ]
 
+"""
+Manifest file generation sensor to subdirectory mappings
+"""
 SENSOR_DIRECTORY_SUBPATH = {
     "/ouster/lidar_packets": "3d_raw/os1",
     "/stereo/left/image_raw/compressed": "2d_raw/cam0",
     "/stereo/right/image_raw/compressed": "2d_raw/cam1",
+}
+
+SENSOR_DIRECTORY_FILETYPES = {
+    "3d_raw/os1": "bin",
+    "2d_raw/cam0": "png",
+    "2d_raw/cam1": "png",
 }
 
 """
@@ -64,7 +73,7 @@ FRAME_TEXT_DICT = {
     "evphy":    0.0, 
     "evphz":    0.0, 
     "evphw":    0.0, 
-    "ipath":    "", 
+    "ipath":    "",
     "its":       0.0,
     "fx":       0.0,
     "fy":       0.0, 
@@ -83,7 +92,7 @@ FRAME_TEXT = '''    {
         "frame-no": %(frameno)d,
         "unix-timestamp": %(ts)0.10f,
         "frame": "%(frame)s", 
-        "format": "binary/xyzi", 
+        "format": "binary/xyz", 
         "ego-vehicle-pose":{
             "position": {
                 "x": %(evppx)0.10f,

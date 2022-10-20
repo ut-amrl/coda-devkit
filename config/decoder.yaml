@@ -1,5 +1,6 @@
-repository_root: "/home/arthur/AMRL/Research/UTPeDa"
+repository_root: "/home/arthur/AMRL/Datasets/UTPeDa"
 dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
+bag_date:    "101222"
 
 #Bag Decoder Settings
 gen_data: False   # Generates data files
