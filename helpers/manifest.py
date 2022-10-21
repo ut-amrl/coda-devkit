@@ -3,6 +3,7 @@ import pdb
 import yaml
 import math 
 import numpy as np
+import shutil
 
 from helpers.constants import *
 from helpers.geometry import *
@@ -23,6 +24,7 @@ class ManifestGenerator(object):
             self._indir         = settings['dataset_input_root']
             self._outdir        = settings['manifest_output_root']
             self._sensor_topics = settings['sensor_topics']
+            self._copy_files    = settings['copy_files']
 
             assert len(self._sensor_topics)
 
@@ -72,15 +74,26 @@ class ManifestGenerator(object):
 
         manifest_frames_str = ""
         frame_count = 0
-        for frame_idx, frame in enumerate(range(start, end)):
+        for frame_idx, frame in enumerate(range(start, end+1)):
             if frame_idx%self._ds_rate==0:
+                #Copy files to aws directory
+                bin_subdir, bin_filename = None, None
                 sensor_files = ["", "", ""]
                 for idx, topic in enumerate(self._sensor_topics):
                     subdir = SENSOR_DIRECTORY_SUBPATH[topic]
                     filetype = SENSOR_DIRECTORY_FILETYPES[subdir]
 
-                    sensor_files[idx] = os.path.join(subdir, str(traj), "%i.%s"% (frame, filetype))
+                    if self._copy_files:
+                        self.copy_file_dir(self._indir, self._outdir, subdir, 
+                            str(traj), "%i.%s"%(frame, filetype))
 
+                    if filetype=="bin":
+                        bin_subdir      = subdir
+                        bin_filename    = "%i.%s"% (frame, filetype)
+                    
+                    sensor_files[idx] = os.path.join(subdir, str(traj), "%i.%s"% (frame, filetype))
+                
+                #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]
                 curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
                 next_ts_idx = curr_ts_idx + 1
@@ -89,7 +102,14 @@ class ManifestGenerator(object):
                 
                 pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
                 frame_curr = self.fill_frame_text(sensor_files, pose, ts, frame, CAM0_CALIBRATIONS)
-                
+
+                #Transform .bin files to WCS
+                if self._copy_files:
+                    assert bin_filename is not None, "Point cloud sensor topic not \
+                        specified, see constants.py for details..."
+                    bin_file = os.path.join(self._outdir, bin_subdir, str(traj), bin_filename)
+                    self.ego_to_wcs(bin_file, pose)
+
                 if frame>start:
                     manifest_frames_str += ",\n"
 
@@ -123,6 +143,32 @@ class ManifestGenerator(object):
         manifest_path_file  = open(manifest_path_fp, "w+")
         manifest_path_file.write(manifest_path_str)
         manifest_path_file.close()
+
+    def ego_to_wcs(self, filepath, pose):
+        """
+        pose - given as ts x y z qw qx qy qz 
+        """
+        pose_mat = oxts_to_homo(pose)
+        bin_np  = np.fromfile(filepath, dtype=np.float32).reshape(-1, 3)
+        ones_col = np.ones((bin_np.shape[0], 1), dtype=np.float32)
+        bin_np  = np.hstack((bin_np, ones_col))
+        wcs_bin_np = (pose_mat@bin_np.T).T
+        wcs_bin_np = wcs_bin_np[:, :3]
+
+        #Overwrite existing bin file in outdir directory
+        wcs_bin_np.tofile(filepath)       
+
+    def copy_file_dir(self, inroot, outroot, subdir, traj, filename, pose=np.eye(4)):
+        indir = os.path.join(inroot, subdir, traj)
+        outdir = os.path.join(outroot, subdir, traj)
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+
+        infile  = os.path.join(indir, filename)
+        outfile = os.path.join(outdir, filename)
+
+        shutil.copyfile(infile, outfile)
+
 
     def fill_frame_text(self, filepaths, pose, ts, frameno, cam_parameters):
         assert len(filepaths)==3, "Incorrect number of sensors %i passed to manifest \

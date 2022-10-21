@@ -67,6 +67,6 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
         pc_msg.data     = pc_flat.tobytes()
     pc_msg.is_dense = True
     pc_pub.publish(pc_msg)
-
+   
     return pc_msg
 

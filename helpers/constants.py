@@ -15,6 +15,7 @@ _DATATYPES[PointField.FLOAT32] = ('f', 4)
 _DATATYPES[PointField.FLOAT64] = ('d', 8)
 
 OS1_PACKETS_PER_FRAME = 64
+OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 
 """
 DATASET PARAMETER CONSTANTS
@@ -46,9 +47,40 @@ SENSOR_DIRECTORY_FILETYPES = {
 """
 Sensor Hardware Constants
 """
-SENSOR_TO_WCS = {
-    "/ouster/lidar_packets": [0, 0, 0],
-    "/vectornav/IMU": [0, 0, 180]
+# Converts destaggered OS1 point clouds to x forward, y left, z up convention
+OS1_TO_XYZ_FRAME = [
+    -1, 0, 0, 0,
+    0, -1, 0, 0,
+    0, 0, 1, 36.180,
+    0, 0, 0, 1        
+]
+SENSOR_TO_XYZ_FRAME = {
+    "/ouster/lidar_packets": [
+        -1, 0, 0, 0,
+        0, -1, 0, 0,
+        0, 0, 1, 0.03618,
+        0, 0, 0, 1      
+    ],
+    "/vectornav/IMU": [
+        1, 0, 0, 0, 
+        0, -1, 0, 0,
+        0, 0, -1, 0,
+        0, 0, 0, 1
+    ]
+}
+SENSOR_TO_BASE_LINK = {
+    "/ouster/lidar_packets": [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, -0.43,
+        0, 0, 0, 1       
+    ],
+    "/vectornav/IMU": [
+        1, 0, 0, 0, 
+        0, -1, 0, 0,
+        0, 0, -1, -0.31,
+        0, 0, 0, 1
+    ]
 }
 
 CAM0_CALIBRATIONS = {

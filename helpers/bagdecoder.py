@@ -14,6 +14,7 @@ from sensor_msgs.msg import PointCloud2, CompressedImage, Imu
 from rosgraph_msgs.msg import Clock
 
 from helpers.sensors import *
+from helpers.geometry import wcs_mat
 from helpers.visualization import pub_pc_to_rviz
 from helpers.constants import *
 
@@ -174,7 +175,7 @@ class BagDecoder(object):
             print("Completed processing bag ", bag_fp)
             if self._gen_data:
                 self._frame_to_ts.close()
-            # pdb.set_trace()
+            pdb.set_trace()
 
     def sync_sensor(self, topic, msg, ts):
         if self._past_sync_ts==None:
@@ -277,7 +278,7 @@ class BagDecoder(object):
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
                 pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
-                
+
                 self.sync_sensor(topic, pc_msg, ts)
                 published_packet = True
                 
@@ -323,11 +324,11 @@ class BagDecoder(object):
         data        = None
         sensor_ts   = t
         if topic_type=="ouster_ros/PacketMsg":
-            data, sensor_ts = process_ouster_packet(self._os1_info, msg)
+            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic)
         elif topic_type=="sensor_msgs/CompressedImage":
             data, sensor_ts = process_compressed_image(msg)
         elif topic_type=="sensor_msgs/Imu":
-            imu_to_wcs = wcs_mat(SENSOR_TO_WCS[topic])
+            imu_to_wcs = np.array(SENSOR_TO_XYZ_FRAME[topic]).reshape(4, 4)
             data = process_imu(msg, imu_to_wcs)
             if self._viz_imu: 
                 self._imu_pub.publish(data) 

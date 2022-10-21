@@ -2,13 +2,15 @@
 dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
 manifest_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
 
+s3_prefix: "s3://ut-coda-test-sagemaker/artifacts/"
+
+# Defines which topics to copy. Should contain at least os1 and cam0
+copy_files: True
 sensor_topics: [
   "/ouster/lidar_packets",
-  "/stereo/left/image_raw/compressed",
-  "/stereo/right/image_raw/compressed"
+  "/stereo/left/image_raw/compressed"
+  # , "/stereo/right/image_raw/compressed"
 ]
-
-s3_prefix: "s3://ut-coda-test-sagemaker/artifacts/"
 
 downsample_rate: 5
 
@@ -19,8 +21,8 @@ trajectories: [
 
 trajectory_frames:
   0: [
-    [0, 600] # 1 minute worth of annotations
+    [900, 1500] # 1 minute worth of annotations
   ]
   1: [
-    [50, 450]
+    [50, 550]
   ]
