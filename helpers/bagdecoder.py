@@ -55,6 +55,8 @@ class BagDecoder(object):
         self._qp_frame_id= -1
         self._qp_scan_queue = []
 
+        self._past_sync_ts = None
+
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
         for subdir in DATASET_L1_DIR_LIST:
@@ -75,7 +77,6 @@ class BagDecoder(object):
             self._bag_dir           = os.path.join(self._repository_root, self._bag_date)
             assert os.path.isdir(self._bag_dir), '%s does not exist' % self._bag_dir
             print("Loading bags from  ", self._bag_dir)
-
 
             # Load decoder settings
             self._gen_data  = settings['gen_data']
@@ -112,23 +113,13 @@ class BagDecoder(object):
         """
         None
 
-    def sync_callback(self, *argv):
-        if len(argv) > len(self._sync_topics):
-            print("Unequal number of sync sensors instantiated in callback, exiting...")
-            exit(1)
-
-        frame = self._curr_frame
-        for index, sensor in enumerate(argv):
-            self.save_topic(sensor, self._sync_topics[index], self._trajectory, frame)
-        self._curr_frame += 1
-
     def setup_sync_filter(self):
         if self._topic_to_type==None:
             print("Error: Topic to type mappings not defined yet. Exiting...")
             exit(1)
 
-        self._sync_subs = []
         self._sync_pubs = {}
+        self._sync_msg_queue = {}
         for topic in self._sync_topics:
             topic_class = None
             if self._topic_to_type[topic]=="sensor_msgs/CompressedImage":
@@ -139,22 +130,18 @@ class BagDecoder(object):
                 print("Undefined topic %s for sync filter, skipping..." % topic)
 
             if topic_class!=None:
-                self._sync_subs.append(
-                    message_filters.Subscriber(topic, topic_class)
-                )
                 self._sync_pubs[topic] = rospy.Publisher(
                     topic, topic_class, queue_size=10
                 )
-
-        ts = message_filters.ApproximateTimeSynchronizer(self._sync_subs, 10, 0.05, allow_headerless=True)
-        ts.registerCallback(self.sync_callback)
+                self._sync_msg_queue[topic] = []
 
     def convert_bag(self):
         """
         Decodes requested topics in bag file to individual files
         """
-
         for trajectory, bag_file in enumerate(self._bags_to_process):
+            # if trajectory==0:
+            #     continue
             self._trajectory = trajectory
             self._curr_frame = 0
             bag_fp = os.path.join(self._bag_dir, bag_file)
@@ -168,7 +155,8 @@ class BagDecoder(object):
 
             #Create frame to timestamp map
             frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
-            frame_to_ts     = open(frame_to_ts_path, 'w+')
+            if self._gen_data:
+                self._frame_to_ts     = open(frame_to_ts_path, 'w+')
             if self._verbose:
                 print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
 
@@ -176,18 +164,110 @@ class BagDecoder(object):
                 if topic in self._sync_topics:
                     topic_type = self._topic_to_type[topic]
                     if topic_type=="ouster_ros/PacketMsg":
-                        did_publish = self.qpacket(topic, msg, ts)
-                        
-                        if did_publish:
-                            frame_to_ts.write("%10.6f\n" % ts.to_sec())
+                        self.qpacket(topic, msg, ts)
                     else:
+                        self.sync_sensor(topic, msg, ts)
                         self._sync_pubs[topic].publish(msg)
                 else:
                     data, ts = self.process_topic(topic, msg, ts)
             
-            frame_to_ts.close()
             print("Completed processing bag ", bag_fp)
-            pdb.set_trace()
+            if self._gen_data:
+                self._frame_to_ts.close()
+            # pdb.set_trace()
+
+    def sync_sensor(self, topic, msg, ts):
+        if self._past_sync_ts==None:
+            self._past_sync_ts = ts
+            self._past_sync_ts.secs -= 1 # Set last sync time to be less than first msg
+
+        # print("call by topic %s with timestamp %10.6f" % (topic, ts.to_sec()))
+        #Remove all timestamps earlier than last synced timestamp
+        for topic_key in self._sync_msg_queue.keys():
+            while len(self._sync_msg_queue[topic_key]) > 0 and \
+                self._sync_msg_queue[topic_key][0].header.stamp < self._past_sync_ts:
+                # print("deleted")
+                self._sync_msg_queue[topic_key].pop(0)
+
+        #Insert new message into topic queue
+        self._sync_msg_queue[topic].append(msg)
+
+        #After each queue contains at least one msg, choose earliest message among queues
+        while( not self.is_sync_queue_empty() ):
+            #If difference between earliest message is too much larger than earliest
+            # message in other queues, discard message and advance forward
+            # print("Entering loop")
+            latest_topic, latest_ts = self.get_latest_queue_msg(ts)
+            
+            self.remove_old_topics(latest_ts)
+            
+            if ( not self.is_sync_queue_empty() ):
+                #If difference between earliest message and others is acceptable
+                #save all messages in queue, discard them, and continue looping
+                self._past_sync_ts = self.save_sync_topics()
+    
+    def save_sync_topics(self):
+        earliest_sync_timestamp = None
+        latest_sync_timestamp = self._past_sync_ts
+        frame = self._curr_frame
+        for topic, msgs in self._sync_msg_queue.items():
+            self.save_topic(msgs[0], topic, self._trajectory, frame)
+            
+            # Store last sync timestamp
+            ts = msgs[0].header.stamp
+            if ts > latest_sync_timestamp:
+                latest_sync_timestamp = ts
+            msgs.pop(0)
+
+            #Write earliest timestamp to file as this was the trigger sensor
+            if earliest_sync_timestamp==None:
+                earliest_sync_timestamp = ts
+            elif ts < earliest_sync_timestamp:
+                earliest_sync_timestamp = ts
+
+        #Perform state sync updates
+        self.save_frame_ts(earliest_sync_timestamp)
+        self._curr_frame += 1
+        return latest_sync_timestamp
+
+    def save_frame_ts(self, timestamp):
+        if self._gen_data:
+            # if self._verbose:
+            print("Saved frame %i timestamp %10.6f" % (self._curr_frame, timestamp.to_sec()))
+            self._frame_to_ts.write("%10.6f\n" % timestamp.to_sec())
+
+    def remove_old_topics(self, latest_ts):
+        latest_ts = latest_ts.to_sec()
+        for topic in self._sync_msg_queue.keys():
+            delete_indices = []
+            for idx, msg in enumerate(self._sync_msg_queue[topic]):
+                curr_ts = msg.header.stamp.to_sec()
+                if abs(curr_ts - latest_ts)>=0.1:
+                    delete_indices.append(idx)
+                    break
+            self._sync_msg_queue[topic] = [msg for idx, msg in \
+                enumerate(self._sync_msg_queue[topic]) if idx not in delete_indices]
+            
+    def get_latest_queue_msg(self, last_ts):
+        earliest_ts     = last_ts
+        earliest_topic  = None 
+
+        for topic in self._sync_msg_queue.keys():
+            msg_ts = self._sync_msg_queue[topic][0].header.stamp
+            if msg_ts >= earliest_ts:
+                earliest_ts = msg_ts
+                earliest_topic = topic
+
+        return earliest_topic, earliest_ts
+
+    def is_sync_queue_empty(self):
+        """
+        If any queue is empty return false
+        """
+        are_queues_empty = False
+        for topic, msgs in self._sync_msg_queue.items():
+            are_queues_empty = are_queues_empty or len(msgs)==0
+        return are_queues_empty
 
     def qpacket(self, topic, msg, ts):
         published_packet = False
@@ -196,7 +276,9 @@ class BagDecoder(object):
         if packet.frame_id!=self._qp_frame_id:
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
-                pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                
+                self.sync_sensor(topic, pc_msg, ts)
                 published_packet = True
                 
             self._qp_counter     = 0
@@ -223,15 +305,20 @@ class BagDecoder(object):
             print("Saving sync topic ", topic_type, " with timestamp ", 
                 data.header.stamp, " at frame ", frame)
         if topic_type=="ouster_ros/PacketMsg":
+            #Expects PointCloud2 Object
             pc_to_bin(data, save_dir, frame)
         elif topic_type=="sensor_msgs/CompressedImage":
-            img, _ = self.process_topic(topic_type, data, data.header.stamp)
+            img, _ = self.process_topic(topic, data, data.header.stamp)
             img_to_png(img, save_dir, frame)
         else:
             print("Entered undefined topic to be saved...")
             pass
 
     def process_topic(self, topic, msg, t):
+        if not topic in self._topic_to_type:
+            print("Could not find topic %s in topic map for time %i, exiting..." % (topic, t.to_sec()))
+            return
+
         topic_type = self._topic_to_type[topic]
         data        = None
         sensor_ts   = t

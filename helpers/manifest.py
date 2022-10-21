@@ -6,6 +6,7 @@ import numpy as np
 
 from helpers.constants import *
 from helpers.geometry import *
+from scipy.spatial.transform import Rotation as R
 
 class ManifestGenerator(object):
     """
@@ -35,8 +36,11 @@ class ManifestGenerator(object):
             os.mkdir(self._outdir)
 
         self._sequences = os.path.join(self._outdir, "sequences")
+        self._manifests = os.path.join(self._outdir, "manifests")
         if not os.path.exists(self._sequences):
             os.mkdir(self._sequences)
+        if not os.path.exists(self._manifests):
+            os.mkdir(self._manifests)
 
     def create_manifest(self):
         """
@@ -82,10 +86,9 @@ class ManifestGenerator(object):
                 next_ts_idx = curr_ts_idx + 1
                 if next_ts_idx>=pose_np.shape[0]:
                     next_ts_idx = pose_np.shape[0] - 1
-
+                
                 pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
-
-                frame_curr = self.fill_frame_text(sensor_files, pose, ts, frame)
+                frame_curr = self.fill_frame_text(sensor_files, pose, ts, frame, CAM0_CALIBRATIONS)
                 
                 if frame>start:
                     manifest_frames_str += ",\n"
@@ -94,6 +97,7 @@ class ManifestGenerator(object):
                 #Accum total frame count
                 frame_count+=1
 
+        #Write sequences/manifest file
         seq_text = SEQ_TEXT % traj
         prefix_text = PREFIX_TEXT % self._prefix
         num_frames_text = NUM_FRAMES_TEXT % frame_count
@@ -101,16 +105,26 @@ class ManifestGenerator(object):
         manifest_file_str   = manifest_header_str + FRAMES_START_TEXT + \
             manifest_frames_str + FRAMES_END_TEXT
         
-        manifest_filepath   = os.path.join(self._sequences, "seq%iframes%ito%i.json" % 
-            (traj, start, end) )
+        sequence_filename = "seq%iframes%ito%i.json" % (traj, start, end)
+        manifest_filepath   = os.path.join(self._sequences, sequence_filename)
         manifest_file       = open(manifest_filepath, "w+")
         print("Writing manifest file for trajectory %i to location %s... " \
             % (traj, manifest_filepath))
         manifest_file.write(manifest_file_str)
         manifest_file.close()
 
+        #Write manifest path description file
+        manifest_path_filename = "manifest%iframes%ito%i.json" % (traj, start, end)
+        manifest_path_dict = MANIFEST_PATH_DICT
+        manifest_path_dict["manifest_prefix"] = os.path.join(self._prefix, "sequences")
+        manifest_path_dict["sequence_filename"] = sequence_filename
+        manifest_path_str = MANIFEST_PATH_STR % manifest_path_dict
+        manifest_path_fp   = os.path.join(self._manifests, manifest_path_filename)
+        manifest_path_file  = open(manifest_path_fp, "w+")
+        manifest_path_file.write(manifest_path_str)
+        manifest_path_file.close()
 
-    def fill_frame_text(self, filepaths, pose, ts, frameno):
+    def fill_frame_text(self, filepaths, pose, ts, frameno, cam_parameters):
         assert len(filepaths)==3, "Incorrect number of sensors %i passed to manifest \
             file" % len(filepaths)
 
@@ -128,16 +142,23 @@ class ManifestGenerator(object):
         frame_info['evphw']     = pose[4]
 
         #Camera Extrinsics to LiDAR
+        cam0_r = R.from_euler('xyz', CAM0_CALIBRATIONS['extrinsics'][3:], degrees=True)
+        cam0_quat = cam0_r.as_quat()
         frame_info['ipx'], frame_info['ipy'], frame_info['ipz'] = \
-            pose[1], pose[2], pose[3]
+           CAM0_CALIBRATIONS['extrinsics'][0], CAM0_CALIBRATIONS['extrinsics'][1], \
+           CAM0_CALIBRATIONS['extrinsics'][2]
         frame_info['ihx'], frame_info['ihy'], frame_info['ihz'], frame_info['ihw'] = \
-            pose[5], pose[6], pose[7], pose[4]
+            cam0_quat[0], cam0_quat[1], cam0_quat[2], cam0_quat[3]
 
         frame_info['frame'] = frame
         frame_info['ipath'] = cam0
 
-        frame_info['fx'], frame_info['fy'] = 603.6859, 606.3391
-        frame_info['cx'], frame_info['cy'] = 646.9208, 380.1066
+        frame_info['fx'], frame_info['fy'] = cam_parameters["camera"][0], cam_parameters["camera"][4]
+        frame_info['cx'], frame_info['cy'] = cam_parameters["camera"][2], cam_parameters["camera"][5]
+        frame_info['k1'], frame_info['k2'], frame_info['k3'], frame_info['k4']= \
+            cam_parameters["distortion"][0], cam_parameters["distortion"][1], \
+            cam_parameters["distortion"][2], cam_parameters["distortion"][3]
+        frame_info['p1'], frame_info['p2'] = 0, 0
         frame_info['its'] = ts
 
         frame_curr = FRAME_TEXT % frame_info

@@ -8,15 +8,19 @@ sensor_topics: [
   "/stereo/right/image_raw/compressed"
 ]
 
-s3_prefix: "s3://awsexamplebucket/example_lidar_sequence_dataset/seq1/"
+s3_prefix: "s3://ut-coda-test-sagemaker/artifacts/"
 
 downsample_rate: 5
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
-  0
+  0, 1
 ]
+
 trajectory_frames:
   0: [
-    [4, 125]
+    [0, 600] # 1 minute worth of annotations
+  ]
+  1: [
+    [50, 450]
   ]

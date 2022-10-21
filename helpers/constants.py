@@ -51,6 +51,21 @@ SENSOR_TO_WCS = {
     "/vectornav/IMU": [0, 0, 180]
 }
 
+CAM0_CALIBRATIONS = {
+    "distortion": [-0.071430, 0.036078, -0.004514, -0.000722, 0.000000],
+    "camera": [
+        670.95818,   0.     , 617.95349, 
+        0.     , 673.34226, 518.92384,
+        0.     ,   0.     ,   1.
+    ],
+    "projection": [
+        681.99707,   0.     , 596.75923,   0,
+        0.     , 681.99707, 503.14468,   0,
+        0.     ,   0.     ,   1.     ,   0
+    ],
+    "extrinsics": [0.1125, -0.1937500000000003, -0.1906249999999992, -7, -96, 94]
+}
+
 """
 Manifest Autogeneration
 """
@@ -78,7 +93,13 @@ FRAME_TEXT_DICT = {
     "fx":       0.0,
     "fy":       0.0, 
     "cx":       0.0, 
-    "cy":       0.0, 
+    "cy":       0.0,
+    "k1":       0.0,
+    "k2":       0.0,
+    "k3":       0.0,
+    "k4":       0.0,
+    "p1":       0.0,
+    "p2":       0.0,
     "ipx":      0.0, 
     "ipy":      0.0, 
     "ipz":      0.0,
@@ -113,12 +134,12 @@ FRAME_TEXT = '''    {
             "fy":  %(fy)0.10f,
             "cx":  %(cx)0.10f,
             "cy":  %(cy)0.10f,
-            "k1": 0,
-            "k2": 0,
-            "k3": 0,
-            "k4": 0,
-            "p1": 0,
-            "p2": 0,
+            "k1": %(k1)0.10f,
+            "k2": %(k2)0.10f,
+            "k3": %(k3)0.10f,
+            "k4": %(k4)0.10f,
+            "p1": %(p1)0.10f,
+            "p2": %(p2)0.10f,
             "skew": 0,
             "position": {
                 "x":  %(ipx)0.10f,
@@ -136,3 +157,10 @@ FRAME_TEXT = '''    {
     }'''
 
 FRAMES_END_TEXT = ']}'
+
+MANIFEST_PATH_DICT = {
+    "manifest_prefix":  "", 
+    "sequence_filename": ""
+}
+
+MANIFEST_PATH_STR = '''{"source-ref": "%(manifest_prefix)s/%(sequence_filename)s"}'''
