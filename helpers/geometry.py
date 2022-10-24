@@ -4,6 +4,9 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 def inter_pose(posea, poseb, sensor_ts):
+    """
+    Pose assumed to be in x y z qw qx qy qz
+    """
     tsa = posea[0]
     tsb = poseb[0]
     quata = posea[4:]
@@ -32,8 +35,8 @@ def oxts_to_homo(pose):
     quat = np.array([pose[7], pose[4], pose[5], pose[6]])
     rot_mat = R.from_quat(quat).as_matrix()
     
+    #TODO: figure out why poses from LeGO-LOAM aren't axis aligned
     temp_r = wcs_mat([0, 180, 0]).as_matrix()
-    # pdb.set_trace()
 
     homo_mat = np.eye(4, dtype=np.float32)
     homo_mat[:3, :3] = temp_r@rot_mat
