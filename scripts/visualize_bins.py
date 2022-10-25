@@ -1,11 +1,10 @@
 
 import os
-from signal import pause
 import sys
 import pdb
-from xml.dom import IndexSizeErr
 import yaml
 import numpy as np
+from helpers.sensors import get_filename_info, set_filename_by_prefix
 
 #ROS Imports
 import rospy
@@ -49,7 +48,10 @@ def main():
     pose_pub = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
     pub_rate = rospy.Rate(10) # Publish at 10 hz
 
-    bin_files       = np.array([int(bin_file.split('.')[0]) for bin_file in os.listdir(bin_dir)])
+    bin_files       = np.array([
+        int(bin_file.split('.')[0].split("_")[-1])
+        for bin_file in os.listdir(bin_dir)
+    ])
     bin_files_idx   = np.argsort(bin_files)
     bin_files       = np.array(os.listdir(bin_dir))[bin_files_idx]
 
@@ -60,14 +62,15 @@ def main():
 
     for filename in bin_files:
         # pdb.set_trace()
-        frame    = int(filename.split(".")[0])
+        _, _, trajectory, frame = get_filename_info(filename)
         filetype = filename.split(".")[-1]
         if filetype!=SENSOR_DIRECTORY_FILETYPES[bin_subdir]:
             continue
 
         #Publish image
-        img_name = filename.split(".")[0]
-        img_path = os.path.join(img_dir, "%s.%s"%(img_name, SENSOR_DIRECTORY_FILETYPES[img_subdir]))
+        img_file = set_filename_by_prefix("2d_raw", "cam0", trajectory, frame)
+        # pdb.set_trace()
+        img_path = os.path.join(img_dir, img_file)
         img = cv2.imread(img_path)
         bridge = CvBridge()
         img_msg = bridge.cv2_to_imgmsg(img, encoding="passthrough")
@@ -79,8 +82,7 @@ def main():
         pub_pc_to_rviz(bin_np, pc_pub, rospy.get_rostime(), frame_id="os_sensor")
         
         #Publish pose
-        # pdb.set_trace()
-        ts  = frame_ts_np[frame][0]
+        ts  = frame_ts_np[int(frame)][0]
         curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
         next_ts_idx = curr_ts_idx + 1
         if next_ts_idx>=pose_np.shape[0]:

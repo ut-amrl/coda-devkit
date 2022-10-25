@@ -41,7 +41,7 @@ SENSOR_DIRECTORY_SUBPATH = {
 SENSOR_DIRECTORY_FILETYPES = {
     "3d_raw/os1": "bin",
     "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png",
+    "2d_raw/cam1": "png"
 }
 
 """

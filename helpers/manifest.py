@@ -9,6 +9,8 @@ from helpers.constants import *
 from helpers.geometry import *
 from scipy.spatial.transform import Rotation as R
 
+from helpers.sensors import set_filename_by_topic
+
 class ManifestGenerator(object):
     """
     """
@@ -82,16 +84,19 @@ class ManifestGenerator(object):
                 for idx, topic in enumerate(self._sensor_topics):
                     subdir = SENSOR_DIRECTORY_SUBPATH[topic]
                     filetype = SENSOR_DIRECTORY_FILETYPES[subdir]
+                    frame_filename = set_filename_by_topic(
+                        topic, str(traj), frame
+                    )
 
                     if self._copy_files:
                         self.copy_file_dir(self._indir, self._outdir, subdir, 
-                            str(traj), "%i.%s"%(frame, filetype))
+                            str(traj), frame_filename)
 
                     if filetype=="bin":
                         bin_subdir      = subdir
-                        bin_filename    = "%i.%s"% (frame, filetype)
+                        bin_filename    = frame_filename
                     
-                    sensor_files[idx] = os.path.join(subdir, str(traj), "%i.%s"% (frame, filetype))
+                    sensor_files[idx] = os.path.join(subdir, str(traj), frame_filename)
                 
                 #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]

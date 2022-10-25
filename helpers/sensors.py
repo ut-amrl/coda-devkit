@@ -1,9 +1,5 @@
-from csv import QUOTE_MINIMAL
-from fnmatch import translate
 import os
 import pdb
-from termios import TCSBRK
-from tracemalloc import take_snapshot
 
 
 #Sys Tools
@@ -19,7 +15,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from ouster import client
 
-from helpers.constants import SENSOR_TO_XYZ_FRAME
+from helpers.constants import *
 import sensor_msgs
 
 def process_ouster_packet(os1_info, packet_arr, topic):
@@ -36,12 +32,12 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     xyz_points          = client.destagger(os1_info, xyzlut(scan))
 
     #Change from LiDAR to sensor coordinate system
-    h, w, d = xyz_points.shape
-    lidar_to_sens = np.array(SENSOR_TO_XYZ_FRAME[topic]).reshape(4, 4)
+    # h, w, d = xyz_points.shape
+    # lidar_to_sens = np.array(SENSOR_TO_XYZ_FRAME[topic]).reshape(4, 4)
 
-    xyz_points  = np.hstack( ( xyz_points.reshape(-1, 3), np.ones((h*w,1)) ) )
-    xyz_points  = np.dot(lidar_to_sens, xyz_points.T).T
-    xyz_points  = xyz_points[:, :3].reshape(h, w, d)
+    # xyz_points  = np.hstack( ( xyz_points.reshape(-1, 3), np.ones((h*w,1)) ) )
+    # xyz_points  = np.dot(lidar_to_sens, xyz_points.T).T
+    # xyz_points  = xyz_points[:, :3].reshape(h, w, d)
     intensity   = np.expand_dims(intensity, axis=-1)
     ring   = np.expand_dims(ring, axis=-1)
 
@@ -49,21 +45,46 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     pc = np.dstack((xyz_points, intensity, ring)).astype(np.float32)
     return pc, sensor_ts
 
-def pc_to_bin(pc, save_dir, frame):
-    pc_filename = os.path.join(save_dir, str(frame).replace('.', '')+ ".bin")
-    pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
+def set_filename_by_topic(topic, trajectory, frame):
+    sensor_subpath  = SENSOR_DIRECTORY_SUBPATH[topic]
+    sensor_prefix   = sensor_subpath.replace("/", "_") #get sensor name
+    sensor_filetype = SENSOR_DIRECTORY_FILETYPES[sensor_subpath]
+
+    sensor_filename = "%s_%s_%s.%s" % (sensor_prefix, str(trajectory), 
+        str(frame), sensor_filetype)
+
+    return sensor_filename
+
+def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
+    filetype = SENSOR_DIRECTORY_FILETYPES['/'.join([modality, sensor_name])]
+    sensor_filename = "%s_%s_%s_%s.%s" % (
+        modality, 
+        sensor_name, 
+        trajectory,
+        frame,
+        filetype
+        )
+    return sensor_filename
     
-    # test_pc = sensor_msgs.point_cloud2.read_points(pc, 
-    #                             field_names=pc.data, 
-    #                             skip_nans=True)
+def get_filename_info(filename):
+    # pdb.set_trace()
+    filename_prefix  = filename.split('.')[0]
+    filename_prefix  = filename_prefix.split('_')
+    
+    modality        = filename_prefix[0]+"_"+filename_prefix[1]
+    sensor_name     = filename_prefix[2]
+    trajectory      = filename_prefix[3]
+    frame           = filename_prefix[4]
+    return (modality, sensor_name, trajectory, frame)
+
+def pc_to_bin(pc, filename):
+    pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
 
     flat_pc = pc_np.reshape(-1).astype(np.float32)
-    flat_pc.tofile(pc_filename) # empty sep=bytes
+    flat_pc.tofile(filename) # empty sep=bytes
 
-def img_to_png(img_np, save_dir, frame):
-    img_filename = os.path.join(save_dir, str(frame).replace('.', '')+ ".png")
-
-    cv2.imwrite(img_filename, img_np)
+def img_to_png(img_np, filename):
+    cv2.imwrite(filename, img_np)
 
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)

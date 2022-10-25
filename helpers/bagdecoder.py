@@ -141,8 +141,8 @@ class BagDecoder(object):
         Decodes requested topics in bag file to individual files
         """
         for trajectory, bag_file in enumerate(self._bags_to_process):
-            # if trajectory==0:
-            #     continue
+            if trajectory==0:
+                continue
             self._trajectory = trajectory
             self._curr_frame = 0
             bag_fp = os.path.join(self._bag_dir, bag_file)
@@ -187,7 +187,6 @@ class BagDecoder(object):
         for topic_key in self._sync_msg_queue.keys():
             while len(self._sync_msg_queue[topic_key]) > 0 and \
                 self._sync_msg_queue[topic_key][0].header.stamp < self._past_sync_ts:
-                # print("deleted")
                 self._sync_msg_queue[topic_key].pop(0)
 
         #Insert new message into topic queue
@@ -302,15 +301,17 @@ class BagDecoder(object):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
+        filename = set_filename_by_topic(topic, trajectory, frame)
+        filepath = os.path.join(save_dir, filename)
         if self._verbose:
             print("Saving sync topic ", topic_type, " with timestamp ", 
                 data.header.stamp, " at frame ", frame)
         if topic_type=="ouster_ros/PacketMsg":
             #Expects PointCloud2 Object
-            pc_to_bin(data, save_dir, frame)
+            pc_to_bin(data, filepath)
         elif topic_type=="sensor_msgs/CompressedImage":
             img, _ = self.process_topic(topic, data, data.header.stamp)
-            img_to_png(img, save_dir, frame)
+            img_to_png(img, filepath)
         else:
             print("Entered undefined topic to be saved...")
             pass
