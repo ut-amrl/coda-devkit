@@ -1,0 +1,6 @@
+annotations_input_root: "/home/arthur/AMRL/Datasets/CODa_aws/annos"
+annotations_output_root: "/home/arthur/AMRL/Datasets/CODa"
+
+annotation_type: "sagemaker"
+
+gen_data: True

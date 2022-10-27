@@ -3,7 +3,7 @@ dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
 bag_date:    "101222"
 
 #Bag Decoder Settings
-gen_data: True   # Generates data files
+gen_data: False   # Generates data files
 viz_imu: True     # Republish imu messages
 verbose: False    # Debugging
 

@@ -78,26 +78,6 @@ class ManifestGenerator(object):
         frame_count = 0
         for frame_idx, frame in enumerate(range(start, end+1)):
             if frame_idx%self._ds_rate==0:
-                #Copy files to aws directory
-                bin_subdir, bin_filename = None, None
-                sensor_files = ["", "", ""]
-                for idx, topic in enumerate(self._sensor_topics):
-                    subdir = SENSOR_DIRECTORY_SUBPATH[topic]
-                    filetype = SENSOR_DIRECTORY_FILETYPES[subdir]
-                    frame_filename = set_filename_by_topic(
-                        topic, str(traj), frame
-                    )
-
-                    if self._copy_files:
-                        self.copy_file_dir(self._indir, self._outdir, subdir, 
-                            str(traj), frame_filename)
-
-                    if filetype=="bin":
-                        bin_subdir      = subdir
-                        bin_filename    = frame_filename
-                    
-                    sensor_files[idx] = os.path.join(subdir, str(traj), frame_filename)
-                
                 #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]
                 curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
@@ -106,15 +86,29 @@ class ManifestGenerator(object):
                     next_ts_idx = pose_np.shape[0] - 1
                 
                 pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
+
+                sensor_files = ["", "", ""]
+                for idx, topic in enumerate(self._sensor_topics):
+                    subdir = SENSOR_DIRECTORY_SUBPATH[topic]
+                    filetype = SENSOR_DIRECTORY_FILETYPES[subdir]
+                    frame_filename = set_filename_by_topic(
+                        topic, str(traj), frame
+                    )
+
+                    #Copy files to aws directory
+                    if self._copy_files:
+                        self.copy_file_dir(self._indir, self._outdir, subdir, 
+                            str(traj), frame_filename)
+
+                        if filetype=="bin":
+                            bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
+                            self.ego_to_wcs(bin_file, pose)
+                    
+                    sensor_files[idx] = os.path.join(subdir, str(traj), frame_filename)
+            
+                
                 frame_curr = self.fill_frame_text(sensor_files, pose, ts, frame, CAM0_CALIBRATIONS)
-
-                #Transform .bin files to WCS
-                if self._copy_files:
-                    assert bin_filename is not None, "Point cloud sensor topic not \
-                        specified, see constants.py for details..."
-                    bin_file = os.path.join(self._outdir, bin_subdir, str(traj), bin_filename)
-                    self.ego_to_wcs(bin_file, pose)
-
+                
                 if frame>start:
                     manifest_frames_str += ",\n"
 

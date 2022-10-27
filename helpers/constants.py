@@ -26,8 +26,35 @@ DATASET_L1_DIR_LIST = [
     "timestamps",
     "2d_raw",
     "3d_raw",
+    "3d_label",
+    "2d_label",
     "poses"
 ]
+
+"""
+Annotation Mappings
+"""
+sagemaker_to_common = {
+    #Frame Specific
+    "frameName": "frame",
+    "boundingCuboids": "3dannotations",
+    "frameAttributes": "frameAttributes",
+    # Object Specific 
+    "objectName": "instanceId",
+    "label": "classId",
+    "centerX": "cX",
+    "centerY": "cY",
+    "centerZ": "cZ",
+    "length": "l",
+    "width": "w",
+    "height": "h",
+    "roll": "r",
+    "pitch": "p",
+    "yaw": "y",
+    "labelCategoryAttributes": "labelCategoryAttributes",
+    "Occlusion Status": "isOccluded",
+    "Nav Behavior": "behavior"
+}
 
 """
 Manifest file generation sensor to subdirectory mappings
