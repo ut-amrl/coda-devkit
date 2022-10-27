@@ -1,14 +1,23 @@
+import os
 import pdb
+import json
 
 #Libraries
 import numpy as np
 
+import cv2
+from cv_bridge import CvBridge
+
 #ROS
+import rospy
 import std_msgs.msg
 from sensor_msgs.msg import PointCloud2
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import PoseStamped
+
 
 #Custom
-from helpers.constants import PointField
+from helpers.constants import PointField, CLASS_TO_ID, ID_TO_COLOR
 from helpers.geometry import *
 
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
@@ -71,3 +80,77 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
    
     return pc_msg
 
+def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
+    """
+    Annotation filepath may not be valid, double check before publishing
+    """
+    if not os.path.exists(anno_filepath):
+        if verbose:
+            print("File not found, not printing")
+        return
+
+    anno_file   = open(anno_filepath, 'r')
+    anno_json   = json.load(anno_file)
+
+    bbox_markers = MarkerArray()
+    for idx, annotation in enumerate(anno_json["3dannotations"]):
+        #Pose processing
+        px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
+        instanceId, classId = annotation["instanceId"], annotation["classId"]
+
+        rot_mat = R.from_euler('xyz', [annotation['r'], annotation['p'], annotation['y']], degrees=False)
+        quat_orien = R.as_quat(rot_mat)
+
+        bbox_marker = Marker()
+        bbox_marker.header.frame_id = "os_sensor"
+        bbox_marker.header.stamp = ts
+        bbox_marker.ns = instanceId # Keep ns same for the same object
+        bbox_marker.id = int(instanceId.split(':')[-1])
+        bbox_marker.type = bbox_marker.CUBE
+        bbox_marker.action = bbox_marker.ADD
+        bbox_marker.pose.position.x = px
+        bbox_marker.pose.position.y = py
+        bbox_marker.pose.position.z = pz
+        bbox_marker.pose.orientation.x = quat_orien[0]
+        bbox_marker.pose.orientation.y = quat_orien[1]
+        bbox_marker.pose.orientation.z = quat_orien[2]
+        bbox_marker.pose.orientation.w = quat_orien[3]
+        bbox_marker.scale.x = annotation["l"]
+        bbox_marker.scale.y = annotation["w"]
+        bbox_marker.scale.z = annotation["h"]
+        bbox_marker.color.a = 0.3
+        
+        if track:
+            # TODO Figure out how to do instance tracking
+            bbox_marker.color.r = 100 / 255.0;
+            bbox_marker.color.g = 100 /255.0;
+            bbox_marker.color.b = 100 / 255.0;
+        else:
+            class_color = ID_TO_COLOR[CLASS_TO_ID[classId]]
+            bbox_marker.color.r = class_color[0] / 255.0;
+            bbox_marker.color.g = class_color[1] /255.0;
+            bbox_marker.color.b = class_color[2] / 255.0;
+
+        bbox_markers.markers.append(bbox_marker)
+
+    m_pub.publish(bbox_markers)
+    
+def pub_pose(pose_pub, pose, frame, frame_time):
+    p = PoseStamped()
+    p.header.stamp = frame_time
+    p.header.frame_id = "os_sensor"
+    p.pose.position.x = pose[1]
+    p.pose.position.y = pose[2]
+    p.pose.position.z = pose[3]
+    # Make sure the quaternion is valid and normalized
+    p.pose.orientation.x = pose[5]
+    p.pose.orientation.y = pose[6]
+    p.pose.orientation.z = pose[7]
+    p.pose.orientation.w = pose[4]
+    pose_pub.publish(p)
+
+def pub_img(img_pub, img_path):
+    img = cv2.imread(img_path)
+    bridge = CvBridge()
+    img_msg = bridge.cv2_to_imgmsg(img, encoding="passthrough")
+    img_pub.publish(img_msg)

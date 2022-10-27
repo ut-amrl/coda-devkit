@@ -76,7 +76,7 @@ class ManifestGenerator(object):
 
         manifest_frames_str = ""
         frame_count = 0
-        for frame_idx, frame in enumerate(range(start, end+1)):
+        for frame_idx, frame in enumerate(range(start, end)):
             if frame_idx%self._ds_rate==0:
                 #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]
@@ -108,7 +108,7 @@ class ManifestGenerator(object):
             
                 
                 frame_curr = self.fill_frame_text(sensor_files, pose, ts, frame, CAM0_CALIBRATIONS)
-                
+
                 if frame>start:
                     manifest_frames_str += ",\n"
 

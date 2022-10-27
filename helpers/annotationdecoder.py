@@ -10,7 +10,7 @@ sys.path.append(os.getcwd())
 
 import numpy as np
 
-from helpers.constants import SENSOR_DIRECTORY_FILETYPES, sagemaker_to_common
+from helpers.constants import SENSOR_DIRECTORY_FILETYPES, SAGEMAKER_TO_COMMON_ANNO
 
 class AnnotationDecoder(object):
 
@@ -87,11 +87,10 @@ class AnnotationDecoder(object):
 
             # Recurse through all keys in json dictionary
             # Use dictionary mapping to decide what data to copy
-            # pdb.set_trace()
-
+            # TODO: Add ability to handle streaming jobs from AWS with multiple trajectories
             labeling_job_name = mani_json["answers"][0]["answerContent"] \
                 ["trackingAnnotations"]["frameData"]["s3Prefix"].split('/')[4]
-            labeling_job_name = labeling_job_name.split('_')
+            labeling_job_name = labeling_job_name.split('-')
             tracking_annotations = anno_json['trackingAnnotations']
             for frame_dict in tracking_annotations:
                 #Copy over existing annotation data
@@ -99,7 +98,7 @@ class AnnotationDecoder(object):
 
                 #Add additional annotation information
                 curr_dict["filetype"]   = curr_dict["frame"].split('.')[1]
-                curr_dict["frame"]      = curr_dict["frame"].split('.')[0]
+                curr_dict["frame"]      = curr_dict["frame"].split('.')[0].split('_')[-1]
                 
                 #Infer modality from filetype
                 if not "subdir" in anno_dict:
@@ -124,10 +123,10 @@ class AnnotationDecoder(object):
         for key in level_keys:
             curr_level = sub_dict_level[key]
             try:            
-                if key in sagemaker_to_common or isinstance(key, int):
+                if key in SAGEMAKER_TO_COMMON_ANNO or isinstance(key, int):
                     key_map = key
-                    if key in sagemaker_to_common:
-                        key_map = sagemaker_to_common[key]
+                    if key in SAGEMAKER_TO_COMMON_ANNO:
+                        key_map = SAGEMAKER_TO_COMMON_ANNO[key]
 
                     if isinstance(curr_level, dict) or \
                         isinstance(curr_level, list):

@@ -21,8 +21,10 @@ trajectories: [
 
 trajectory_frames:
   0: [
-    [900, 1500] # 1 minute worth of annotations
+    [900, 1200], # 1 minute worth of annotations\
+    [1200, 1500]
   ]
   1: [
-    [50, 550]
+    [50, 300],
+    [300, 550]
   ]

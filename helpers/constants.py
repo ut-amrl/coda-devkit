@@ -34,7 +34,7 @@ DATASET_L1_DIR_LIST = [
 """
 Annotation Mappings
 """
-sagemaker_to_common = {
+SAGEMAKER_TO_COMMON_ANNO = {
     #Frame Specific
     "frameName": "frame",
     "boundingCuboids": "3dannotations",
@@ -56,6 +56,94 @@ sagemaker_to_common = {
     "Nav Behavior": "behavior"
 }
 
+CLASS_TO_ID = {
+    # Dynamic Classes
+    "Scooter": 0,
+    "Bike": 1,
+    "Car": 2,
+    "Motorcycle": 3,
+    "Golf Cart": 4,
+    "Truck": 5,
+    "Person": 6,
+    # Static Classes
+    "Tree": 7,
+    "Traffic Sign": 8,
+    "Canopy": 9,
+    "Traffic Lights": 10,
+    "Bike Rack": 11,
+    "Bollard": 12,
+    "Construction Barrier": 13,
+    "Parking Kiosk": 14,
+    "Mailbox": 15,
+    "Fire Hydrant": 16,
+    # Static Class Mixed
+    "Freestanding Plant": 17,
+    "Pole": 18,
+    "Informational Sign": 19,
+    "Door": 20,
+    "Fence": 21,
+    "Railing": 22,
+    "Cone": 23,
+    "Chair": 24,
+    "Bench": 25,
+    "Table": 26,
+    "Trash Can": 27,
+    "Newspaper Dispenser": 28,
+    # Static Classes Indoor
+    "Room Label": 29,
+    "Stanchion": 30,
+    "Sanitizer Dispenser": 31,
+    "Condiment Dispenser": 32,
+    "Vending Machine": 33,
+    "Emergency Aid Kit": 34,
+    "Fire Extinguisher": 35,
+    "Computer": 36,
+    "Television": 37,
+    "Other": 38
+}
+
+ID_TO_COLOR = [
+    (120, 190, 33),     #0 Scooter
+    (128, 128, 128),    #1 Bike
+    (255, 0, 0),        #2 Car
+    (255, 128, 0),      #3 Motorcyle
+    (102, 204, 0),      #4 Golf Cart
+    (0, 0, 255),        #5 Truck
+    (102, 102, 255),    #6 Person
+    (51, 102, 0),       #7 Tree
+    (153, 0, 0),        #8 Traffic Sign
+    (192, 192, 192),    #9 Canopy
+    (255, 255, 0),      #10 Traffic Lights
+    (255, 102, 255),    #11 Bike Rack
+    (96, 96, 96),       #12 Bollard
+    (255, 178, 102),    #13 Construction Barrier
+    (0, 0, 153),        #14 Parking Kiosk
+    (0, 0, 204),        #15 Mailbox
+    (255, 51, 51),      #16 Fire Hydrant
+    (0, 204, 0),        #17 Freestanding Plant
+    (160, 160, 160),    #18 Pole
+    (255, 255, 253),    #19 Informational Sign
+    (153, 76, 0),       #20 Door
+    (102, 51, 0),       #21 Fence
+    (204, 102, 0),      #22 Railing
+    (255, 152, 51),     #23 Cone
+    (102, 255, 255),    #24 Chair
+    (51, 25, 0),        #25 Bench
+    (102, 102, 0),      #26 Table
+    (64, 64, 64),       #27 Trash Can
+    (255, 204, 153),    #28 Newspaper Dispenser
+    (255, 51, 255),     #29 Room Label
+    (224, 224, 224),    #30 Stanchion
+    (51, 255, 255),     #31 Sanitizer Dispenser
+    (76, 153, 0),       #32 Condiment Dispenser
+    (51, 152, 255),     #33 Vending Machine
+    (255, 204, 204),    #34 Emergency Aid Kit
+    (255, 102, 102),    #35 Fire Extinguisher
+    (0, 153, 76),       #36 Computer
+    (32, 32, 32),       #37 Television
+    (255, 255, 255)     #38 Other
+]
+
 """
 Manifest file generation sensor to subdirectory mappings
 """
@@ -68,19 +156,15 @@ SENSOR_DIRECTORY_SUBPATH = {
 SENSOR_DIRECTORY_FILETYPES = {
     "3d_raw/os1": "bin",
     "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png"
+    "2d_raw/cam1": "png",
+    "3d_label/os1": "json"
 }
 
 """
 Sensor Hardware Constants
 """
 # Converts destaggered OS1 point clouds to x forward, y left, z up convention
-OS1_TO_XYZ_FRAME = [
-    -1, 0, 0, 0,
-    0, -1, 0, 0,
-    0, 0, 1, 36.180,
-    0, 0, 0, 1        
-]
+
 SENSOR_TO_XYZ_FRAME = {
     "/ouster/lidar_packets": [
         -1, 0, 0, 0,
@@ -99,7 +183,7 @@ SENSOR_TO_BASE_LINK = {
     "/ouster/lidar_packets": [
         1, 0, 0, 0,
         0, 1, 0, 0,
-        0, 0, 1, -0.43,
+        0, 0, 1, 0.43,
         0, 0, 0, 1       
     ],
     "/vectornav/IMU": [
