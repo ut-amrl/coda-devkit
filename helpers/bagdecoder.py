@@ -26,8 +26,8 @@ class BagDecoder(object):
     two compressed image topics to be published within 50 milliseconds of each other. It
     also requires that a ros master be running as well to synchronize these three topics. 
     """
-    def __init__(self):
-        self._settings_fp = os.path.join(os.getcwd(), "config/decoder_bbox.yaml")
+    def __init__(self, config):
+        self._settings_fp = os.path.join(os.getcwd(), config)
         assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
 
         #Load available bag files
