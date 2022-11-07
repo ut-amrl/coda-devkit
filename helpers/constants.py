@@ -206,7 +206,9 @@ CAM0_CALIBRATIONS = {
         0.     , 681.99707, 503.14468,   0,
         0.     ,   0.     ,   1.     ,   0
     ],
-    "extrinsics": [0.1125, -0.1937500000000003, -0.1906249999999992, -7, -96, 94]
+    "extrinsics": [0.1125, -0.1937500000000003, -0.1906249999999992, -7, -96, 94],
+    "width": 1224,
+    "height": 1024
 }
 
 """
@@ -307,3 +309,29 @@ MANIFEST_PATH_DICT = {
 }
 
 MANIFEST_PATH_STR = '''{"source-ref": "%(manifest_prefix)s/%(sequence_filename)s"}'''
+
+# Kitti360 Autogeneration
+
+KITTI360_INTRINSIC_XML = '''<?xml version="1.0"?><intrincis_perspective><fx>%(fx)0.10f</fx><fy>%(fy)0.10f</fy><ox>%(ox)0.10f</ox><oy>%(oy)0.10f</oy><width>%(w)i</width><height>%(h)i</height></intrincis_perspective>'''
+
+CODA_ANNOTATION_DICT = {
+    "frame": 0,
+    "3dannotations": []
+}
+
+CODA_ANNOTATION_OBJECT_DICT = {
+    "instanceId": "",
+    "classId": "",
+    "cX": 0.0,
+    "cY": 0.0,
+    "cZ": 0.0,
+    "l": 0.0,
+    "w": 0.0,
+    "h": 0.0,
+    "r": 0.0,
+    "p": 0.0,
+    "y": 0.0,
+    "labelCategoryAttributes": {
+        "isOccluded": "No"
+    }
+}

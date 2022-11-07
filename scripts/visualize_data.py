@@ -33,16 +33,22 @@ def main():
         pose_root_dir   = settings['pose_root_dir']
         ts_root_dir     = settings['ts_root_dir']
         bbox3d_root_dir = settings['bbox3d_root_dir']
+        trajectory_frames   = settings['trajectory_frames']
 
-        assert os.path.exists(img_root_dir), "%s does not exist, provide valid img_root_dir."
-        assert os.path.exists(bin_root_dir), "%s does not exist, provide valid bin_root_dir."
-        assert os.path.exists(pose_root_dir), "%s does not exist, provide valid pose_root_dir."
-        assert os.path.exists(ts_root_dir), "%s does not exist, provide valid ts_root_dir."
-        assert os.path.exists(bbox3d_root_dir), "%s does not exist, provide valid ts_root_dir."
+        if viz_img:
+            assert os.path.exists(img_root_dir), "%s does not exist, provide valid img_root_dir."
+        if viz_pc:
+            assert os.path.exists(bin_root_dir), "%s does not exist, provide valid bin_root_dir."
+        if viz_pose:
+            assert os.path.exists(pose_root_dir), "%s does not exist, provide valid pose_root_dir."
+        if viz_pc:
+            assert os.path.exists(ts_root_dir), "%s does not exist, provide valid ts_root_dir."
+        if viz_anno:
+            assert os.path.exists(bbox3d_root_dir), "%s does not exist, provide valid ts_root_dir."
 
     assert len(sys.argv)>=2, "Specify the trajectory number you wish to visualize\n"
     trajectory = sys.argv[1]
-
+    
     bin_dir = os.path.join(bin_root_dir, str(trajectory))
     img_dir = os.path.join(img_root_dir, str(trajectory))
     assert os.path.exists(bin_dir), "%s does not exist, generate the trajectory's .bin files first\n"
@@ -55,57 +61,54 @@ def main():
     marker_pub = rospy.Publisher('/coda/bbox', MarkerArray, queue_size=10)
     pub_rate = rospy.Rate(10) # Publish at 10 hz
 
-    bin_files       = np.array([
-        int(bin_file.split('.')[0].split("_")[-1])
-        for bin_file in os.listdir(bin_dir)
-    ])
-    bin_files_idx   = np.argsort(bin_files)
-    bin_files       = np.array(os.listdir(bin_dir))[bin_files_idx]
-
     frame_to_ts_file = os.path.join(ts_root_dir, "%s_frame_to_ts.txt"%trajectory)
-    pose_file   = os.path.join(pose_root_dir, "%s.txt"%trajectory)
-    pose_np     = np.fromfile(pose_file, sep=' ').reshape(-1, 8)
     frame_ts_np = np.fromfile(frame_to_ts_file, sep=' ').reshape(-1, 1)
+    if viz_pose:
+        pose_file   = os.path.join(pose_root_dir, "%s.txt"%trajectory)
+        pose_np     = np.fromfile(pose_file, sep=' ').reshape(-1, 8)
 
-    for filename in bin_files:
+    for frame in range(trajectory_frames[0], trajectory_frames[1]):
         frame_time = rospy.get_rostime()
-        modality, sensor_name, trajectory, frame = get_filename_info(filename)
         print("Visualizing frame ", frame)
 
         #Publish image
         if viz_img:
             img_file = set_filename_by_prefix("2d_raw", "cam0", trajectory, frame)
-            # pdb.set_trace()
+
             img_path = os.path.join(img_dir, img_file)
             pub_img(img_pub, img_path)
         
         #Publish pose
         ts  = frame_ts_np[int(frame)][0]
         if viz_pose:
-            curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
-            next_ts_idx = curr_ts_idx + 1
-            if next_ts_idx>=pose_np.shape[0]:
-                next_ts_idx = pose_np.shape[0] - 1
-            pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
+            pose = find_closest_pose(pose_np, ts)
             pub_pose(pose_pub, pose, frame, frame_time)
 
         #Publish point cloud
         if viz_pc:
-            bin_file = os.path.join(bin_dir, filename)
-            bin_np = np.fromfile(bin_file, dtype=np.float32).reshape(OS1_POINTCLOUD_SHAPE)
+            bin_file = set_filename_by_prefix("3d_raw", "os1", trajectory, frame)
+            bin_path = os.path.join(bin_dir, bin_file)
+
+            bin_np = np.fromfile(bin_path, dtype=np.float32)
+            bin_np = bin_np.reshape(OS1_POINTCLOUD_SHAPE)
+
             pub_pc_to_rviz(bin_np, pc_pub, frame_time, frame_id="os_sensor")
 
-        # Publish bboxes
+        #Publish bboxes
         if viz_anno:
-            label_modality = modality.replace("raw", "label")
-            label_filename = set_filename_by_prefix(label_modality, sensor_name, 
+            label_filename = set_filename_by_prefix("3d_label", "os1",
                 str(trajectory), frame)
             threed_label_file = os.path.join(bbox3d_root_dir, str(trajectory), 
                 label_filename)
 
-            pub_3dbbox_to_rviz(marker_pub, threed_label_file, frame_time, verbose=True)
+            if os.path.exists(threed_label_file):
+                pub_3dbbox_to_rviz(marker_pub, threed_label_file, frame_time, verbose=True)
+                pdb.set_trace()
+            else:
+                print("No annotations available for frame %s, skipping..." % str(frame) )
         
         pub_rate.sleep()
+        
 
 
 if __name__ == "__main__":

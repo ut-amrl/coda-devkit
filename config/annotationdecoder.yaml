@@ -1,0 +1,7 @@
+annotations_input_root: "/home/arthur/AMRL/Tools/tool_ws/src/annotate/annotations"
+annotations_output_root: "/home/arthur/AMRL/Datasets/CODa"
+
+annotation_type: "ewannotate"
+
+gen_data: True
+use_wcs: False

@@ -1,0 +1,43 @@
+# Path to processed CODa dataset root directort
+dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
+# dataset_output_root: "/home/arthur/AMRL/Tools/kitti360LabelTool/public/data" 
+dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
+
+encoding_format: "sagemaker"
+use_wcs: False
+
+# Defines which topics to copy. Should contain at least os1 and cam0
+copy_files: True
+sensor_topics: [
+  "/ouster/lidar_packets",
+  "/stereo/left/image_raw/compressed"
+  # , "/stereo/right/image_raw/compressed"
+]
+
+downsample_rate: 1
+
+# Set what trajectories and each trajectories' frames to process
+trajectories: [
+  0
+]
+
+# trajectory_frames:
+#   0: [
+#     [900, 1200], # 1 minute worth of annotations\
+#     [1200, 1500]
+#   ]
+#   1: [
+#     [50, 300],
+#     [300, 550]
+#   ]
+trajectory_frames:
+  0: [
+    [900, 950], # 1 minute worth of annotations\
+    [1200, 1300]
+  ]
+
+# Sagemaker specific settings (only need to set encoding format="sagemaker")
+s3_prefix: "s3://ut-coda-test-sagemaker/artifacts/"
+
+
+# Kitti360 settings (only need to set if encoding_format="kitti360")

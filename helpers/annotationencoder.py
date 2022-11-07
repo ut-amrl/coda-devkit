@@ -1,5 +1,7 @@
 import os
 import pdb
+from re import M
+import shutil
 import yaml
 import math 
 import numpy as np
@@ -9,13 +11,13 @@ from helpers.constants import *
 from helpers.geometry import *
 from scipy.spatial.transform import Rotation as R
 
-from helpers.sensors import set_filename_by_topic
+from helpers.sensors import bin_to_ply, set_filename_by_topic
 
-class ManifestGenerator(object):
+class AnnotationEncoder(object):
     """
     """
     def __init__(self):
-        self._settings_fp = os.path.join(os.getcwd(), "config/manifest.yaml")
+        self._settings_fp = os.path.join(os.getcwd(), "config/encoder.yaml")
 
         with open(self._settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
@@ -24,9 +26,11 @@ class ManifestGenerator(object):
             self._traj_frames   = settings['trajectory_frames']
             self._ds_rate       = settings['downsample_rate']
             self._indir         = settings['dataset_input_root']
-            self._outdir        = settings['manifest_output_root']
+            self._outdir        = settings['dataset_output_root']
             self._sensor_topics = settings['sensor_topics']
             self._copy_files    = settings['copy_files']
+            self._enc_format    = settings['encoding_format']
+            self._use_wcs       = settings['use_wcs']
 
             assert len(self._sensor_topics)
 
@@ -39,12 +43,164 @@ class ManifestGenerator(object):
             print("Output directory does not exist, creating at %s " % self._outdir)
             os.mkdir(self._outdir)
 
-        self._sequences = os.path.join(self._outdir, "sequences")
-        self._manifests = os.path.join(self._outdir, "manifests")
-        if not os.path.exists(self._sequences):
-            os.mkdir(self._sequences)
-        if not os.path.exists(self._manifests):
-            os.mkdir(self._manifests)
+        if self._enc_format=="sagemaker":
+            self._sequences = os.path.join(self._outdir, "sequences")
+            self._manifests = os.path.join(self._outdir, "manifests")
+            if not os.path.exists(self._sequences):
+                os.mkdir(self._sequences)
+            if not os.path.exists(self._manifests):
+                os.mkdir(self._manifests)
+
+    def encode_annotations(self):
+        if self._enc_format=="sagemaker":
+            self.create_manifest()
+        elif self._enc_format=="kitti360":
+            self.create_kitti360_database()
+
+    def create_kitti360_database(self):
+        for traj in self._trajs:
+            traj_frames = self._traj_frames[traj]
+
+            for frame_seq in traj_frames:
+                start, end = frame_seq[0], frame_seq[1]
+
+                traj_dir        = "utcoda_%i_%i_%i" % (traj, start, end)
+                traj_dir_path   = os.path.join(self._outdir, traj_dir)
+                if not os.path.exists(traj_dir_path):
+                    print("Creating new trajectory for kitti360 at %s"%traj_dir_path)
+                    os.mkdir(traj_dir_path)
+
+                self.create_kitti360_subdirs(traj_dir_path)
+
+                self.format_kitti360_files(traj, start, end, traj_dir)
+
+                # Copy cam0 calibrations
+                intrinsic_dict = {
+                    "fx": CAM0_CALIBRATIONS["distortion"][0],
+                    "fy": CAM0_CALIBRATIONS["distortion"][1],
+                    "ox": CAM0_CALIBRATIONS["distortion"][2],
+                    "oy": CAM0_CALIBRATIONS["distortion"][3],
+                    "w": CAM0_CALIBRATIONS["width"],
+                    "h": CAM0_CALIBRATIONS["height"]
+                }
+                intrinsic_xml = KITTI360_INTRINSIC_XML % intrinsic_dict
+                intrinsic_path= os.path.join(self._outdir, traj_dir, "intrinsics_0.xml")
+                intrinsic_file= open(intrinsic_path, "w+")
+                intrinsic_file.write(intrinsic_xml)
+                intrinsic_file.close()
+
+                # Copy cam frames file
+                cam_frames_path = os.path.join(self._outdir, traj_dir, "cameraIndex.txt")
+                cam_indices     = np.arange(start, end)
+                open(cam_frames_path, 'w+')
+                np.savetxt(cam_frames_path, cam_indices, delimiter='\n', fmt="%0.2d")
+
+    def create_kitti360_subdirs(self, rootdir):
+        # Create poses dir
+        pose_dir = os.path.join(rootdir, "poses")
+        if not os.path.exists(pose_dir):
+            print("Pose subdir does not exist, creating %s" % pose_dir)
+            os.makedirs(pose_dir)
+
+        # Create img dir
+        img_dir = os.path.join(rootdir, "image_00")
+        if not os.path.exists(img_dir):
+            print("Pose subdir does not exist, creating %s" % img_dir)
+            os.makedirs(img_dir)
+
+    def format_kitti360_files(self, traj, frame_start, frame_end, traj_dir):
+        cam_num = 0
+        pc_sensor = "3d_raw/os1"
+        
+        root_frame_dir = os.path.join(self._outdir, traj_dir)
+        bin_dir = os.path.join(self._indir, pc_sensor, str(traj))
+
+        img_sensor  = "2d_raw/cam%i"% cam_num
+        img_in_dir = os.path.join(self._indir, img_sensor, str(traj))
+        img_out_dir = os.path.join(root_frame_dir, "image_00")
+
+        # Copy cam0 intrinsics
+
+        in_pose_file= os.path.join(self._indir, "poses", "%i.txt"%traj)
+
+        pose_dir    = os.path.join(root_frame_dir, "poses")
+        frame_path  = os.path.join(root_frame_dir, "frames.txt")
+
+        
+        frame_to_ts_file    = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%traj)
+        assert os.path.isfile(in_pose_file), "Error: pose file for trajectory %s \
+            cannot be found in filepath %s\n Exiting..."%(traj, in_pose_file)
+        assert os.path.isfile(frame_to_ts_file), "Error: pose file for trajectory %s \
+            cannot be found in filepath %s\n Exiting..."%(traj, frame_to_ts_file)
+        in_pose_np= np.fromfile(in_pose_file, dtype=np.float32, sep=" ").reshape(-1, 8)
+        ts_frame_np = np.fromfile(frame_to_ts_file, sep=" ").reshape(-1, 1)
+
+        frame_file  = open(frame_path, "w+")
+        full_bin_np = np.empty((0, 3), dtype=np.float32)
+        for frame in range(frame_start, frame_end):
+            bin_name    = "%s_%s_%i_%i" % (pc_sensor.split('/')[0], 
+                pc_sensor.split('/')[1], traj, frame)
+            ply_name    = "points_%0.10d.ply"
+
+            bin_path    = os.path.join(bin_dir, "%s.%s"%(bin_name, SENSOR_DIRECTORY_FILETYPES[pc_sensor]) )
+            ply_path    = os.path.join(root_frame_dir, ply_name%frame)
+            
+            # Copy bin files
+            bin_np = np.fromfile(bin_path, np.float32).reshape(-1, 3)
+            bin_to_ply(bin_np, ply_path)
+            full_bin_np = np.vstack((full_bin_np, bin_np))
+            
+            # Copy cam 0 images
+            img_out_name    = "%0.10d.png"%frame
+            img_out_path    = os.path.join(img_out_dir, img_out_name)
+            img_in_name     = "%s_%i_%i.png" % ("_".join(img_sensor.split("/")), traj, frame)
+            img_in_path     = os.path.join(img_in_dir, img_in_name)
+            shutil.copy(img_in_path, img_out_path)
+
+            # Write frame to frames txt file
+            frame_file.write("%0.10d\n"%frame)
+
+            # Write to poses file
+            pose_file = "%0.10d_%i.txt" % (frame, cam_num)
+            pose_path = os.path.join(pose_dir, pose_file)
+            closeset_pose = self.find_closest_pose(ts_frame_np, frame, in_pose_np)
+
+            self.kitti360_gen_pose_file(pose_path, closeset_pose)
+
+        # Write full point cloud to .ply file
+        ply_path = os.path.join(root_frame_dir, "points.ply")
+        bin_to_ply(full_bin_np, ply_path)
+
+        frame_file.close()
+
+    def kitti360_gen_pose_file(self, outfilepath, pose):
+        """
+        Converts pose from x y z qw qx qy qz to 3x4 rotation matrix and xyz
+
+        Note: These poses should be in the robot base link frame
+        """
+        quat = R.from_quat(pose[4:])
+        rot_mat = quat.as_matrix()
+
+        pose_mat = np.eye(4)
+        pose_mat[:3, :3]    = rot_mat
+        pose_mat[:3, 3]     = pose[1:4]
+
+        open(outfilepath, 'w+')
+        np.savetxt(outfilepath, pose_mat.reshape(-1), delimiter=" ", fmt="%0.7f")
+
+    def find_closest_pose(self, ts_frame_np, frame, pose_np):
+        ts  = ts_frame_np[frame][0]
+        curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
+        next_ts_idx = curr_ts_idx + 1
+        if next_ts_idx>=pose_np.shape[0]:
+            next_ts_idx = pose_np.shape[0] - 1
+        
+        if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
+            pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
+        else:
+            pose = pose_np[curr_ts_idx]
+        return pose
 
     def create_manifest(self):
         """
@@ -100,7 +256,7 @@ class ManifestGenerator(object):
                         self.copy_file_dir(self._indir, self._outdir, subdir, 
                             str(traj), frame_filename)
 
-                        if filetype=="bin":
+                        if filetype=="bin" and self._use_wcs:
                             bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
                             self.ego_to_wcs(bin_file, pose)
                     

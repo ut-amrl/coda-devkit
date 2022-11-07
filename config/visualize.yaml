@@ -4,7 +4,10 @@ viz_pose: True
 viz_anno: True
 
 img_root_dir: "/home/arthur/AMRL/Datasets/CODa/2d_raw/cam0"
-bin_root_dir: "/home/arthur/AMRL/Datasets/CODa_aws/3d_raw/os1"
+bin_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_raw/os1"
 pose_root_dir: "/home/arthur/AMRL/Datasets/CODa/poses"
 ts_root_dir: "/home/arthur/AMRL/Datasets/CODa/timestamps"
 bbox3d_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_label/os1"
+
+trajectory_frames:
+  [600, 650]

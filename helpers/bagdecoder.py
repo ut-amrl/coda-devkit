@@ -94,11 +94,11 @@ class BagDecoder(object):
             if self._verbose:
                 print("Saving topics: ", self._topics)
 
-            self._bags_to_process = settings['bags_to_process']
+            self._bags_to_process   = settings['bags_to_process']
+            self._all_bags          = [ file for file in sorted(os.listdir(self._bag_dir)) 
+                if os.path.splitext(file)[-1]==".bag"]
             if len(self._bags_to_process)==0:
-                self._bags_to_process = [
-                    file for file in sorted(os.listdir(self._bag_dir)) 
-                    if os.path.splitext(file)[-1]==".bag"]
+                self._bags_to_process = self._all_bags
     
         if "/ouster/lidar_packets" in self._topics:
             os_metadata = os.path.join(self._bag_dir, "OS1metadata.json")
@@ -140,8 +140,8 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for trajectory, bag_file in enumerate(self._bags_to_process):
-            if trajectory==0:
+        for trajectory, bag_file in enumerate(self._all_bags):
+            if bag_file not in self._bags_to_process:
                 continue
             self._trajectory = trajectory
             self._curr_frame = 0

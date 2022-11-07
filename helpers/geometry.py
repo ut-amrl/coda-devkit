@@ -3,6 +3,15 @@ import numpy as np
 
 from scipy.spatial.transform import Rotation as R
 
+def find_closest_pose(pose_np, target_ts):
+    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
+    next_ts_idx = curr_ts_idx + 1
+    if next_ts_idx>=pose_np.shape[0]:
+        next_ts_idx = pose_np.shape[0] - 1
+    pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+
+    return pose
+
 def inter_pose(posea, poseb, sensor_ts):
     """
     Pose assumed to be in x y z qw qx qy qz

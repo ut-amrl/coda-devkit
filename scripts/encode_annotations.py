@@ -7,12 +7,12 @@ import numpy as np
 sys.path.append(os.getcwd())
 
 #CustomImports
-from helpers.manifest import ManifestGenerator
+from helpers.annotationencoder import AnnotationEncoder
 
 
 def main():
-    manifest_gen = ManifestGenerator()
-    manifest_gen.create_manifest()
+    manifest_gen = AnnotationEncoder()
+    manifest_gen.encode_annotations()
     
 
 if __name__ == "__main__":

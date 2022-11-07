@@ -86,7 +86,7 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
     """
     if not os.path.exists(anno_filepath):
         if verbose:
-            print("File not found, not printing")
+            print("File %s not found, not printing"%anno_filepath)
         return
 
     anno_file   = open(anno_filepath, 'r')
@@ -118,7 +118,7 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
         bbox_marker.scale.x = annotation["l"]
         bbox_marker.scale.y = annotation["w"]
         bbox_marker.scale.z = annotation["h"]
-        bbox_marker.color.a = 0.3
+        bbox_marker.color.a = 0.4
         
         if track:
             # TODO Figure out how to do instance tracking
@@ -153,4 +153,5 @@ def pub_img(img_pub, img_path):
     img = cv2.imread(img_path)
     bridge = CvBridge()
     img_msg = bridge.cv2_to_imgmsg(img, encoding="passthrough")
+
     img_pub.publish(img_msg)

@@ -11,6 +11,7 @@ import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
 #Libraries
 import cv2
+import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from ouster import client
@@ -85,6 +86,13 @@ def pc_to_bin(pc, filename):
 
 def img_to_png(img_np, filename):
     cv2.imwrite(filename, img_np)
+
+def bin_to_ply(bin_np, ply_path):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(bin_np)
+    o3d.io.write_point_cloud(ply_path, pcd, write_ascii=False)
+    return bin_np
+
 
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)

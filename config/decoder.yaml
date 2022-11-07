@@ -5,7 +5,7 @@ bag_date:    "101222"
 #Bag Decoder Settings
 gen_data: False   # Generates data files
 viz_imu: True     # Republish imu messages
-verbose: False    # Debugging
+verbose: True    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
@@ -63,6 +63,6 @@ sensor_types: [
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: [] #Leave empty to process all bags in directory
+bags_to_process: ["1665601581.bag"] #Leave empty to process all bags in directory
   
 

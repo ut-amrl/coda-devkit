@@ -1,28 +1,38 @@
+from genericpath import isdir
+from math import degrees
 import os
 import pdb
-from tkinter import Frame
+from re import sub
+from sysconfig import get_python_version
+from tracemalloc import start
 import yaml
 import json
+import copy
 
 import sys
+
+from helpers.sensors import set_filename_by_prefix
 # For imports
 sys.path.append(os.getcwd())
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
-from helpers.constants import SENSOR_DIRECTORY_FILETYPES, SAGEMAKER_TO_COMMON_ANNO
+from helpers.constants import *
+from helpers.geometry import *
 
 class AnnotationDecoder(object):
 
     def __init__(self):
         
-        settings_fp = os.path.join(os.getcwd(), "config/sagedecoder.yaml")
+        settings_fp = os.path.join(os.getcwd(), "config/annotationdecoder.yaml")
         with open(settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
             self._indir   = settings['annotations_input_root']
             self._outdir  = settings['annotations_output_root']
             self._anno_type = settings['annotation_type']
             self._gen_data  = settings['gen_data']
+            self._use_wcs   = settings['use_wcs']
 
             assert os.path.exists(self._indir), "%s does not exist, provide valid dataset root directory."
 
@@ -49,8 +59,108 @@ class AnnotationDecoder(object):
             anno_dict = self.sagemaker_decoder(anno_subdir, anno_files, manifest_file)
             if self._gen_data:
                 self.save_anno_json(anno_dict)
+        elif self._anno_type=="ewannotate":
+            for dir_item in sorted(os.listdir(self._indir)):
+                subitem = os.path.join(self._indir, dir_item)
+                if os.path.isdir(subitem):
+                    continue
+                traj = dir_item.split('.')[0]
+                self.ewannotate_decoder(subitem, traj)
         else:
             print("Undefined annotation format type specified, exiting...")
+
+    def ewannotate_decoder(self, filepath, traj):
+        with open(filepath, 'r') as annos_file:
+            annos = yaml.safe_load(annos_file)
+
+            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
+            ts_to_poses_path = os.path.join(self._outdir, "poses", "%s.txt"%traj)
+
+            frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
+
+            ts_to_frame_np = np.loadtxt(ts_to_frame_path)
+            annos_dir = os.path.join(self._outdir, "3d_label", "os1", str(traj))
+            curr_anno_dict = None
+            curr_frame = -1
+
+            obj_track_indices = [obj["track"][0]["header"]["stamp"]["secs"] + 
+                1e-9*obj["track"][0]["header"]["stamp"]["nsecs"] for obj in annos["tracks"]]
+            sorted_obj_track_indices = np.argsort(obj_track_indices)
+            sorted_annos_tracks = [annos["tracks"][i] for i in sorted_obj_track_indices]
+            
+            for object in sorted_annos_tracks:
+                objtrack = object["track"][0]
+                header = objtrack["header"]
+                ts = header["stamp"]["secs"] + 1e-9*header["stamp"]["nsecs"]
+                frame   = np.searchsorted(ts_to_frame_np, ts, side='left')
+                pose    = find_closest_pose(frame_to_poses_np, ts)
+
+                if curr_frame!=frame:
+                    if curr_frame!=-1: 
+                        #Save current frame dict
+                        if not os.path.exists(annos_dir):
+                            print("Annotation dir for traj %s frame %s does not exist, creating here %s" % 
+                                (traj, frame, annos_dir))
+                            os.makedirs(annos_dir)
+                        print(curr_anno_dict)
+
+                        self.write_anno_to_file(traj, frame, annos_dir, curr_anno_dict)
+
+                    # Create new frame dict 
+                    curr_frame = int(frame)
+                    curr_anno_dict = copy.deepcopy(CODA_ANNOTATION_DICT)
+                    curr_anno_dict["frame"] = curr_frame
+
+                curr_anno_obj_dict = copy.deepcopy(CODA_ANNOTATION_OBJECT_DICT)
+                objlabel = "Other" if objtrack["label"]=="" else objtrack["label"]
+                curr_anno_obj_dict["instanceId"]= "%s:%s"%(objlabel, object["id"])
+                curr_anno_obj_dict["classId"]   = objlabel
+                
+                # Note: Apply Pose Transform to WCS!
+                quat = R.from_quat([ objtrack["rotation"]["x"], objtrack["rotation"]["y"], \
+                    objtrack["rotation"]["z"], objtrack["rotation"]["w"] ])
+                rot_mat = quat.as_matrix()
+
+                bbox_pose = np.eye(4)
+                bbox_pose[:3, :3]   = rot_mat
+                bbox_pose[:3, 3]    = [ objtrack["translation"]["x"], objtrack["translation"]["y"], 
+                    objtrack["translation"]["z"] ]
+
+                gt_pose = np.eye(4)
+                if self._use_wcs:
+                    gt_pose[:3, :3] = R.from_quat([ pose[7], pose[4], pose[5], pose[6] ]).as_matrix()
+                    gt_pose[:3, 3]  = pose[1:4]
+                    
+                trans_bbox_pose = gt_pose @ bbox_pose
+                rot_vec = R.as_rotvec(R.from_matrix(trans_bbox_pose[:3, :3]), degrees=False)
+
+                #Translation
+                curr_anno_obj_dict["cX"], curr_anno_obj_dict["cY"], curr_anno_obj_dict["cZ"] = \
+                    trans_bbox_pose[0, 3], trans_bbox_pose[1, 3], trans_bbox_pose[2, 3]
+
+                #Rotation
+                curr_anno_obj_dict["r"], curr_anno_obj_dict["p"], curr_anno_obj_dict["y"] = \
+                    rot_vec[0], rot_vec[1], rot_vec[2]
+
+                #Size
+                curr_anno_obj_dict["l"], curr_anno_obj_dict["w"], curr_anno_obj_dict["h"] = \
+                    objtrack["box"]["length"], objtrack["box"]["width"], objtrack["box"]["height"]
+
+                curr_anno_dict["3dannotations"].append(
+                    curr_anno_obj_dict
+                )
+            
+            # Handle last frame edge case
+            if curr_anno_dict!=CODA_ANNOTATION_DICT:
+                self.write_anno_to_file(traj, frame, annos_dir, curr_anno_dict)
+
+    def write_anno_to_file(self, traj, frame, annos_dir, anno_dict):
+        frame_dict_path = os.path.join(annos_dir,
+        set_filename_by_prefix("3d_label", "os1", str(traj), str(frame)) )
+        print("Saving frame %s annotations to %s " % (frame, frame_dict_path))
+        frame_dict_file = open(frame_dict_path, "w+")
+        frame_dict_file.write(json.dumps(anno_dict, indent=2))
+        frame_dict_file.close()
 
     def save_anno_json(self, anno_dict):
         subdir  = anno_dict["subdir"].replace("raw", "label")
