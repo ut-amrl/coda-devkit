@@ -26,15 +26,15 @@ class BagDecoder(object):
     two compressed image topics to be published within 50 milliseconds of each other. It
     also requires that a ros master be running as well to synchronize these three topics. 
     """
-    def __init__(self):
-        self._settings_fp = os.path.join(os.getcwd(), "config/decoder.yaml")
+    def __init__(self, config):
+        self._settings_fp = os.path.join(os.getcwd(), config)
         assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
 
         #Load available bag files
         print("Loading settings from ", self._settings_fp)
 
         #Load topics to process
-        self._topics = {}
+        self._sensor_topics = {}
         self._bags_to_process = []
         self.load_settings()
 
@@ -88,11 +88,11 @@ class BagDecoder(object):
                 os.mkdir(self._outdir)
     
             # Load bag settings
-            self._topics         = settings['sensor_topics']
+            self._sensor_topics = settings['sensor_topics']
             self._sync_topics   = settings['sync_topics']
             
             if self._verbose:
-                print("Saving topics: ", self._topics)
+                print("Saving topics: ", self._sensor_topics)
 
             self._bags_to_process   = settings['bags_to_process']
             self._all_bags          = [ file for file in sorted(os.listdir(self._bag_dir)) 
@@ -100,7 +100,7 @@ class BagDecoder(object):
             if len(self._bags_to_process)==0:
                 self._bags_to_process = self._all_bags
     
-        if "/ouster/lidar_packets" in self._topics:
+        if "/ouster/lidar_packets" in self._sensor_topics:
             os_metadata = os.path.join(self._bag_dir, "OS1metadata.json")
             assert os.path.isfile(os_metadata), '%s does not exist' % os_metadata
 
@@ -170,7 +170,8 @@ class BagDecoder(object):
                         self.sync_sensor(topic, msg, ts)
                         self._sync_pubs[topic].publish(msg)
                 else:
-                    data, ts = self.process_topic(topic, msg, ts)
+                    if topic in self._sensor_topics:
+                        data, ts = self.process_topic(topic, msg, ts)
             
             print("Completed processing bag ", bag_fp)
             if self._gen_data:
