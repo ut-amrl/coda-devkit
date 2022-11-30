@@ -84,6 +84,7 @@ class BagDecoder(object):
             self._viz_imu   = settings['viz_imu']
             self._verbose   = settings['verbose']
             self._outdir    = settings['dataset_output_root']
+            self._bags_to_traj_ids  = settings['bags_to_traj_ids']
             if not os.path.exists(self._outdir):
                 os.mkdir(self._outdir)
     
@@ -140,13 +141,18 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for trajectory, bag_file in enumerate(self._all_bags):
+        for trajectory_idx, bag_file in enumerate(self._all_bags):
             if bag_file not in self._bags_to_process:
                 continue
-            self._trajectory = trajectory
+
+            self._trajectory = trajectory_idx
+            if len(self._bags_to_traj_ids)==len(self._bags_to_process):
+                bag_idx = self._bags_to_process.index(bag_file)
+                self._trajectory = self._bags_to_traj_ids[bag_idx]
+
             self._curr_frame = 0
             bag_fp = os.path.join(self._bag_dir, bag_file)
-            print("Processing bag ", bag_fp)
+            print("Processing bag ", bag_fp, " as trajectory", self._trajectory)
 
             #Preprocess topics
             rosbag_info = yaml.safe_load( rosbag.Bag(bag_fp)._get_yaml_info())
@@ -155,7 +161,7 @@ class BagDecoder(object):
             self.setup_sync_filter()
 
             #Create frame to timestamp map
-            frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+            frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%self._trajectory)
             if self._gen_data:
                 self._frame_to_ts     = open(frame_to_ts_path, 'w+')
             if self._verbose:
@@ -176,7 +182,6 @@ class BagDecoder(object):
             print("Completed processing bag ", bag_fp)
             if self._gen_data:
                 self._frame_to_ts.close()
-            pdb.set_trace()
 
     def sync_sensor(self, topic, msg, ts):
         if self._past_sync_ts==None:

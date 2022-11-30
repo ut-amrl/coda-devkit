@@ -93,6 +93,10 @@ def bin_to_ply(bin_np, ply_path):
     o3d.io.write_point_cloud(ply_path, pcd, write_ascii=False)
     return bin_np
 
+def pcd_to_np(pcd_path):
+    pcd = o3d.io.read_point_cloud(pcd_path)
+    out_arr = np.asarray(pcd.points)
+    return out_arr
 
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)

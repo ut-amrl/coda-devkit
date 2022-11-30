@@ -1,6 +1,6 @@
 import os
 import pdb
-from re import M
+from re import I, M
 import shutil
 import yaml
 import math 
@@ -53,9 +53,11 @@ class AnnotationEncoder(object):
 
     def encode_annotations(self):
         if self._enc_format=="sagemaker":
-            self.create_manifest()
+            self.copy_sensor_files()
         elif self._enc_format=="kitti360":
             self.create_kitti360_database()
+        elif self._enc_format=="scale":
+            self.copy_sensor_files()
 
     def create_kitti360_database(self):
         for traj in self._trajs:
@@ -161,9 +163,10 @@ class AnnotationEncoder(object):
             frame_file.write("%0.10d\n"%frame)
 
             # Write to poses file
-            pose_file = "%0.10d_%i.txt" % (frame, cam_num)
-            pose_path = os.path.join(pose_dir, pose_file)
-            closeset_pose = self.find_closest_pose(ts_frame_np, frame, in_pose_np)
+            pose_file   = "%0.10d_%i.txt" % (frame, cam_num)
+            pose_path   = os.path.join(pose_dir, pose_file)
+            target_ts   = ts_frame_np[frame][0]
+            closeset_pose   = find_closest_pose(in_pose_np, target_ts)
 
             self.kitti360_gen_pose_file(pose_path, closeset_pose)
 
@@ -189,20 +192,7 @@ class AnnotationEncoder(object):
         open(outfilepath, 'w+')
         np.savetxt(outfilepath, pose_mat.reshape(-1), delimiter=" ", fmt="%0.7f")
 
-    def find_closest_pose(self, ts_frame_np, frame, pose_np):
-        ts  = ts_frame_np[frame][0]
-        curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
-        next_ts_idx = curr_ts_idx + 1
-        if next_ts_idx>=pose_np.shape[0]:
-            next_ts_idx = pose_np.shape[0] - 1
-        
-        if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-            pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
-        else:
-            pose = pose_np[curr_ts_idx]
-        return pose
-
-    def create_manifest(self):
+    def copy_sensor_files(self):
         """
         Iterates through all specified trajectories and frame pairs 
         """
@@ -213,6 +203,60 @@ class AnnotationEncoder(object):
                 start, end = frame_seq[0], frame_seq[1]
 
                 self.load_frames(traj, start, end)
+            
+            if self._enc_format!="sagemaker":
+                #Copy calibrations
+                self.copy_calibration_by_trajectory(traj)
+                #Copy timestamps
+                self.copy_ts_by_trajectory(traj)
+                #Copy estimated poses
+                self.copy_pose_by_trajectory(traj)
+
+    def copy_calibration_by_trajectory(self, trajectory):
+        in_calib_dir = os.path.join(self._indir, "calibrations", str(trajectory) )
+        assert os.path.isdir(in_calib_dir), '%s does not exist' % in_calib_dir
+
+        out_calib_root_dir = os.path.join(self._outdir, "calibrations")
+        out_calib_dir   = os.path.join(out_calib_root_dir, str(trajectory))
+        if not os.path.exists(out_calib_root_dir):
+            os.makedirs(out_calib_root_dir)
+        
+        if os.path.exists(out_calib_dir):
+            print("Found existing calibration directory for trajectory %i, deleting..."%trajectory)
+            shutil.rmtree(out_calib_dir)
+
+        shutil.copytree(in_calib_dir, out_calib_dir)
+
+    def copy_ts_by_trajectory(self, trajectory):
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
+
+        out_ts_dir = os.path.join(self._outdir, "timestamps")
+        out_ts_file = in_ts_file.replace(self._indir, self._outdir)
+        if not os.path.exists(out_ts_dir):
+            os.makedirs(out_ts_dir)
+
+        shutil.copyfile(in_ts_file, out_ts_file)
+
+    def copy_pose_by_trajectory(self, trajectory):
+        in_pose_file    = os.path.join(self._indir, "poses", "%i.txt"%trajectory)
+        assert os.path.isfile(in_pose_file), '%s does not exist' % in_pose_file
+
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
+
+        in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
+        frame_to_ts_np = np.fromfile(in_ts_file, sep=' ').reshape(-1, 1)
+        
+        out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np)
+
+        out_pose_dir    = os.path.join(self._outdir, "poses")
+        out_pose_file   = in_pose_file.replace(self._indir, self._outdir)
+        if not os.path.exists(out_pose_dir):
+            os.makedirs(out_pose_dir)
+
+        np.savetxt(out_pose_file, out_pose_np, fmt="%10.6f", delimiter=" ")
+        
 
     def load_frames(self, traj, start, end):
         """
@@ -236,12 +280,7 @@ class AnnotationEncoder(object):
             if frame_idx%self._ds_rate==0:
                 #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]
-                curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
-                next_ts_idx = curr_ts_idx + 1
-                if next_ts_idx>=pose_np.shape[0]:
-                    next_ts_idx = pose_np.shape[0] - 1
-                
-                pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
+                pose    = find_closest_pose(pose_np, ts)
 
                 sensor_files = ["", "", ""]
                 for idx, topic in enumerate(self._sensor_topics):
@@ -259,6 +298,15 @@ class AnnotationEncoder(object):
                         if filetype=="bin" and self._use_wcs:
                             bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
                             self.ego_to_wcs(bin_file, pose)
+                        
+                        if filetype=="bin" and self._enc_format == "scale":
+                            bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
+                            ply_path = bin_file.replace(".bin", ".pcd")
+                            try:
+                                bin_np  = np.fromfile(bin_file, dtype=np.float32).reshape(-1, 3)
+                            except Exception as e:
+                                pdb.set_trace()
+                            bin_to_ply(bin_np, ply_path)
                     
                     sensor_files[idx] = os.path.join(subdir, str(traj), frame_filename)
             
@@ -269,8 +317,16 @@ class AnnotationEncoder(object):
                     manifest_frames_str += ",\n"
 
                 manifest_frames_str += frame_curr
+
+                if self._enc_format=="sagemaker":
+                    self.create_manifest(traj, frame_count, manifest_frames_str, start, end)
+
                 #Accum total frame count
                 frame_count+=1
+
+    def create_manifest(self, traj, frame_count, manifest_frames_str, start, end):
+        if self._enc_format!="sagemaker":
+            print("Warning: running manifest generation without sagemaker format\n")
 
         #Write sequences/manifest file
         seq_text = SEQ_TEXT % traj
@@ -323,7 +379,6 @@ class AnnotationEncoder(object):
         outfile = os.path.join(outdir, filename)
 
         shutil.copyfile(infile, outfile)
-
 
     def fill_frame_text(self, filepaths, pose, ts, frameno, cam_parameters):
         assert len(filepaths)==3, "Incorrect number of sensors %i passed to manifest \

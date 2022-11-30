@@ -45,6 +45,7 @@ class AnnotationDecoder(object):
             anno_subdir, anno_files, manifest_file = "", None, None
             for dir_item in os.listdir(self._indir):
                 subitem = os.path.join(self._indir, dir_item)
+                
                 if os.path.isdir(subitem):
                     anno_subdir = dir_item
                     anno_indices = np.array([
@@ -53,12 +54,12 @@ class AnnotationDecoder(object):
                     anno_indices = np.argsort(anno_indices)
                     
                     anno_files = np.array(os.listdir(subitem))[anno_indices]
-                else:
-                    manifest_file = dir_item
-            
-            anno_dict = self.sagemaker_decoder(anno_subdir, anno_files, manifest_file)
-            if self._gen_data:
-                self.save_anno_json(anno_dict)
+
+                    manifest_file = dir_item + ".json"
+
+                    anno_dict = self.sagemaker_decoder(anno_subdir, anno_files, manifest_file)
+                    if self._gen_data:
+                        self.save_anno_json(anno_dict)
         elif self._anno_type=="ewannotate":
             for dir_item in sorted(os.listdir(self._indir)):
                 subitem = os.path.join(self._indir, dir_item)
@@ -132,7 +133,7 @@ class AnnotationDecoder(object):
                     gt_pose[:3, 3]  = pose[1:4]
                     
                 trans_bbox_pose = gt_pose @ bbox_pose
-                rot_vec = R.as_rotvec(R.from_matrix(trans_bbox_pose[:3, :3]), degrees=False)
+                rot_vec = R.as_euler(R.from_matrix(trans_bbox_pose[:3, :3]), degrees=False)
 
                 #Translation
                 curr_anno_obj_dict["cX"], curr_anno_obj_dict["cY"], curr_anno_obj_dict["cZ"] = \
@@ -173,7 +174,7 @@ class AnnotationDecoder(object):
             os.makedirs(anno_dir)
 
         #Write each annotated frame object to json file
-        for annotation in anno_dict["annotations"]:
+        for annotation in anno_dict["tredannotations"]:
             frame   = annotation["frame"]
             anno_filename   = "%s_%s_%s_%s.json"%(modality, sensor_name, traj, frame)
             anno_path = os.path.join(anno_dir, anno_filename)
@@ -184,8 +185,10 @@ class AnnotationDecoder(object):
 
     def sagemaker_decoder(self, anno_subdir, anno_files, manifest_file):
         anno_dict = {
-            "annotations": []
+            "tredannotations": [],
+            "twodannotations": []
         }
+
         for anno_filename in anno_files:
             anno_path = os.path.join(self._indir, anno_subdir, anno_filename)
             mani_path = os.path.join(self._indir, manifest_file)
@@ -201,24 +204,45 @@ class AnnotationDecoder(object):
             labeling_job_name = mani_json["answers"][0]["answerContent"] \
                 ["trackingAnnotations"]["frameData"]["s3Prefix"].split('/')[4]
             labeling_job_name = labeling_job_name.split('-')
+            anno_dict["trajectory"] = labeling_job_name[1]    
+            anno_dict["sensor"]     = labeling_job_name[2]
+
+            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+            pose_path   = os.path.join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
+            pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
+            ts_np       = np.loadtxt(ts_to_frame_path)
+            frame       = int(anno_filename.split("_")[4].split(".")[0])
+
+            ts          = ts_np[frame]
+            pose        = find_closest_pose(pose_np, ts)
+            pose_mat    = np.eye(4)
+            pose_mat[:3, :3]    = R.from_quat([pose[5], pose[6], pose[7], pose[4]]).as_matrix()
+            pose_mat[:3, 3]     = np.array([pose[1], pose[2], pose[3]]) 
+
             tracking_annotations = anno_json['trackingAnnotations']
             for frame_dict in tracking_annotations:
                 #Copy over existing annotation data
-                curr_dict = self.recurs_dict(frame_dict)
+                pc_dict = self.recurs_dict(frame_dict)
 
                 #Add additional annotation information
-                curr_dict["filetype"]   = curr_dict["frame"].split('.')[1]
-                curr_dict["frame"]      = curr_dict["frame"].split('.')[0].split('_')[-1]
-                
+                pc_dict["filetype"]   = pc_dict["frame"].split('.')[1]
+                pc_dict["frame"]      = pc_dict["frame"].split('.')[0].split('_')[-1]
+
                 #Infer modality from filetype
                 if not "subdir" in anno_dict:
                     for (subdir, filetype) in SENSOR_DIRECTORY_FILETYPES.items():
-                        if filetype==curr_dict["filetype"]:
+                        if filetype==pc_dict["filetype"]:
                             anno_dict["subdir"] = subdir
-                anno_dict["annotations"].append(curr_dict)
 
-            anno_dict["trajectory"] = labeling_job_name[1]    
-            anno_dict["sensor"]     = labeling_job_name[2]
+                if self._use_wcs:
+                    #Convert bbox centers to ego frame
+                    for index, anno in enumerate(pc_dict["3dannotations"]):
+                        wcs_to_ego = np.linalg.inv(pose_mat)
+                        new_anno = bbox_transform(anno, wcs_to_ego)
+                        pc_dict["3dannotations"][index] = new_anno
+
+                #Save annotations in dictionary
+                anno_dict["tredannotations"].append(pc_dict)
         
         return anno_dict
 

@@ -56,6 +56,10 @@ SAGEMAKER_TO_COMMON_ANNO = {
     "Nav Behavior": "behavior"
 }
 
+CLASS_VIZ_LIST = ["Scooter", "Bike", "Car", "Person", "Traffic Sign", "Bike Rack", "Mailbox", 
+"Freestanding Plant", "Pole", "Informational Sign", "Fence", "Chair", "Bench", "Trash Can", 
+"Newspaper Dispenser", "Other"]
+
 CLASS_TO_ID = {
     # Dynamic Classes
     "Scooter": 0,
@@ -101,6 +105,8 @@ CLASS_TO_ID = {
     "Television": 37,
     "Other": 38
 }
+
+NONRIGID_CLASS_IDS = [6, 7]
 
 ID_TO_COLOR = [
     (120, 190, 33),     #0 Scooter
@@ -157,6 +163,8 @@ SENSOR_DIRECTORY_FILETYPES = {
     "3d_raw/os1": "bin",
     "2d_raw/cam0": "png",
     "2d_raw/cam1": "png",
+    "2d_label/cam0": "png",
+    "2d_label/cam1": "png",
     "3d_label/os1": "json"
 }
 

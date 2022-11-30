@@ -1,13 +1,22 @@
 viz_img: True
 viz_pc: True
+viz_obj: True
 viz_pose: True
 viz_anno: True
 
-img_root_dir: "/home/arthur/AMRL/Datasets/CODa/2d_raw/cam0"
+use_wcs: False
+save_object_masks: False
+object_mask_dir: "/home/arthur/AMRL/Datasets/ZixArt"
+
+img_root_dir: "/home/arthur/AMRL/Datasets/CODa/2d_raw"
 bin_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_raw/os1"
 pose_root_dir: "/home/arthur/AMRL/Datasets/CODa/poses"
 ts_root_dir: "/home/arthur/AMRL/Datasets/CODa/timestamps"
 bbox3d_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_label/os1"
 
 trajectory_frames:
-  [600, 650]
+  [50, 545]
+  # [-1, -1]
+  # [900, 1200]
+
+downsample_rate: 1

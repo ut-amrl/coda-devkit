@@ -1,7 +1,7 @@
-annotations_input_root: "/home/arthur/AMRL/Tools/tool_ws/src/annotate/annotations"
+annotations_input_root: "/home/arthur/AMRL/Datasets/CODa_aws/annos/cogito-rev0"
 annotations_output_root: "/home/arthur/AMRL/Datasets/CODa"
 
-annotation_type: "ewannotate"
+annotation_type: "sagemaker"
 
 gen_data: True
-use_wcs: False
+use_wcs: True
