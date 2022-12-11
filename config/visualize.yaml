@@ -15,8 +15,8 @@ ts_root_dir: "/home/arthur/AMRL/Datasets/CODa/timestamps"
 bbox3d_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_label/os1"
 
 trajectory_frames:
-  [50, 545]
+  # [50, 545]
   # [-1, -1]
-  # [900, 1200]
+  [900, 1200]
 
 downsample_rate: 1

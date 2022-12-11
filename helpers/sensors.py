@@ -1,6 +1,6 @@
 import os
 import pdb
-
+import shutil
 
 #Sys Tools
 from more_itertools import nth
@@ -97,6 +97,12 @@ def pcd_to_np(pcd_path):
     pcd = o3d.io.read_point_cloud(pcd_path)
     out_arr = np.asarray(pcd.points)
     return out_arr
+
+def copy_image(inpath, outpath):
+    outdir = '/'.join(outpath.split('/')[:-1])
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    shutil.copy(inpath, outpath)
 
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)

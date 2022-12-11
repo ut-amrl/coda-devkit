@@ -1,9 +1,9 @@
 repository_root: "/home/arthur/AMRL/Datasets/UTPeDa"
 dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
-bag_date:    "111622"
+bag_date:    "101222"
 
 #Bag Decoder Settings
-gen_data: False   # Generates data files
+gen_data: True   # Generates data files
 viz_imu: True     # Republish imu messages
 verbose: True    # Debugging
 
@@ -63,6 +63,6 @@ sensor_types: [
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1668633692.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [3] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1665600919.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [0] # Leave empty to assign ids in sequential order from 0
 

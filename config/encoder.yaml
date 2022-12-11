@@ -2,10 +2,10 @@
 dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
 # dataset_output_root: "/home/arthur/AMRL/Tools/kitti360LabelTool/public/data" 
 # dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
-dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_scale"
+dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_deepen"
 
-encoding_format: "scale"
-use_wcs: False
+encoding_format: "deepen"
+use_wcs: True
 
 # Defines which topics to copy. Should contain at least os1 and cam0
 copy_files: True
@@ -23,14 +23,14 @@ trajectories: [
 ]
 
 trajectory_frames:
-  0: [
-    [900, 1200], # 1 minute worth of annotations\
-    [1200, 1500]
-  ]
-  1: [
-    [50, 300],
-    [300, 550]
-  ]
+  # 0: [
+  #   [900, 1200], # 1 minute worth of annotations\
+  #   [1200, 1500]
+  # ]
+  # 1: [
+  #   [50, 300],
+  #   [300, 550]
+  # ]
   2: [
     [2760, 2810]
   ]

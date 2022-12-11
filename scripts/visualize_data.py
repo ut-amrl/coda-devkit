@@ -182,8 +182,8 @@ def main():
             if viz_anno:
                 if os.path.exists(threed_label_file):
                     pub_3dbbox_to_rviz(marker_pub, threed_label_file, frame_time, verbose=True)
-                    # time.sleep(1)
-                    pdb.set_trace()
+                    time.sleep(1)
+                    # pdb.set_trace()
                 else:
                     print("No annotations available for frame %s, skipping..." % str(frame) )
             

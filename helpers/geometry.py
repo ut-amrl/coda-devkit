@@ -23,20 +23,23 @@ def densify_poses_between_ts(pose_np, ts_np):
     return out_pose_np
 
 def find_closest_pose(pose_np, target_ts):
-    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
+    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
 
     if curr_ts_idx>=pose_np.shape[0]:
         curr_ts_idx = pose_np.shape[0]-1
         print("Reached end of known poses at time %10.6f" % target_ts)
+    elif curr_ts_idx < 0:
+        curr_ts_idx = 0
 
     next_ts_idx = curr_ts_idx + 1
     if next_ts_idx>=pose_np.shape[0]:
         next_ts_idx = pose_np.shape[0] - 1
 
     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-            pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+        pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
     else:
         pose = pose_np[curr_ts_idx]
+
     return pose
 
 def inter_pose(posea, poseb, sensor_ts):
@@ -52,11 +55,16 @@ def inter_pose(posea, poseb, sensor_ts):
     transa  = posea[1:4]
     transb  = poseb[1:4]
 
-    inter_trans = transa + (transb-transa) / (tsb - tsa) * 0.5
+    tparam = abs(sensor_ts - tsa) / (tsb - tsa)
+    inter_trans = transa + tparam * (transb - transa)
     theta = np.arccos(np.dot(quata, quatb))
-    inter_quat  = np.sin(0.5*theta)/np.sin(theta)*quata +\
-        np.sin(0.5*theta) / np.sin(theta) * quatb
+  
+    # print("tsb ", tsb, " tsa ", tsa, " sensor_ts ", sensor_ts)
+    # print("tparam ", tparam)
 
+    inter_quat  =   ( np.sin( (1-tparam) * theta)  / np.sin(theta) ) * quata + \
+                    ( np.sin( tparam * theta)      / np.sin(theta) ) * quatb
+    # print("quat a ", quata, " inter_quat ", inter_quat, " quatb ", quatb)
     new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
 
     return new_pose
@@ -82,16 +90,13 @@ def wcs_mat(angles):
     r = R.from_euler('zyx', angles, degrees=True)
     return r
 
-def oxts_to_homo(pose):
+def pose_to_homo(pose):
     trans = pose[1:4]
-    quat = np.array([pose[7], pose[4], pose[5], pose[6]])
+    quat = np.array([pose[5], pose[6], pose[7], pose[4]])
     rot_mat = R.from_quat(quat).as_matrix()
 
-    #TODO: figure out why poses from LeGO-LOAM aren't axis aligned
-    temp_r = wcs_mat([0, 180, 0]).as_matrix()
-
-    homo_mat = np.eye(4, dtype=np.float32)
-    homo_mat[:3, :3] = temp_r@rot_mat
+    homo_mat = np.eye(4, dtype=np.float64)
+    homo_mat[:3, :3] = rot_mat
     homo_mat[:3, 3] = trans
     return homo_mat
 
@@ -126,7 +131,34 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
             output_mask[pc_indices] = 1
     return output_mask
 
-def project_3dto2d_bbox(tred_annotation, wcs_pose, calib_ext_file, calib_intr_file):
+def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None):
+    #Compute ego lidar to ego camera coordinate systems (Extrinsic)
+    calib_ext = open(calib_ext_file, 'r')
+    calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
+    ext_homo_mat    = np.array(calib_ext['data']).reshape(
+        calib_ext['rows'], calib_ext['cols']
+    )
+    if wcs_pose is not None:
+        #Transform PC from WCS to ego lidar
+        pc_np_homo = np.hstack((pc_np, np.ones(pc_np.shape[0], 1)))
+        pc_np = (np.linalg.inv(wcs_pose) @ pc_np_homo.T).T[:, :3]
+
+    #Load projection, rectification, distortion camera matrices
+    intr_ext    = open(calib_intr_file, 'r')
+    intr_ext    = yaml.safe_load(intr_ext)
+
+    K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
+    d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, k3, p1, p2
+
+    image_points, _ = cv2.projectPoints(pc_np[:, :3],
+        ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
+    image_points = np.swapaxes(image_points, 0, 1).astype(np.int32).squeeze()
+    valid_points_mask = get_pointsinfov_mask(
+        (ext_homo_mat[:3, :3]@pc_np[:, :3].T).T+ext_homo_mat[:3, 3])
+
+    return image_points, valid_points_mask
+
+def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     """
     wcs_mat - 4x4 homogeneous matrix
     """
@@ -171,9 +203,6 @@ def project_3dto2d_bbox(tred_annotation, wcs_pose, calib_ext_file, calib_intr_fi
             calib_ext['rows'], calib_ext['cols']
         )
 
-        inv_ext_homo_mat = np.ones((4,4))
-        inv_ext_homo_mat = np.linalg.inv(ext_homo_mat)
-
         #Load projection, rectification, distortion camera matrices
         intr_ext    = open(calib_intr_file, 'r')
         intr_ext    = yaml.safe_load(intr_ext)
@@ -183,10 +212,12 @@ def project_3dto2d_bbox(tred_annotation, wcs_pose, calib_ext_file, calib_intr_fi
         P   = np.array(intr_ext['projection_matrix']['data']).reshape(3, 4)
         Re  = np.array(intr_ext['rectification_matrix']['data']).reshape(3, 3)
 
-        test_mat = np.linalg.inv(
-            R.from_euler("xyz", [-102.254628,   0., -90.2], degrees=True).as_matrix()
-        ).reshape(3, 3)
-        trans_mat = np.array([0.03, -0.05, 0.]) # traj 0
+        # test_mat = np.linalg.inv(
+        #     R.from_euler("xyz", [-102.254628,   0., -90.2], degrees=True).as_matrix()
+        # ).reshape(3, 3)
+        # print("ROT ", R.from_euler("xyz", [-102.254628,   0., -90.2], degrees=True).as_matrix())
+        # print("INV ROT ", test_mat)
+        # trans_mat = np.array([0.03, -0.05, 0.]) # traj 0
 
         # test_mat = np.linalg.inv(
         #     R.from_euler("xyz", [-98.254628,   -4., -90.2], degrees=True).as_matrix()
@@ -194,9 +225,9 @@ def project_3dto2d_bbox(tred_annotation, wcs_pose, calib_ext_file, calib_intr_fi
         # trans_mat = np.array([0.03, 0.0, 0.]) # x z
 
         image_points, _ = cv2.projectPoints(tred_corners[:, :3],
-            test_mat, trans_mat, K, d)
+            ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
         image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
-        valid_points_mask = get_pointsinfov_mask((test_mat@tred_corners.T).T+trans_mat)
+        valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
         # pdb.set_trace()
         # Testing
         # if annotation["instanceId"]=="Scooter:1":
@@ -268,8 +299,11 @@ def get_pointsinfov_mask(points):
     Assumes camera coordinate system input points
     """
     norm_p = np.linalg.norm(points, axis=-1, keepdims=True)
+
     forward_vec = np.array([0, 0, 1]).reshape(3, 1)
     norm_f = np.linalg.norm(forward_vec)
+    norm_p[norm_p==0] = 1e-6 # Prevent divide by zero error
+
     angles_vec  = np.arccos( np.dot(points, forward_vec) / (norm_f*norm_p) )
 
     in_fov_mask = np.abs(angles_vec[:,0]) <= 0.785398
