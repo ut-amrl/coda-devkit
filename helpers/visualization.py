@@ -46,8 +46,12 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
         print("Undefined datatype size accessed, defaulting to FLOAT64...")
 
     pc_msg = PointCloud2()
-    pc_msg.width        = pc.shape[1]
-    pc_msg.height       = pc.shape[0]
+    if pc.ndim>2:
+        pc_msg.width        = pc.shape[1]
+        pc_msg.height       = pc.shape[0]
+    else:
+        pc_msg.width        = 1
+        pc_msg.height       = pc.shape[0]
 
     pc_msg.header            = std_msgs.msg.Header()
     pc_msg.header.stamp      = ts
@@ -68,8 +72,8 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
         fields.append(PointField('intensity', pc.itemsize*3, DATATYPE, 1))
     else:
         pc_msg.point_step   = pc.itemsize*3
-    pc_msg.row_step     = pc_msg.width * pc_msg.point_step
 
+    pc_msg.row_step     = pc_msg.width * pc_msg.point_step
     pc_msg.fields   = fields
     if is_ring:
         pc_msg.data     = all_bytes_np.tobytes()
@@ -92,12 +96,23 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
     anno_file   = open(anno_filepath, 'r')
     anno_json   = json.load(anno_file)
 
+    # Clear previous bbox markers
+    bbox_markers = MarkerArray()
+    bbox_marker = Marker()
+    bbox_marker.id = 0
+    bbox_marker.ns = "delete_markerarray"
+    bbox_marker.action = Marker.DELETEALL
+    bbox_markers.markers.append(bbox_marker)
+    m_pub.publish(bbox_markers)
+
     bbox_markers = MarkerArray()
     for idx, annotation in enumerate(anno_json["3dannotations"]):
         #Pose processing
         px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
         instanceId, classId = annotation["instanceId"], annotation["classId"]
-
+        # if classId=='Tree':
+        #     continue
+        
         rot_mat = R.from_euler('xyz', [annotation['r'], annotation['p'], annotation['y']], degrees=False)
         quat_orien = R.as_quat(rot_mat)
 
@@ -130,6 +145,12 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
             bbox_marker.color.r = class_color[0] / 255.0;
             bbox_marker.color.g = class_color[1] /255.0;
             bbox_marker.color.b = class_color[2] / 255.0;
+
+            if instanceId=="Person:1":
+                bbox_marker.color.r = 50 / 255.0;
+                bbox_marker.color.g = 205 /255.0;
+                bbox_marker.color.b = 50 / 255.0;
+
 
         bbox_markers.markers.append(bbox_marker)
 

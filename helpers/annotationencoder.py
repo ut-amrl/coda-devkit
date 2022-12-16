@@ -1,17 +1,22 @@
 import os
 import pdb
-from re import M
+import copy
 import shutil
 import yaml
 import math 
 import numpy as np
 import shutil
 
+import rospy
+from sensor_msgs.msg import PointCloud2
+from helpers.visualization import pub_pc_to_rviz
+from helpers.visualization import *
+
 from helpers.constants import *
 from helpers.geometry import *
 from scipy.spatial.transform import Rotation as R
 
-from helpers.sensors import bin_to_ply, set_filename_by_topic
+from helpers.sensors import *
 
 class AnnotationEncoder(object):
     """
@@ -36,6 +41,10 @@ class AnnotationEncoder(object):
 
             # Sagemaker Specific
             self._prefix        = settings['s3_prefix']
+        
+        rospy.init_node('bin_publisher', anonymous=True)
+        self._pc_pub = rospy.Publisher('/coda/bin/points', PointCloud2, queue_size=10)
+        self._pose_pub = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
 
         #Directory checks
         assert os.path.isdir(self._indir), '%s does not exist' % self._indir
@@ -53,156 +62,209 @@ class AnnotationEncoder(object):
 
     def encode_annotations(self):
         if self._enc_format=="sagemaker":
-            self.create_manifest()
-        elif self._enc_format=="kitti360":
-            self.create_kitti360_database()
+            self.copy_sensor_files()
+        elif self._enc_format=="scale":
+            self.copy_sensor_files()
+        elif self._enc_format=="deepen":
+            self.create_deepen_structure()
+            self.create_json_files()
 
-    def create_kitti360_database(self):
-        for traj in self._trajs:
+    def create_deepen_structure(self):
+        if not os.path.exists(self._outdir):
+            print("Creating outdir %s since it does not exist..." % self._outdir)
+            os.makedirs(self._outdir)
+
+        # Json file directory
+        json_dir = os.path.join(self._outdir, "3d_formatted")
+        if not os.path.exists(json_dir):
+            os.makedirs(json_dir)
+
+        # Camera directory
+        cams_dir = ["cam0", "cam1"]
+        for cam in cams_dir:
+            cam_dir = os.path.join(self._outdir, "2d_raw", cam)
+            if not os.path.exists(cam_dir):
+                os.makedirs(cam_dir)
+
+    def create_json_files(self):
+         for traj in self._trajs:
             traj_frames = self._traj_frames[traj]
 
+            in_pose_file = os.path.join(self._indir, "poses", "%i.txt"%traj)
+            assert os.path.isfile(in_pose_file), '%s does not exist' % in_pose_file
+
+            in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%traj)
+            assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
+
+            in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
+            frame_to_ts_np = np.fromfile(in_ts_file, sep=' ').reshape(-1, 1)
+            out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np)
+            # pdb.set_trace()
             for frame_seq in traj_frames:
                 start, end = frame_seq[0], frame_seq[1]
 
-                traj_dir        = "utcoda_%i_%i_%i" % (traj, start, end)
-                traj_dir_path   = os.path.join(self._outdir, traj_dir)
-                if not os.path.exists(traj_dir_path):
-                    print("Creating new trajectory for kitti360 at %s"%traj_dir_path)
-                    os.mkdir(traj_dir_path)
+                out_frame_dir = os.path.join(self._outdir, "3d_formatted", str(traj))
+                if not os.path.exists(out_frame_dir):
+                    print("Creating output directory for trajectory %i at %s", 
+                        (traj, out_frame_dir) )
+                    os.makedirs(out_frame_dir)
 
-                self.create_kitti360_subdirs(traj_dir_path)
+                for frame in range(start, end):
+                    pose        = out_pose_np[frame]
+                    timestamp   = frame_to_ts_np[frame]
 
-                self.format_kitti360_files(traj, start, end, traj_dir)
+                    # Save images and points to json formatted str
+                    image_str = self.fill_json_images_dict(traj, frame, pose, timestamp)
+                    points_str  = self.create_json_points_str(traj, frame, pose)
+                    frame_str = image_str + points_str
+                    
+                    # Write json formatted string to outdir
+                    json_filename = "%06d.json" % frame
+                    json_path = os.path.join(out_frame_dir, json_filename)
+                    json_file = open(json_path, "w+")
+                    json_file.write(frame_str)
+                    json_file.close()
 
-                # Copy cam0 calibrations
-                intrinsic_dict = {
-                    "fx": CAM0_CALIBRATIONS["distortion"][0],
-                    "fy": CAM0_CALIBRATIONS["distortion"][1],
-                    "ox": CAM0_CALIBRATIONS["distortion"][2],
-                    "oy": CAM0_CALIBRATIONS["distortion"][3],
-                    "w": CAM0_CALIBRATIONS["width"],
-                    "h": CAM0_CALIBRATIONS["height"]
-                }
-                intrinsic_xml = KITTI360_INTRINSIC_XML % intrinsic_dict
-                intrinsic_path= os.path.join(self._outdir, traj_dir, "intrinsics_0.xml")
-                intrinsic_file= open(intrinsic_path, "w+")
-                intrinsic_file.write(intrinsic_xml)
-                intrinsic_file.close()
+                    # Copy .bin files
+                    subdir = os.path.join("3d_raw", "os1")
+                    bin_name= set_filename_by_prefix("3d_raw", "os1", traj, frame)
+                    self.copy_file_dir(self._indir, self._outdir, subdir, str(traj), bin_name)
 
-                # Copy cam frames file
-                cam_frames_path = os.path.join(self._outdir, traj_dir, "cameraIndex.txt")
-                cam_indices     = np.arange(start, end)
-                open(cam_frames_path, 'w+')
-                np.savetxt(cam_frames_path, cam_indices, delimiter='\n', fmt="%0.2d")
+                    # Copy matched images
+                    self.copy_cam_dir(traj, frame, "cam0")
+                    self.copy_cam_dir(traj, frame, "cam1")
 
-    def create_kitti360_subdirs(self, rootdir):
-        # Create poses dir
-        pose_dir = os.path.join(rootdir, "poses")
-        if not os.path.exists(pose_dir):
-            print("Pose subdir does not exist, creating %s" % pose_dir)
-            os.makedirs(pose_dir)
+                    print("Wrote json output for frame %i at path %s" % (frame, json_path))
 
-        # Create img dir
-        img_dir = os.path.join(rootdir, "image_00")
-        if not os.path.exists(img_dir):
-            print("Pose subdir does not exist, creating %s" % img_dir)
-            os.makedirs(img_dir)
-
-    def format_kitti360_files(self, traj, frame_start, frame_end, traj_dir):
-        cam_num = 0
-        pc_sensor = "3d_raw/os1"
+    def copy_cam_dir(self, traj, frame, sensor_name):
+        modality = "2d_raw"
+        img_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
+        img_path        = os.path.join(self._indir, modality, sensor_name, 
+            str(traj), img_filename)
         
-        root_frame_dir = os.path.join(self._outdir, traj_dir)
-        bin_dir = os.path.join(self._indir, pc_sensor, str(traj))
+        img_in_path = os.path.join(self._indir, img_path)
+        img_out_path = img_path.replace(self._indir, self._outdir)
+        copy_image(img_in_path, img_out_path)
 
-        img_sensor  = "2d_raw/cam%i"% cam_num
-        img_in_dir = os.path.join(self._indir, img_sensor, str(traj))
-        img_out_dir = os.path.join(root_frame_dir, "image_00")
+    def create_json_points_str(self, traj, frame, pose):
+        modality, sensor_name = "3d_raw", "os1"
+        bin_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
+        bin_path        = os.path.join(self._indir, modality, sensor_name, str(traj), bin_filename)
 
-        # Copy cam0 intrinsics
+        bin_np          = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 3)
+        bin_np          = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) )))
+        ego_to_wcs      = pose_to_homo(pose)
+        bin_np      = (ego_to_wcs @ bin_np.T).T
+        bin_np      = bin_np[:, :3].astype(np.float32)
 
-        in_pose_file= os.path.join(self._indir, "poses", "%i.txt"%traj)
-
-        pose_dir    = os.path.join(root_frame_dir, "poses")
-        frame_path  = os.path.join(root_frame_dir, "frames.txt")
-
+        # pub_pc_to_rviz(bin_np, self._pc_pub, rospy.get_rostime())
+        # pub_pose(self._pose_pub, pose, frame, rospy.get_rostime())
+        # # pdb.set_trace()
+        # pcd_path = os.path.join(self._outdir, "3d_pcd", "traj")
+        # if not os.path.exists(pcd_path):
+        #     os.makedirs(pcd_path)
+        # pcd_file = os.path.join(pcd_path, "%i.pcd"%frame)
+        # bin_to_ply(bin_np, pcd_file)
         
-        frame_to_ts_file    = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%traj)
-        assert os.path.isfile(in_pose_file), "Error: pose file for trajectory %s \
-            cannot be found in filepath %s\n Exiting..."%(traj, in_pose_file)
-        assert os.path.isfile(frame_to_ts_file), "Error: pose file for trajectory %s \
-            cannot be found in filepath %s\n Exiting..."%(traj, frame_to_ts_file)
-        in_pose_np= np.fromfile(in_pose_file, dtype=np.float32, sep=" ").reshape(-1, 8)
-        ts_frame_np = np.fromfile(frame_to_ts_file, sep=" ").reshape(-1, 1)
+        points_arr_str  = copy.deepcopy(DEEPEN_POINTS_PREFIX)
+        point_dict = copy.deepcopy(DEEPEN_POINT_DICT)
+        for entry in bin_np:
+            point_dict["x"], point_dict["y"], point_dict["z"] = entry
+            point_str = DEEPEN_POINT_ENTRY % point_dict
+            points_arr_str += point_str
 
-        frame_file  = open(frame_path, "w+")
-        full_bin_np = np.empty((0, 3), dtype=np.float32)
-        for frame in range(frame_start, frame_end):
-            bin_name    = "%s_%s_%i_%i" % (pc_sensor.split('/')[0], 
-                pc_sensor.split('/')[1], traj, frame)
-            ply_name    = "points_%0.10d.ply"
+        points_arr_str = points_arr_str[:-2]
+        points_arr_str += DEEPEN_POINTS_SUFFIX
 
-            bin_path    = os.path.join(bin_dir, "%s.%s"%(bin_name, SENSOR_DIRECTORY_FILETYPES[pc_sensor]) )
-            ply_path    = os.path.join(root_frame_dir, ply_name%frame)
-            
-            # Copy bin files
-            bin_np = np.fromfile(bin_path, np.float32).reshape(-1, 3)
-            bin_to_ply(bin_np, ply_path)
-            full_bin_np = np.vstack((full_bin_np, bin_np))
-            
-            # Copy cam 0 images
-            img_out_name    = "%0.10d.png"%frame
-            img_out_path    = os.path.join(img_out_dir, img_out_name)
-            img_in_name     = "%s_%i_%i.png" % ("_".join(img_sensor.split("/")), traj, frame)
-            img_in_path     = os.path.join(img_in_dir, img_in_name)
-            shutil.copy(img_in_path, img_out_path)
+        return points_arr_str
 
-            # Write frame to frames txt file
-            frame_file.write("%0.10d\n"%frame)
 
-            # Write to poses file
-            pose_file = "%0.10d_%i.txt" % (frame, cam_num)
-            pose_path = os.path.join(pose_dir, pose_file)
-            closeset_pose = self.find_closest_pose(ts_frame_np, frame, in_pose_np)
+    def fill_json_images_dict(self, traj, frame, pose, ts):
+        in_calib_dir = os.path.join(self._indir, "calibrations", str(traj) )
+        cam0_intrinsics_path= os.path.join(in_calib_dir, "calib_cam0_intrinsics.yaml")
+        cam1_intrinsics_path= os.path.join(in_calib_dir, "calib_cam1_intrinsics.yaml")
+        cam0_to_cam1_path   = os.path.join(in_calib_dir, "calib_cam0_to_cam1.yaml")
+        os1_to_cam0_path    = os.path.join(in_calib_dir, "calib_os1_to_cam0.yaml")
 
-            self.kitti360_gen_pose_file(pose_path, closeset_pose)
+        cam0_intr_file  = open(cam0_intrinsics_path, 'r')
+        cam1_intr_file  = open(cam1_intrinsics_path, 'r')
+        cam0tocam1_file = open(cam0_to_cam1_path, 'r')
+        os1tocam0_file  = open(os1_to_cam0_path, 'r')
 
-        # Write full point cloud to .ply file
-        ply_path = os.path.join(root_frame_dir, "points.ply")
-        bin_to_ply(full_bin_np, ply_path)
+        cam0_intr = yaml.safe_load(cam0_intr_file)
+        cam1_intr = yaml.safe_load(cam1_intr_file)
+        cam0tocam1_y  = yaml.safe_load(cam0tocam1_file)
+        os1tocam0_y = yaml.safe_load(os1tocam0_file)
 
-        frame_file.close()
+        cam0tocam1= np.eye(4)
+        cam0tocam1[:3, :3]= np.array(cam0tocam1_y['extrinsic_matrix']\
+            ['R']['data']).reshape(3, 3)
+        cam0tocam1[:3, 3] = np.array(cam0tocam1_y['extrinsic_matrix']['T']
+            ).reshape(3,)
+        os1tocam0 = np.array(os1tocam0_y['extrinsic_matrix']\
+            ['data']).reshape(4, 4)
 
-    def kitti360_gen_pose_file(self, outfilepath, pose):
+        # TODO: once we log poses in base_link frame, add base_link to lidar transform here
+        wcs_pose    = pose_to_homo(pose)
+
+        cam0pose    = wcs_pose @ np.linalg.inv(os1tocam0)
+        cam1pose    = cam0pose @ np.linalg.inv(cam0tocam1)
+
+        modality, sensor_name = "2d_raw", "cam0"
+        cam0_filename   = set_filename_by_prefix(modality, sensor_name, traj, frame)
+        cam0_dict  = self.create_image_dict(cam0_filename, ts, cam0pose, cam0_intr)
+
+        sensor_name = "cam1"
+        cam1_filename   = set_filename_by_prefix(modality, sensor_name, traj, frame)
+        cam1_dict  = self.create_image_dict(cam1_filename, ts, cam1pose, cam1_intr)
+
+        image_suffix_dict = DEEPEN_IMAGE_SUFFIX_DICT
+        image_suffix_dict["ts"] = ts 
+        image_suffix_dict["dpx"], image_suffix_dict["dpy"], image_suffix_dict["dpz"] = \
+            wcs_pose[:3, 3]
+        image_suffix_dict["dhx"], image_suffix_dict["dhy"], image_suffix_dict["dhz"], \
+            image_suffix_dict["dhw"] = R.from_matrix(wcs_pose[:3, :3]).as_quat()
+
+        image_str   = copy.deepcopy(DEEPEN_IMAGE_PREFIX)
+        image_str   += DEEPEN_IMAGE_ENTRY % cam0_dict
+        image_str   += DEEPEN_IMAGE_ENTRY % cam1_dict
+        image_str   = image_str[:-1]
+        image_str   += DEEPEN_IMAGE_SUFFIX % image_suffix_dict
+
+        return image_str
+
+    def create_image_dict(self, img_file, ts, wcs_pose, intr):
         """
-        Converts pose from x y z qw qx qy qz to 3x4 rotation matrix and xyz
-
-        Note: These poses should be in the robot base link frame
+        img_file        - image filename
+        frame_to_ts_np  - np array each each index is the corresponding timestamp
+        wcs_pose        - pose of camera in wcs
+        intr            - camera intrinsic
         """
-        quat = R.from_quat(pose[4:])
-        rot_mat = quat.as_matrix()
+        image_dict = copy.deepcopy(DEEPEN_IMAGE_DICT)
 
-        pose_mat = np.eye(4)
-        pose_mat[:3, :3]    = rot_mat
-        pose_mat[:3, 3]     = pose[1:4]
+        modality, sensor_name, trajectory, frame = get_filename_info(img_file)
+        timestamp = ts
 
-        open(outfilepath, 'w+')
-        np.savetxt(outfilepath, pose_mat.reshape(-1), delimiter=" ", fmt="%0.7f")
+        wcs_trans = wcs_pose[:3, 3]
+        wcs_quat    = R.from_matrix(wcs_pose[:3, :3]).as_quat()
 
-    def find_closest_pose(self, ts_frame_np, frame, pose_np):
-        ts  = ts_frame_np[frame][0]
-        curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
-        next_ts_idx = curr_ts_idx + 1
-        if next_ts_idx>=pose_np.shape[0]:
-            next_ts_idx = pose_np.shape[0] - 1
-        
-        if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-            pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
-        else:
-            pose = pose_np[curr_ts_idx]
-        return pose
+        image_dict["ipath"] = os.path.join(modality, sensor_name, trajectory, img_file)
+        image_dict["ts"]  = timestamp
+        image_dict["fx"]  = intr["camera_matrix"]["data"][0]
+        image_dict["fy"]  = intr["camera_matrix"]["data"][4]
+        image_dict["cx"]  = intr["camera_matrix"]["data"][2]
+        image_dict["cy"]  = intr["camera_matrix"]["data"][5]
+        image_dict["k1"], image_dict["k2"], image_dict["p1"], \
+            image_dict["p2"], image_dict["k3"] = intr["distortion_coefficients"]["data"]
+        image_dict["px"], image_dict["py"], image_dict["pz"] = \
+            wcs_trans
+        image_dict["hx"], image_dict["hy"], image_dict["hz"], image_dict["hw"] = \
+            wcs_quat
 
-    def create_manifest(self):
+        return image_dict
+
+
+    def copy_sensor_files(self):
         """
         Iterates through all specified trajectories and frame pairs 
         """
@@ -213,6 +275,60 @@ class AnnotationEncoder(object):
                 start, end = frame_seq[0], frame_seq[1]
 
                 self.load_frames(traj, start, end)
+            
+            if self._enc_format!="sagemaker":
+                #Copy calibrations
+                self.copy_calibration_by_trajectory(traj)
+                #Copy timestamps
+                self.copy_ts_by_trajectory(traj)
+                #Copy estimated poses
+                self.copy_pose_by_trajectory(traj)
+
+    def copy_calibration_by_trajectory(self, trajectory):
+        in_calib_dir = os.path.join(self._indir, "calibrations", str(trajectory) )
+        assert os.path.isdir(in_calib_dir), '%s does not exist' % in_calib_dir
+
+        out_calib_root_dir = os.path.join(self._outdir, "calibrations")
+        out_calib_dir   = os.path.join(out_calib_root_dir, str(trajectory))
+        if not os.path.exists(out_calib_root_dir):
+            os.makedirs(out_calib_root_dir)
+        
+        if os.path.exists(out_calib_dir):
+            print("Found existing calibration directory for trajectory %i, deleting..."%trajectory)
+            shutil.rmtree(out_calib_dir)
+
+        shutil.copytree(in_calib_dir, out_calib_dir)
+
+    def copy_ts_by_trajectory(self, trajectory):
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
+
+        out_ts_dir = os.path.join(self._outdir, "timestamps")
+        out_ts_file = in_ts_file.replace(self._indir, self._outdir)
+        if not os.path.exists(out_ts_dir):
+            os.makedirs(out_ts_dir)
+
+        shutil.copyfile(in_ts_file, out_ts_file)
+
+    def copy_pose_by_trajectory(self, trajectory):
+        in_pose_file    = os.path.join(self._indir, "poses", "%i.txt"%trajectory)
+        assert os.path.isfile(in_pose_file), '%s does not exist' % in_pose_file
+
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
+
+        in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
+        frame_to_ts_np = np.fromfile(in_ts_file, sep=' ').reshape(-1, 1)
+        
+        out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np)
+
+        out_pose_dir    = os.path.join(self._outdir, "poses")
+        out_pose_file   = in_pose_file.replace(self._indir, self._outdir)
+        if not os.path.exists(out_pose_dir):
+            os.makedirs(out_pose_dir)
+
+        np.savetxt(out_pose_file, out_pose_np, fmt="%10.6f", delimiter=" ")
+        
 
     def load_frames(self, traj, start, end):
         """
@@ -236,12 +352,7 @@ class AnnotationEncoder(object):
             if frame_idx%self._ds_rate==0:
                 #Interpolate pose from closest timstamp
                 ts  = ts_frame_np[frame][0]
-                curr_ts_idx = np.searchsorted(pose_np[:, 0], ts, side="left")
-                next_ts_idx = curr_ts_idx + 1
-                if next_ts_idx>=pose_np.shape[0]:
-                    next_ts_idx = pose_np.shape[0] - 1
-                
-                pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], ts)
+                pose    = find_closest_pose(pose_np, ts)
 
                 sensor_files = ["", "", ""]
                 for idx, topic in enumerate(self._sensor_topics):
@@ -258,7 +369,19 @@ class AnnotationEncoder(object):
 
                         if filetype=="bin" and self._use_wcs:
                             bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
-                            self.ego_to_wcs(bin_file, pose)
+                            wcs_bin_np = self.ego_to_wcs(bin_file, pose)
+                            #Overwrite existing bin file in outdir directory
+                            wcs_bin_np.tofile(bin_file)  
+                
+                        if filetype=="bin" and self._enc_format == "scale":
+                            bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
+                            ply_path = bin_file.replace(".bin", ".pcd")
+                            try:
+                                bin_np  = np.fromfile(bin_file, dtype=np.float32).reshape(-1, 3)
+                                pub_pc_to_rviz(bin_np, self._pc_pub, rospy.get_rostime())
+                            except Exception as e:
+                                pdb.set_trace()
+                            bin_to_ply(bin_np, ply_path)
                     
                     sensor_files[idx] = os.path.join(subdir, str(traj), frame_filename)
             
@@ -269,8 +392,16 @@ class AnnotationEncoder(object):
                     manifest_frames_str += ",\n"
 
                 manifest_frames_str += frame_curr
+
+                if self._enc_format=="sagemaker":
+                    self.create_manifest(traj, frame_count, manifest_frames_str, start, end)
+
                 #Accum total frame count
                 frame_count+=1
+
+    def create_manifest(self, traj, frame_count, manifest_frames_str, start, end):
+        if self._enc_format!="sagemaker":
+            print("Warning: running manifest generation without sagemaker format\n")
 
         #Write sequences/manifest file
         seq_text = SEQ_TEXT % traj
@@ -303,15 +434,14 @@ class AnnotationEncoder(object):
         """
         pose - given as ts x y z qw qx qy qz 
         """
-        pose_mat = oxts_to_homo(pose)
+        pose_mat = pose_to_homo(pose)
         bin_np  = np.fromfile(filepath, dtype=np.float32).reshape(-1, 3)
         ones_col = np.ones((bin_np.shape[0], 1), dtype=np.float32)
         bin_np  = np.hstack((bin_np, ones_col))
         wcs_bin_np = (pose_mat@bin_np.T).T
-        wcs_bin_np = wcs_bin_np[:, :3]
+        wcs_bin_np = wcs_bin_np[:, :3].astype(np.float32)
 
-        #Overwrite existing bin file in outdir directory
-        wcs_bin_np.tofile(filepath)       
+        return wcs_bin_np     
 
     def copy_file_dir(self, inroot, outroot, subdir, traj, filename, pose=np.eye(4)):
         indir = os.path.join(inroot, subdir, traj)
@@ -323,7 +453,6 @@ class AnnotationEncoder(object):
         outfile = os.path.join(outdir, filename)
 
         shutil.copyfile(infile, outfile)
-
 
     def fill_frame_text(self, filepaths, pose, ts, frameno, cam_parameters):
         assert len(filepaths)==3, "Incorrect number of sensors %i passed to manifest \

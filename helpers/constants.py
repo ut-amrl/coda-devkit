@@ -56,6 +56,10 @@ SAGEMAKER_TO_COMMON_ANNO = {
     "Nav Behavior": "behavior"
 }
 
+CLASS_VIZ_LIST = ["Scooter", "Bike", "Car", "Person", "Traffic Sign", "Bike Rack", "Mailbox", 
+"Freestanding Plant", "Pole", "Informational Sign", "Fence", "Chair", "Bench", "Trash Can", 
+"Newspaper Dispenser", "Other"]
+
 CLASS_TO_ID = {
     # Dynamic Classes
     "Scooter": 0,
@@ -101,6 +105,8 @@ CLASS_TO_ID = {
     "Television": 37,
     "Other": 38
 }
+
+NONRIGID_CLASS_IDS = [6, 7]
 
 ID_TO_COLOR = [
     (120, 190, 33),     #0 Scooter
@@ -157,7 +163,10 @@ SENSOR_DIRECTORY_FILETYPES = {
     "3d_raw/os1": "bin",
     "2d_raw/cam0": "png",
     "2d_raw/cam1": "png",
-    "3d_label/os1": "json"
+    "2d_label/cam0": "png",
+    "2d_label/cam1": "png",
+    "3d_label/os1": "json",
+    # "3d_label/os1": "pcd"
 }
 
 """
@@ -210,6 +219,131 @@ CAM0_CALIBRATIONS = {
     "width": 1224,
     "height": 1024
 }
+
+"""
+DeepenAI Generation
+"""
+DEEPEN_TO_COMMON_ANNO = {
+    #Frame Specific
+    # "file_id": "frame",
+    # "labels": "3dannotations",
+    "attributes_source": "labelCategoryAttributes",
+    "three_d_bbox": ".",
+    "quaternion": ".",
+    # Object Specific 
+    "label_id": "instanceId",
+    "label_category_id": "classId",
+    "cx": "cX",
+    "cy": "cY",
+    "cz": "cZ",
+    "l": "l",
+    "w": "w",
+    "h": "h",
+    "qx": "qx",
+    "qy": "qy",
+    "qz": "qz",
+    "qw": "qw",
+    "Occlusion": "isOccluded"
+}
+
+DEEPEN_LABEL_STR = "CODa_deepen_%s.json"
+
+DEEPEN_IMAGE_PREFIX = """{
+    "images": ["""
+
+DEEPEN_IMAGE_SUFFIX_DICT = {
+    "ts":   0.0,
+    "dhx":  0.0,
+    "dhy":  0.0,
+    "dhz":  0.0, 
+    "dhw":  0.0, 
+    "dpx":  0.0,
+    "dpy":  0.0,
+    "dpz":  0.0
+}
+
+DEEPEN_IMAGE_SUFFIX = """
+    ],
+    "timestamp": %(ts)0.10f,
+    "device_heading": {
+        "x": %(dhx)0.10f,
+        "y": %(dhy)0.10f,
+        "z": %(dhz)0.10f,
+        "w": %(dhw)0.10f
+    },
+    "device_position": {
+        "x": %(dpx)0.10f,
+        "y": %(dpy)0.10f,
+        "z": %(dpz)0.10f
+    },"""
+
+DEEPEN_POINTS_PREFIX = """
+    "points": [
+"""
+
+DEEPEN_POINTS_SUFFIX = """
+    ]
+}"""
+
+DEEPEN_POINT_DICT = {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0
+}
+DEEPEN_POINT_ENTRY = '''        {
+            "x": %(x)0.10f,
+            "y": %(y)0.10f,
+            "z": %(z)0.10f
+        },
+'''
+
+DEEPEN_IMAGE_DICT = {
+    "ipath":    "",
+    "ts":       0.0,
+    "fx":       0.0,
+    "fy":       0.0, 
+    "cx":       0.0, 
+    "cy":       0.0,
+    "k1":       0.0,
+    "k2":       0.0,
+    "k3":       0.0,
+    "p1":       0.0,
+    "p2":       0.0,
+    "px":      0.0, 
+    "py":      0.0, 
+    "pz":      0.0,
+    "hx":      0.0,
+    "hy":      0.0, 
+    "hz":      0.0, 
+    "hw":      0.0
+}
+
+DEEPEN_IMAGE_ENTRY = '''
+        {
+            "timestamp": %(ts)0.10f,
+            "fx":  %(fx)0.10f,
+            "fy":  %(fy)0.10f,
+            "cx":  %(cx)0.10f,
+            "cy":  %(cy)0.10f,
+            "k1": %(k1)0.10f,
+            "k2": %(k2)0.10f,
+            "k3": %(k3)0.10f,
+            "p1": %(p1)0.10f,
+            "p2": %(p2)0.10f,
+            "image_url": "%(ipath)s",
+            "position": {
+                "x": %(px)0.10f,
+                "y": %(py)0.10f,
+                "z": %(pz)0.10f
+            },
+            "heading": {
+                "x": %(hx)0.10f,
+                "y": %(hy)0.10f,
+                "z": %(hz)0.10f,
+                "w": %(hw)0.10f
+            },
+            "camera_model": "pinhole"
+        },'''
 
 """
 Manifest Autogeneration

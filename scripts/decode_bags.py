@@ -5,7 +5,7 @@ import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', default="config/decode.yaml",
+parser.add_argument('--config', default="config/bagdecoder.yaml",
                     help="decode config file (see config/decode.yaml for example)")
 
 # For imports

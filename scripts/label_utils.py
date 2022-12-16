@@ -17,7 +17,7 @@ from geometry_msgs.msg import Point32
 from std_msgs.msg import ColorRGBA
 
 # User Defined Libraries
-from constants import *
+from helpers.constants import *
 
 # https://stackoverflow.com/questions/39772424/how-to-effeciently-convert-ros-pointcloud2-to-pcl-point-cloud-and-visualize-it-i
 def convert_pc_msg_to_np(pc_msg):
@@ -83,8 +83,7 @@ def convert_bag_to_bins(data_root, save_root, header):
                     # Save pc to binary pack format
                     flat_pc.tofile(pc_filename) # empty sep=bytes
                 idx+=1
-
-        pdb.set_trace()
+        
 
 def get_scene_seq_map(scene_settings_file):
     with open(scene_settings_file) as file:
@@ -225,8 +224,6 @@ def create_images(data_root, save_root, header):
                     img_filename = os.path.join(save_dir, str(last_ts).replace('.', '') + ".jpg")
                     cv.imwrite(img_filename, image_np)
                 idx+=1
-        
-        pdb.set_trace()
 
 def open_bin_as_np(save_dir):
     bin_names = sorted(os.listdir(save_dir))
