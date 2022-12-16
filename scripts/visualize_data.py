@@ -37,10 +37,10 @@ def main():
     settings_fp = os.path.join(os.getcwd(), "config/visualize.yaml")
     with open(settings_fp, 'r') as settings_file:
         settings = yaml.safe_load(settings_file)
-        viz_anno    = settings['viz_anno']
+        viz_2danno    = settings['viz_2danno']
         viz_img     = settings['viz_img']
         viz_pc      = settings['viz_pc']
-        viz_obj     = settings['viz_obj']
+        viz_3danno     = settings['viz_3danno']
         viz_pose    = settings['viz_pose']
 
         img_root_dir    = settings['img_root_dir']
@@ -50,7 +50,7 @@ def main():
         bbox3d_root_dir = settings['bbox3d_root_dir']
         trajectory_frames   = settings['trajectory_frames']
         ds_rate         = settings['downsample_rate']
-        save_object_mask= settings['save_object_masks']
+        save_object_masks= settings['save_object_masks']
         object_mask_dir = settings['object_mask_dir']
         use_wcs         = settings['use_wcs']
 
@@ -62,7 +62,7 @@ def main():
             assert os.path.exists(pose_root_dir), "%s does not exist, provide valid pose_root_dir."
         if viz_pc:
             assert os.path.exists(ts_root_dir), "%s does not exist, provide valid ts_root_dir."
-        if viz_anno:
+        if viz_3danno:
             assert os.path.exists(bbox3d_root_dir), "%s does not exist, provide valid ts_root_dir."
 
     assert len(sys.argv)>=2, "Specify the trajectory number you wish to visualize\n"
@@ -119,20 +119,20 @@ def main():
                     img_file = set_filename_by_prefix("2d_raw", cam_name, trajectory, frame)
                     img_path = os.path.join(cam_dir, img_file)
                     # print(cam_name)
-                    if viz_anno and cam_name=="cam0" and os.path.exists(threed_label_file):
+                    if viz_2danno and cam_name=="cam0" and os.path.exists(threed_label_file):
                         anno_dict       = json.load(open(threed_label_file))
                         image = cv2.imread(img_path)
                         indir="/home/arthur/AMRL/Datasets/CODa"
                         calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
                         calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
-                        bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, pose, calib_ext_file, calib_intr_file)
+                        bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
 
                         for obj_idx in range(0, bbox_pts.shape[0]):
                             in_bounds = np.logical_and(
                                 np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
                                 np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
                             )
-                            # pdb.set_trace()
+
                             valid_point_mask = bbox_mask[obj_idx] & in_bounds
                             valid_points = bbox_pts[obj_idx, valid_point_mask, :]
                             if valid_points.shape[0]==0:
@@ -168,7 +168,7 @@ def main():
                     wcs_bin_np = (pose_mat @ np.hstack((bin_np, np.ones((bin_np.shape[0], 1)))).T).T
                     bin_np = wcs_bin_np[:, :3].astype(np.float32)
 
-                if viz_obj and save_object_mask and os.path.exists(threed_label_file):
+                if viz_3danno and save_object_masks and os.path.exists(threed_label_file):
                     # Only return points contained within bboxes
                     bin_np = bin_np.reshape(-1, 3)
                     output_mask = get_points_in_bboxes(bin_np, threed_label_file)
@@ -178,11 +178,14 @@ def main():
                     bin_np = bin_np.reshape(OS1_POINTCLOUD_SHAPE)
 
                 pub_pc_to_rviz(bin_np, pc_pub, frame_time, frame_id="os_sensor")
+            
             #Publish bboxes
-            if viz_anno:
+            if viz_3danno:
+                print("threed ", threed_label_file)
+                # pdb.set_trace()
                 if os.path.exists(threed_label_file):
                     pub_3dbbox_to_rviz(marker_pub, threed_label_file, frame_time, verbose=True)
-                    time.sleep(1)
+                    time.sleep(0.1)
                     # pdb.set_trace()
                 else:
                     print("No annotations available for frame %s, skipping..." % str(frame) )

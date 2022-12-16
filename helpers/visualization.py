@@ -110,8 +110,8 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
         #Pose processing
         px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
         instanceId, classId = annotation["instanceId"], annotation["classId"]
-        if classId=='Tree':
-            continue
+        # if classId=='Tree':
+        #     continue
         
         rot_mat = R.from_euler('xyz', [annotation['r'], annotation['p'], annotation['y']], degrees=False)
         quat_orien = R.as_quat(rot_mat)

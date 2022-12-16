@@ -25,7 +25,7 @@ class AnnotationDecoder(object):
 
     def __init__(self):
         
-        settings_fp = os.path.join(os.getcwd(), "config/annotationdecoder.yaml")
+        settings_fp = os.path.join(os.getcwd(), "config/decoder.yaml")
         with open(settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
             self._indir   = settings['annotations_input_root']
@@ -67,8 +67,89 @@ class AnnotationDecoder(object):
                     continue
                 traj = dir_item.split('.')[0]
                 self.ewannotate_decoder(subitem, traj)
+        elif self._anno_type=="deepen":
+            for traj_dir in sorted(os.listdir(self._indir)):
+                subdir = os.path.join(self._indir, traj_dir)
+                if not os.path.isdir(subdir):
+                    continue
+
+                anno_dict = self.deepen_decoder(subdir, traj_dir)
+                if self._gen_data:
+                    self.save_anno_json(anno_dict)
         else:
             print("Undefined annotation format type specified, exiting...")
+
+    def deepen_decoder(self, filepath, traj):
+        anno_dict = {
+            "tredannotations": [],
+            "twodannotations": []
+        }
+
+        label_str = DEEPEN_LABEL_STR % traj
+        label_path  = os.path.join(filepath, label_str)
+        anno_file   = open(label_path, "r")
+
+        anno_json               = json.load(anno_file)
+        anno_dict["trajectory"] = traj   
+        anno_dict["sensor"]     = "os1"
+
+        ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+        pose_path   = os.path.join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
+        pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
+        ts_np       = np.loadtxt(ts_to_frame_path)
+
+        dense_pose_np   = densify_poses_between_ts(pose_np, ts_np)
+
+        for frame_str in anno_json["labels"].keys():
+            if frame_str == "dataset_attributes":
+                continue
+            frame   = frame_str.split(".")[0].lstrip("0") or "0"
+            filetype = frame_str.split(".")[1]
+
+            frame_anno = anno_json["labels"][frame_str]
+            #Preprocess annotation data to not have duplicate keys 
+            key_map = {"x": "qx", "y": "qy", "z": "qz", "w": "qw"}
+            for (idx, anno) in enumerate(frame_anno):
+                old_items = frame_anno[idx]["three_d_bbox"]["quaternion"].items()
+                frame_anno[idx]["three_d_bbox"]["quaternion"] = {
+                    key_map[key] if key in key_map.keys() else key:v for key,v in old_items }
+
+            #Copy over existing annotation data
+            pc_list = self.recurs_dict(frame_anno, DEEPEN_TO_COMMON_ANNO)
+
+            #Reformat quat to euler
+            for (pc_idx, pc_anno) in enumerate(pc_list):
+                qx, qy, qz, qw = pc_list[pc_idx].pop("qx"), pc_list[pc_idx].pop("qy"), \
+                    pc_list[pc_idx].pop("qz"), pc_list[pc_idx].pop("qw")
+                euler = R.from_quat([qx, qy, qz, qw]).as_euler("xyz", degrees=False)
+                pc_list[pc_idx]["r"], pc_list[pc_idx]["p"], pc_list[pc_idx]["y"] = euler
+                
+            pc_dict = {"3dannotations": pc_list}
+            #Copy frame and filetype over from existing data
+            pc_dict["filetype"]   = "json"
+            pc_dict["frame"]      = frame
+
+            #Infer modality from filetype
+            if not "subdir" in anno_dict:
+                for (subdir, filetype) in SENSOR_DIRECTORY_FILETYPES.items():
+                    if filetype==pc_dict["filetype"]:
+                        anno_dict["subdir"] = subdir
+
+            if self._use_wcs:
+                frame       = int(pc_dict["frame"])
+                pose        = dense_pose_np[frame]
+                pose_mat    = pose_to_homo(pose)
+                #Convert bbox centers to ego frame
+                for index, anno in enumerate(pc_dict["3dannotations"]):
+                    wcs_to_ego = np.linalg.inv(pose_mat)
+                    new_anno = bbox_transform(anno, wcs_to_ego)
+                    pc_dict["3dannotations"][index] = new_anno
+
+            #Save annotations in dictionary
+            anno_dict["tredannotations"].append(pc_dict)
+    
+        return anno_dict
+
 
     def ewannotate_decoder(self, filepath, traj):
         with open(filepath, 'r') as annos_file:
@@ -179,9 +260,11 @@ class AnnotationDecoder(object):
             anno_filename   = "%s_%s_%s_%s.json"%(modality, sensor_name, traj, frame)
             anno_path = os.path.join(anno_dir, anno_filename)
 
+            print("Writing frame %s to %s..."%(frame, anno_path))
             anno_json = open(anno_path, "w+")
             anno_json.write(json.dumps(annotation, indent=2))
             anno_json.close()
+            
 
     def sagemaker_decoder(self, anno_subdir, anno_files, manifest_file):
         anno_dict = {
@@ -239,6 +322,7 @@ class AnnotationDecoder(object):
                     for index, anno in enumerate(pc_dict["3dannotations"]):
                         wcs_to_ego = np.linalg.inv(pose_mat)
                         new_anno = bbox_transform(anno, wcs_to_ego)
+            
                         pc_dict["3dannotations"][index] = new_anno
 
                 #Save annotations in dictionary
@@ -246,7 +330,7 @@ class AnnotationDecoder(object):
         
         return anno_dict
 
-    def recurs_dict(self, sub_dict_level):
+    def recurs_dict(self, sub_dict_level, src_to_common_map=SAGEMAKER_TO_COMMON_ANNO):
         curr_dict = []
         
         level_keys = [idx[0] for idx in enumerate(sub_dict_level)]
@@ -257,17 +341,22 @@ class AnnotationDecoder(object):
         for key in level_keys:
             curr_level = sub_dict_level[key]
             try:            
-                if key in SAGEMAKER_TO_COMMON_ANNO or isinstance(key, int):
+                if key in src_to_common_map or isinstance(key, int):
                     key_map = key
-                    if key in SAGEMAKER_TO_COMMON_ANNO:
-                        key_map = SAGEMAKER_TO_COMMON_ANNO[key]
+                    if key in src_to_common_map:
+                        key_map = src_to_common_map[key]
 
                     if isinstance(curr_level, dict) or \
                         isinstance(curr_level, list):
+
+                        new_keys = self.recurs_dict(curr_level, src_to_common_map)
                         if isinstance(curr_dict, dict):
-                            curr_dict[key_map] = self.recurs_dict(curr_level)
+                            if key_map==".":
+                                curr_dict.update(new_keys)
+                            else:
+                                curr_dict[key_map] = new_keys
                         else:
-                            curr_dict.append(self.recurs_dict(curr_level))
+                            curr_dict.append(self.recurs_dict(curr_level, src_to_common_map))
                     else:
                         curr_dict[key_map] = curr_level
             except Exception as e:

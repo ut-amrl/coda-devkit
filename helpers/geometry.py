@@ -70,9 +70,19 @@ def inter_pose(posea, poseb, sensor_ts):
     return new_pose
 
 def bbox_transform(annotation, trans):
+    use_quat = False
+
+    if "r" not in annotation.keys():
+        use_quat = True
     center  = np.array([annotation['cX'], annotation['cY'], annotation['cZ']])
-    orient  = R.from_euler("xyz", [annotation['r'], annotation['p'], annotation['y']],
-        degrees=False).as_matrix()
+
+    orient = None
+    if use_quat:
+        orient  = R.from_quat([annotation['qx'], annotation['qy'], annotation['qz'],
+            annotation['qw']]).as_matrix()
+    else:
+        orient  = R.from_euler("xyz", [annotation['r'], annotation['p'], annotation['y']],
+            degrees=False).as_matrix()
     homo_coords = np.eye(4)
     homo_coords[:3, :3] = orient
     homo_coords[:3, 3]  = center
@@ -80,7 +90,13 @@ def bbox_transform(annotation, trans):
     new_coords  = trans @ homo_coords
     annotation['cX'], annotation['cY'], annotation['cZ'] = new_coords[0, 3], \
         new_coords[1, 3], new_coords[2, 3]
-    annotation['r'], annotation['p'], annotation['y'] = R.from_matrix(new_coords[:3, :3]).as_euler("xyz", degrees=False)
+
+    if use_quat:
+        annotation['qx'], annotation['qy'], annotation['qz'], annotation['qw'] = R.from_matrix(
+            new_coords[:3, :3]).as_quat()
+    else:
+        annotation['r'], annotation['p'], annotation['y'] = R.from_matrix(
+            new_coords[:3, :3]).as_euler("xyz", degrees=False)
     return annotation
 
 def wcs_mat(angles):
@@ -169,11 +185,14 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     for annotation_idx, annotation in enumerate(tred_annotation["3dannotations"]):
         tred_corners = np.zeros((8, 3), dtype=np.float32)
 
-        cX, cY, cZ, l, w, h, r, p, y = annotation['cX'], \
-            annotation['cY'], annotation['cZ'],\
-            annotation['l'], annotation['w'],\
-            annotation['h'], annotation['r'],\
-            annotation['p'], annotation['y']
+        cX, cY, cZ, l, w, h = annotation['cX'], annotation['cY'], annotation['cZ'],\
+                annotation['l'], annotation['w'], annotation['h']
+        if "r" in annotation.keys():
+            r, p, y = annotation['r'], annotation['p'], annotation['y']
+            tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
+        else:
+            qx, qy, qz, qw = annotation['qx'], annotation['qy'], annotation['qz'], annotation["qw"]
+            tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
 
         #Compute corners in axis aligned coordinates
         x_sign = np.array([-1, -1, 1, 1])
@@ -190,9 +209,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
                 z_offset *= -1
             tred_corners[cnum] = np.array([
                 x_offset, y_offset, z_offset])
-        tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
-        # pdb.set_trace()
-        # tred_corners_norm - np.array([cX, cY, cZ])
+
         tred_corners = (tred_orien_transform@tred_corners.T).T
         tred_corners += np.array([cX, cY, cZ])
 
@@ -212,33 +229,11 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         P   = np.array(intr_ext['projection_matrix']['data']).reshape(3, 4)
         Re  = np.array(intr_ext['rectification_matrix']['data']).reshape(3, 3)
 
-        # test_mat = np.linalg.inv(
-        #     R.from_euler("xyz", [-102.254628,   0., -90.2], degrees=True).as_matrix()
-        # ).reshape(3, 3)
-        # print("ROT ", R.from_euler("xyz", [-102.254628,   0., -90.2], degrees=True).as_matrix())
-        # print("INV ROT ", test_mat)
-        # trans_mat = np.array([0.03, -0.05, 0.]) # traj 0
-
-        # test_mat = np.linalg.inv(
-        #     R.from_euler("xyz", [-98.254628,   -4., -90.2], degrees=True).as_matrix()
-        # ).reshape(3, 3)
-        # trans_mat = np.array([0.03, 0.0, 0.]) # x z
-
         image_points, _ = cv2.projectPoints(tred_corners[:, :3],
             ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
         image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
         valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
-        # pdb.set_trace()
-        # Testing
-        # if annotation["instanceId"]=="Scooter:1":
-        #     print("returning scooter points ", tred_corners)
 
-        #     valid_points_mask = get_pointsinfov_mask((test_mat@tred_corners.T).T+trans_mat)
-
-        #     print("points mask ", valid_points_mask)
-        #     # image_points = image_points[:, valid_points_mask, :]
-
-        #     return image_points, valid_points_mask
         if annotation["classId"] in CLASS_VIZ_LIST:
             all_image_points = np.vstack(
                 (all_image_points, image_points)

@@ -6,6 +6,7 @@ import shutil
 from more_itertools import nth
 
 #ROS
+import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import CompressedImage
 import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
@@ -81,6 +82,21 @@ def get_filename_info(filename):
 def pc_to_bin(pc, filename):
     pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
 
+    pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
+    pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], 4), dtype=np.float32)
+    pc_np[...,0] = pc_cloud['x']
+    pc_np[...,1] = pc_cloud['y']
+    pc_np[...,2] = pc_cloud['z']
+    pc_np[...,3] = pc_cloud['intensity']
+    # pc_np[...,4] = np.array([pc.header.stamp.to_sec()]* 
+    #     (pc_cloud.shape[0]*pc_cloud.shape[1])).reshape(pc_cloud.shape[0], pc_cloud.shape[1])
+    pc_np = pc_np.reshape(-1, 4)
+
+    #TODO: Figure out faster way to save intensity
+    # pc_np = np.empty((0, 4), dtype=np.float32)
+    # for p in pc2.read_points(pc, field_names = ("x", "y", "z", "intensity"), skip_nans=True):
+    #     pc_np = np.vstack( (pc_np, np.array(p).reshape(1, 4)) )
+    
     flat_pc = pc_np.reshape(-1).astype(np.float32)
     flat_pc.tofile(filename) # empty sep=bytes
 

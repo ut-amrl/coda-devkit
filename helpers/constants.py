@@ -165,7 +165,8 @@ SENSOR_DIRECTORY_FILETYPES = {
     "2d_raw/cam1": "png",
     "2d_label/cam0": "png",
     "2d_label/cam1": "png",
-    "3d_label/os1": "json"
+    "3d_label/os1": "json",
+    # "3d_label/os1": "pcd"
 }
 
 """
@@ -222,6 +223,30 @@ CAM0_CALIBRATIONS = {
 """
 DeepenAI Generation
 """
+DEEPEN_TO_COMMON_ANNO = {
+    #Frame Specific
+    # "file_id": "frame",
+    # "labels": "3dannotations",
+    "attributes_source": "labelCategoryAttributes",
+    "three_d_bbox": ".",
+    "quaternion": ".",
+    # Object Specific 
+    "label_id": "instanceId",
+    "label_category_id": "classId",
+    "cx": "cX",
+    "cy": "cY",
+    "cz": "cZ",
+    "l": "l",
+    "w": "w",
+    "h": "h",
+    "qx": "qx",
+    "qy": "qy",
+    "qz": "qz",
+    "qw": "qw",
+    "Occlusion": "isOccluded"
+}
+
+DEEPEN_LABEL_STR = "CODa_deepen_%s.json"
 
 DEEPEN_IMAGE_PREFIX = """{
     "images": ["""

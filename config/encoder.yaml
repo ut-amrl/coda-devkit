@@ -2,9 +2,9 @@
 dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
 # dataset_output_root: "/home/arthur/AMRL/Tools/kitti360LabelTool/public/data" 
 # dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
-dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_deepen"
+dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_scale"
 
-encoding_format: "deepen"
+encoding_format: "scale"
 use_wcs: True
 
 # Defines which topics to copy. Should contain at least os1 and cam0
