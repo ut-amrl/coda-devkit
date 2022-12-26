@@ -40,7 +40,6 @@ class AnnotationDecoder(object):
         """
         Decodes all input files in annotation directory to common annotation format
         """
-
         if self._anno_type=="sagemaker":
             anno_subdir, anno_files, manifest_file = "", None, None
             for dir_item in os.listdir(self._indir):

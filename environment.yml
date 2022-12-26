@@ -1,0 +1,14 @@
+name: coda
+channels:
+  - conda-forge
+  - robostack
+  - open3d-admin
+  - anaconda
+dependencies:
+  - python=3.8
+  - numpy=1.9.*
+  - ros-noetic-ros-numpy
+  - opencv
+  - open3d
+  - scipy
+  - pyyaml

@@ -16,7 +16,7 @@ sys.path.append(os.getcwd())
 
 #CustomImports
 from helpers.visualization import *
-from helpers.geometry import inter_pose
+from helpers.sensors import read_bin
 from helpers.constants import OS1_POINTCLOUD_SHAPE
 
 def save_bboxmask_and_pose(object_mask_dir, trajectory, frame, bin_np, threed_label_file, pose_np):
@@ -158,26 +158,25 @@ def main():
                 bin_file = set_filename_by_prefix("3d_raw", "os1", trajectory, frame)
                 bin_path = os.path.join(bin_dir, bin_file)
 
-                bin_np = np.fromfile(bin_path, dtype=np.float32)
+                bin_np = read_bin(bin_path, True)
+                intensity_np = bin_np[:, 3].reshape(-1, 1)
+                bin_np = bin_np[:, :3]
 
                 if use_wcs:
-                    bin_np = bin_np.reshape(-1, 3)
                     pose_mat = np.eye(4)
                     pose_mat[:3, :3] = R.from_quat([pose[5], pose[6], pose[7], pose[4]]).as_matrix()
                     pose_mat[:3, 3] = pose[1:4]
-                    wcs_bin_np = (pose_mat @ np.hstack((bin_np, np.ones((bin_np.shape[0], 1)))).T).T
+                    wcs_bin_np = (pose_mat @ np.hstack((bin_np[:, :3], np.ones((bin_np.shape[0], 1)))).T).T
                     bin_np = wcs_bin_np[:, :3].astype(np.float32)
 
                 if viz_3danno and save_object_masks and os.path.exists(threed_label_file):
                     # Only return points contained within bboxes
-                    bin_np = bin_np.reshape(-1, 3)
                     output_mask = get_points_in_bboxes(bin_np, threed_label_file)
                     bin_np      = bin_np[output_mask, :]
                     save_bboxmask_and_pose(object_mask_dir, trajectory, frame, bin_np, threed_label_file, pose_np)
-                else:
-                    bin_np = bin_np.reshape(OS1_POINTCLOUD_SHAPE)
-
-                pub_pc_to_rviz(bin_np, pc_pub, frame_time, frame_id="os_sensor")
+                
+                full_bin_np = np.hstack( (bin_np, intensity_np) )
+                pub_pc_to_rviz(full_bin_np, pc_pub, frame_time, frame_id="os_sensor")
             
             #Publish bboxes
             if viz_3danno:

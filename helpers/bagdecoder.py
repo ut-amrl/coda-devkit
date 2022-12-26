@@ -103,6 +103,12 @@ class BagDecoder(object):
     
         if "/ouster/lidar_packets" in self._sensor_topics:
             os_metadata = os.path.join(self._bag_dir, "OS1metadata.json")
+
+            if not os.path.exists(os_metadata):
+                default_os  = os.path.join("helpers/helper_utils/OS1metadata.json")
+                print("Ouster metadata not found at %s, using default at %s" %
+                    (os_metadata, default_os))
+                os_metadata = default_os
             assert os.path.isfile(os_metadata), '%s does not exist' % os_metadata
 
             #Load OS1 metadata file

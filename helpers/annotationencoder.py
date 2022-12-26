@@ -99,7 +99,7 @@ class AnnotationEncoder(object):
             in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
             frame_to_ts_np = np.fromfile(in_ts_file, sep=' ').reshape(-1, 1)
             out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np)
-            # pdb.set_trace()
+
             for frame_seq in traj_frames:
                 start, end = frame_seq[0], frame_seq[1]
 
@@ -151,7 +151,7 @@ class AnnotationEncoder(object):
         bin_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
         bin_path        = os.path.join(self._indir, modality, sensor_name, str(traj), bin_filename)
 
-        bin_np          = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 3)
+        bin_np          = read_bin(bin_path, False)  
         bin_np          = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) )))
         ego_to_wcs      = pose_to_homo(pose)
         bin_np      = (ego_to_wcs @ bin_np.T).T
@@ -377,7 +377,7 @@ class AnnotationEncoder(object):
                             bin_file = os.path.join(self._outdir, subdir, str(traj), frame_filename)
                             ply_path = bin_file.replace(".bin", ".pcd")
                             try:
-                                bin_np  = np.fromfile(bin_file, dtype=np.float32).reshape(-1, 3)
+                                bin_np  = read_bin(bin_file, False)
                                 pub_pc_to_rviz(bin_np, self._pc_pub, rospy.get_rostime())
                             except Exception as e:
                                 pdb.set_trace()
@@ -435,7 +435,7 @@ class AnnotationEncoder(object):
         pose - given as ts x y z qw qx qy qz 
         """
         pose_mat = pose_to_homo(pose)
-        bin_np  = np.fromfile(filepath, dtype=np.float32).reshape(-1, 3)
+        bin_np  = read_bin(filepath, False)
         ones_col = np.ones((bin_np.shape[0], 1), dtype=np.float32)
         bin_np  = np.hstack((bin_np, ones_col))
         wcs_bin_np = (pose_mat@bin_np.T).T
