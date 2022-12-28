@@ -1,10 +1,4 @@
-from genericpath import isdir
-from math import degrees
 import os
-import pdb
-from re import sub
-from sysconfig import get_python_version
-from tracemalloc import start
 import yaml
 import json
 import copy
@@ -40,7 +34,6 @@ class AnnotationDecoder(object):
         """
         Decodes all input files in annotation directory to common annotation format
         """
-
         if self._anno_type=="sagemaker":
             anno_subdir, anno_files, manifest_file = "", None, None
             for dir_item in os.listdir(self._indir):

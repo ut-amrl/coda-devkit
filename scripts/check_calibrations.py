@@ -8,7 +8,7 @@ from sensor_msgs.msg import PointCloud2, Image
 import cv2
 import numpy as np
 
-from helpers.sensors import get_filename_info, set_filename_by_prefix
+from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
 from helpers.geometry import find_closest_pose, project_3dto2d_bbox, draw_bbox
 from helpers.visualization import *
 
@@ -54,7 +54,7 @@ def main():
         calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
         
         bin_path = os.path.join(tred_bin_dir, bin_file)
-        bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 3)
+        bin_np = read_bin(bin_path, False)
 
         wcs_pose = None
         if use_wcs:

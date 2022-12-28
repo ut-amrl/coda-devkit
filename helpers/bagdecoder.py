@@ -103,6 +103,12 @@ class BagDecoder(object):
     
         if "/ouster/lidar_packets" in self._sensor_topics:
             os_metadata = os.path.join(self._bag_dir, "OS1metadata.json")
+
+            if not os.path.exists(os_metadata):
+                default_os  = os.path.join("helpers/helper_utils/OS1metadata.json")
+                print("Ouster metadata not found at %s, using default at %s" %
+                    (os_metadata, default_os))
+                os_metadata = default_os
             assert os.path.isfile(os_metadata), '%s does not exist' % os_metadata
 
             #Load OS1 metadata file
@@ -282,6 +288,8 @@ class BagDecoder(object):
         if packet.frame_id!=self._qp_frame_id:
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
+                if self._verbose:
+                    print("Publishing frame %i over ros..." %self._curr_frame)
                 pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
 
                 self.sync_sensor(topic, pc_msg, ts)

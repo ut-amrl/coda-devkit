@@ -12,6 +12,7 @@ import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
 #Libraries
 import cv2
+from cv_bridge import CvBridge
 import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -79,8 +80,15 @@ def get_filename_info(filename):
     frame           = filename_prefix[4]
     return (modality, sensor_name, trajectory, frame)
 
+def read_bin(bin_path, keep_intensity=True):
+    bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
+
+    if not keep_intensity:
+        bin_np = bin_np[:, :3]
+    return bin_np
+
 def pc_to_bin(pc, filename):
-    pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
+    # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
 
     pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
     pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], 4), dtype=np.float32)
@@ -88,14 +96,7 @@ def pc_to_bin(pc, filename):
     pc_np[...,1] = pc_cloud['y']
     pc_np[...,2] = pc_cloud['z']
     pc_np[...,3] = pc_cloud['intensity']
-    # pc_np[...,4] = np.array([pc.header.stamp.to_sec()]* 
-    #     (pc_cloud.shape[0]*pc_cloud.shape[1])).reshape(pc_cloud.shape[0], pc_cloud.shape[1])
     pc_np = pc_np.reshape(-1, 4)
-
-    #TODO: Figure out faster way to save intensity
-    # pc_np = np.empty((0, 4), dtype=np.float32)
-    # for p in pc2.read_points(pc, field_names = ("x", "y", "z", "intensity"), skip_nans=True):
-    #     pc_np = np.vstack( (pc_np, np.array(p).reshape(1, 4)) )
     
     flat_pc = pc_np.reshape(-1).astype(np.float32)
     flat_pc.tofile(filename) # empty sep=bytes
@@ -123,10 +124,11 @@ def copy_image(inpath, outpath):
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)
 
-def process_compressed_image(img_data):
+def process_compressed_image(img_data, encoding="bgr8"):
     sensor_ts = img_data.header.stamp
-    np_arr = np.fromstring(img_data.data, np.uint8)
-    image_np = np.array(cv2.imdecode(np_arr, cv2.COLOR_BAYER_BG2BGR))
+
+    cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding="bgr8")
+    image_np = np.array(cv_image)
 
     return image_np, sensor_ts
 

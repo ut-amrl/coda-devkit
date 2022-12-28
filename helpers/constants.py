@@ -56,9 +56,95 @@ SAGEMAKER_TO_COMMON_ANNO = {
     "Nav Behavior": "behavior"
 }
 
-CLASS_VIZ_LIST = ["Scooter", "Bike", "Car", "Person", "Traffic Sign", "Bike Rack", "Mailbox", 
-"Freestanding Plant", "Pole", "Informational Sign", "Fence", "Chair", "Bench", "Trash Can", 
-"Newspaper Dispenser", "Other"]
+CLASS_VIZ_LIST = [  
+"Scooter",
+"Bike",
+"Car",
+"Motorcycle",
+"Golf Cart",
+"Truck",
+"Person",
+# Static Classes
+"Tree",
+"Traffic Sign",
+"Canopy",
+"Traffic Lights",
+"Bike Rack",
+"Bollard",
+"Construction Barrier",
+"Parking Kiosk",
+"Mailbox",
+"Fire Hydrant",
+# Static Class Mixed
+"Freestanding Plant",
+"Pole",
+"Informational Sign",
+"Door",
+"Fence",
+"Railing",
+"Cone",
+"Chair",
+"Bench",
+"Table",
+"Trash Can",
+"Newspaper Dispenser",
+# Static Classes Indoor
+"Room Label",
+"Stanchion",
+"Sanitizer Dispenser",
+"Condiment Dispenser",
+"Vending Machine",
+"Emergency Aid Kit",
+"Fire Extinguisher",
+"Computer",
+"Television",
+"Other"
+]
+
+CLASS_REMAP = {
+    "Scooter":              "Scooter",
+    "Bike":                 "Bike",
+    "Car":                  "Vehicle",
+    "Motorcycle":           "Motorcycle",
+    "Golf Cart":            "Vehicle",
+    "Truck":                "Vehicle",
+    "Person":               "Person",
+    # Static Classes     
+    "Tree":                 "Tree",
+    "Traffic Sign":         "Sign",
+    "Canopy":               "Canopy",
+    "Traffic Lights":       "Traffic Lights",
+    "Bike Rack":            "Bike Rack",
+    "Bollard":              "Barrier",
+    "Construction Barrier": "Barrier",
+    "Parking Kiosk":        "Dispenser",
+    "Mailbox":              "Dispenser",
+    "Fire Hydrant":         "Fire Hydrant",
+    # Static Class Mixed
+    "Freestanding Plant":   "Plant",
+    "Pole":                 "Pole",
+    "Informational Sign":   "Sign",
+    "Door":                 "Barrier",
+    "Fence":                "Barrier",
+    "Railing":              "Barrier",
+    "Cone":                 "Cone",
+    "Chair":                "Chair",
+    "Bench":                "Bench",
+    "Table":                "Table",
+    "Trash Can":            "Trash Can",
+    "Newspaper Dispenser":  "Dispenser",
+    # Static Classes Indoor
+    "Room Label":           "Sign",
+    "Stanchion":            "Barrier",
+    "Sanitizer Dispenser":  "Dispenser",
+    "Condiment Dispenser":  "Dispenser",
+    "Vending Machine":      "Dispenser",
+    "Emergency Aid Kit":    "Dispenser",
+    "Fire Extinguisher":    "Dispenser",
+    "Computer":             "Screen",
+    "Television":           "Screen",
+    "Other":                "Other"
+}
 
 CLASS_TO_ID = {
     # Dynamic Classes
@@ -157,6 +243,8 @@ SENSOR_DIRECTORY_SUBPATH = {
     "/ouster/lidar_packets": "3d_raw/os1",
     "/stereo/left/image_raw/compressed": "2d_raw/cam0",
     "/stereo/right/image_raw/compressed": "2d_raw/cam1",
+    "/camera/rgb/image_raw/compressed": "2d_raw/cam2",
+    "/zed/zed_node/left/image_rect_color/compressed": "2d_raw/cam3",
 }
 
 SENSOR_DIRECTORY_FILETYPES = {

@@ -1,9 +1,9 @@
-repository_root: "/home/arthur/AMRL/Datasets/UTPeDa"
-dataset_output_root: "/home/arthur/AMRL/Datasets/CODa"
-bag_date:    "111622"
+repository_root: "/home/arthur/AMRL/Datasets/Deepen_cal"
+dataset_output_root: "/home/arthur/AMRL/Datasets/Deepen_proc"
+bag_date:    ""
 
 #Bag Decoder Settings
-gen_data: True   # Generates data files
+gen_data: False   # Generates data files
 viz_imu: True     # Republish imu messages
 verbose: True    # Debugging
 
@@ -19,6 +19,7 @@ sensor_topics: [
 
   #Kinect
   "/camera/depth/image_raw/compressed",
+  "/camera/rgb/image_raw/compressed",
 
   #FLIR
   "/stereo/left/image_raw/compressed",
@@ -38,6 +39,6 @@ sensor_topics: [
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1668633692.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [5] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1671032593.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [3] # Leave empty to assign ids in sequential order from 0
 
