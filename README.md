@@ -17,7 +17,9 @@ To install all library dependencies, create the conda environment using the foll
 
 ```conda env create -f environment.yml```
 
-Then activate the environment with:
+Then activate the environment as follows. Further library usage instructions are documented in the `GETTING STARTED` section below.
+
+```conda activate coda```
 
 ```conda activate coda```
 
