@@ -288,6 +288,8 @@ class BagDecoder(object):
         if packet.frame_id!=self._qp_frame_id:
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
+                if self._verbose:
+                    print("Publishing frame %i over ros..." %self._curr_frame)
                 pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
 
                 self.sync_sensor(topic, pc_msg, ts)

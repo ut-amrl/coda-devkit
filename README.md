@@ -11,6 +11,16 @@ WIP
 
 WIP
 
+### INSTALLATION
+
+To install all library dependencies, create the conda environment using the following command. 
+
+```conda env create -f environment.yml```
+
+Then activate the environment with:
+
+```conda activate coda```
+
 ### GETTING STARTED
 
 After installing this package, you can refer to the [GETTING STARTED](./docs/GETTING_STARTED.md) for more information on using the tools that are provided.
