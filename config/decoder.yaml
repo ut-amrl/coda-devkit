@@ -1,4 +1,4 @@
-annotations_input_root: "/home/arthur/AMRL/Datasets/CODa_deepen/3d_label/os1"
+annotations_input_root: "/home/arthur/AMRL/Datasets/CODa_deepen"
 annotations_output_root: "/home/arthur/AMRL/Datasets/CODa"
 
 annotation_type: "deepen"

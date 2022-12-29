@@ -17,7 +17,7 @@ from geometry_msgs.msg import PoseStamped
 
 
 #Custom
-from helpers.constants import PointField, CLASS_TO_ID, ID_TO_COLOR
+from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR
 from helpers.geometry import *
 
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
@@ -106,7 +106,7 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
     m_pub.publish(bbox_markers)
 
     bbox_markers = MarkerArray()
-    for idx, annotation in enumerate(anno_json["3dannotations"]):
+    for idx, annotation in enumerate(anno_json["3dbbox"]):
         #Pose processing
         px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
         instanceId, classId = annotation["instanceId"], annotation["classId"]
@@ -141,7 +141,7 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
             bbox_marker.color.g = 100 /255.0;
             bbox_marker.color.b = 100 / 255.0;
         else:
-            class_color = ID_TO_COLOR[CLASS_TO_ID[classId]]
+            class_color = BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[classId]]
             bbox_marker.color.r = class_color[0] / 255.0;
             bbox_marker.color.g = class_color[1] /255.0;
             bbox_marker.color.b = class_color[2] / 255.0;

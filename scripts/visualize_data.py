@@ -139,8 +139,8 @@ def main():
                                 continue
 
                             bbox_idx = bbox_idxs[obj_idx][0]
-                            obj_id = CLASS_TO_ID[anno_dict["3dannotations"][bbox_idx]["classId"]]
-                            obj_color = ID_TO_COLOR[obj_id]
+                            obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
+                            obj_color = BBOX_ID_TO_COLOR[obj_id]
                             image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color)
 
                         img_label_dir = cam_dir.replace("raw", "label")

@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 import cv2
 
-from helpers.constants import CLASS_TO_ID, NONRIGID_CLASS_IDS, CLASS_VIZ_LIST
+from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST
 
 def densify_poses_between_ts(pose_np, ts_np):
     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
@@ -126,12 +126,12 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
     anno_json   = json.load(anno_file)
 
     output_mask = np.zeros((pc.shape[0], ), dtype=np.bool8)
-    for idx, annotation in enumerate(anno_json["3dannotations"]):
+    for idx, annotation in enumerate(anno_json["3dbbox"]):
         #Pose processing
         px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
         l, w, h             = annotation["l"], annotation["w"], annotation["h"]
         _, classId = annotation["instanceId"], annotation["classId"]
-        classidx = CLASS_TO_ID[classId]
+        classidx = BBOX_CLASS_TO_ID[classId]
 
         if classidx not in NONRIGID_CLASS_IDS:
             min_x, max_x        = px - l/2.0, px + l/2.0
@@ -182,7 +182,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     all_image_points = np.empty((0,8,2), dtype=np.int32)
     all_points_fov_mask = np.empty( (0, 8), dtype=np.bool)
     all_valid_obj_idx   = np.empty( (0, 1), dtype=np.int32)
-    for annotation_idx, annotation in enumerate(tred_annotation["3dannotations"]):
+    for annotation_idx, annotation in enumerate(tred_annotation["3dbbox"]):
         tred_corners = np.zeros((8, 3), dtype=np.float32)
 
         cX, cY, cZ, l, w, h = annotation['cX'], annotation['cY'], annotation['cZ'],\
@@ -234,7 +234,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
         valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
 
-        if annotation["classId"] in CLASS_VIZ_LIST:
+        if annotation["classId"] in BBOX_CLASS_VIZ_LIST:
             all_image_points = np.vstack(
                 (all_image_points, image_points)
             )

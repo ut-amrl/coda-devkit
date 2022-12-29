@@ -20,13 +20,17 @@ OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 """
 DATASET PARAMETER CONSTANTS
 """
+SEMANTIC_LABEL_TYPE = "3d_semantic"
+BBOX_LABEL_TYPE     = "3d_bbox"
+
 DATASET_L1_DIR_LIST = [
     "metadata",
     "calibration",
     "timestamps",
     "2d_raw",
     "3d_raw",
-    "3d_label",
+    BBOX_LABEL_TYPE,
+    SEMANTIC_LABEL_TYPE,
     "2d_label",
     "poses"
 ]
@@ -37,7 +41,7 @@ Annotation Mappings
 SAGEMAKER_TO_COMMON_ANNO = {
     #Frame Specific
     "frameName": "frame",
-    "boundingCuboids": "3dannotations",
+    "boundingCuboids": "3dbbox",
     "frameAttributes": "frameAttributes",
     # Object Specific 
     "objectName": "instanceId",
@@ -56,7 +60,10 @@ SAGEMAKER_TO_COMMON_ANNO = {
     "Nav Behavior": "behavior"
 }
 
-CLASS_VIZ_LIST = [  
+"""
+BBOX CLASS CONSTANTS
+"""
+BBOX_CLASS_VIZ_LIST = [  
 "Scooter",
 "Bike",
 "Car",
@@ -101,7 +108,7 @@ CLASS_VIZ_LIST = [
 "Other"
 ]
 
-CLASS_REMAP = {
+BBOX_CLASS_REMAP = {
     "Scooter":              "Scooter",
     "Bike":                 "Bike",
     "Car":                  "Vehicle",
@@ -146,7 +153,7 @@ CLASS_REMAP = {
     "Other":                "Other"
 }
 
-CLASS_TO_ID = {
+BBOX_CLASS_TO_ID = {
     # Dynamic Classes
     "Scooter": 0,
     "Bike": 1,
@@ -194,7 +201,7 @@ CLASS_TO_ID = {
 
 NONRIGID_CLASS_IDS = [6, 7]
 
-ID_TO_COLOR = [
+BBOX_ID_TO_COLOR = [
     (120, 190, 33),     #0 Scooter
     (128, 128, 128),    #1 Bike
     (255, 0, 0),        #2 Car
@@ -237,6 +244,27 @@ ID_TO_COLOR = [
 ]
 
 """
+TERRAIN SEMANTIC CLASS CONSTANTS
+"""
+
+SEM_CLASS_TO_ID = {
+    "Concrete":             0,
+    "Grass":                1,
+    "Rocks":                2,
+    "Speedway Bricks":      3,
+    "Metal Grates":         4,
+    "Red Bricks":           5,
+    "Pebble Pavement":      6,
+    "Light Marble Tiling":  7,
+    "Dark Marble Tiling":   8,
+    "Dirt Path":            9,
+    "Road":                 10,
+    "Road Pavement":        11,
+    "Short Vegetation":     12,
+    "Porcelain Tiles":      13
+}
+
+"""
 Manifest file generation sensor to subdirectory mappings
 """
 SENSOR_DIRECTORY_SUBPATH = {
@@ -253,8 +281,8 @@ SENSOR_DIRECTORY_FILETYPES = {
     "2d_raw/cam1": "png",
     "2d_label/cam0": "png",
     "2d_label/cam1": "png",
-    "3d_label/os1": "json",
-    # "3d_label/os1": "pcd"
+    "%s/os1"%BBOX_LABEL_TYPE: "json",
+    "%s/os1"%SEMANTIC_LABEL_TYPE: "txt"
 }
 
 """
@@ -314,7 +342,7 @@ DeepenAI Generation
 DEEPEN_TO_COMMON_ANNO = {
     #Frame Specific
     # "file_id": "frame",
-    # "labels": "3dannotations",
+    # "labels": "3dbbox",
     "attributes_source": "labelCategoryAttributes",
     "three_d_bbox": ".",
     "quaternion": ".",
@@ -335,6 +363,8 @@ DEEPEN_TO_COMMON_ANNO = {
 }
 
 DEEPEN_LABEL_STR = "CODa_deepen_%s.json"
+
+DEEPEN_SEMANTIC_STR = "%s.dpn"
 
 DEEPEN_IMAGE_PREFIX = """{
     "images": ["""
@@ -538,7 +568,7 @@ KITTI360_INTRINSIC_XML = '''<?xml version="1.0"?><intrincis_perspective><fx>%(fx
 
 CODA_ANNOTATION_DICT = {
     "frame": 0,
-    "3dannotations": []
+    "3dbbox": []
 }
 
 CODA_ANNOTATION_OBJECT_DICT = {
