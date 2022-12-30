@@ -11,6 +11,7 @@ import numpy as np
 from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
 from helpers.geometry import find_closest_pose, project_3dto2d_bbox, draw_bbox
 from helpers.visualization import *
+from helpers.constants import DIR_3D_RAW, DIR_2D_RAW, DIR_BBOX_LABEL
 
 def main():
     """
@@ -24,9 +25,9 @@ def main():
     #Project 3d bbox annotations to 2d
     calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
     calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
-    tred_bin_dir   = os.path.join(indir, "3d_raw", "os1", str(trajectory))
-    tred_anno_dir  = os.path.join(indir, "3d_label", "os1", str(trajectory))
-    twod_anno_dir  = os.path.join(indir, "2d_raw", "cam0", str(trajectory))
+    tred_bin_dir   = os.path.join(indir, DIR_3D_RAW, "os1", str(trajectory))
+    tred_anno_dir  = os.path.join(indir, DIR_BBOX_LABEL, "os1", str(trajectory))
+    twod_anno_dir  = os.path.join(indir, DIR_2D_RAW, "cam0", str(trajectory))
 
     #Locate closest pose from frame
     ts_to_frame_path = os.path.join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
@@ -54,14 +55,14 @@ def main():
         calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
         
         bin_path = os.path.join(tred_bin_dir, bin_file)
-        bin_np = read_bin(bin_path, False)
+        bin_np = read_bin(bin_path, False).astype(np.float64)
 
         wcs_pose = None
         if use_wcs:
             wcs_pose = pose_to_homo(dense_poses[idx])
             bin_np_homo = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
             bin_np      = (wcs_pose @ bin_np_homo.T).T[:, :3]
-
+        import pdb; pdb.set_trace()
         image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
         # pdb.set_trace()
         in_bounds = np.logical_and(
@@ -71,7 +72,7 @@ def main():
         valid_point_mask = in_bounds & pts_mask
         valid_points = image_pts[valid_point_mask, :]
 
-        twod_img_file   = set_filename_by_prefix("2d_raw", "cam0", trajectory, frame)
+        twod_img_file   = set_filename_by_prefix(DIR_2D_RAW, "cam0", trajectory, frame)
         twod_img_path = os.path.join(twod_anno_dir, twod_img_file)
         image = cv2.imread(twod_img_path)
         for pt in valid_points:

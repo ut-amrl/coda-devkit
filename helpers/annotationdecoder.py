@@ -28,7 +28,7 @@ class AnnotationDecoder(object):
             self._anno_type = settings['annotation_type']
             self._gen_data  = settings['gen_data']
             self._use_wcs   = settings['use_wcs']
-            import pdb; pdb.set_trace()
+
             assert os.path.exists(self._indir), "%s does not exist, provide valid dataset root directory."
 
     def decode_annotations(self):
@@ -77,9 +77,9 @@ class AnnotationDecoder(object):
             bbox_subdir = os.path.join(tred_dir, "bbox")
             traj_subdirs   = next(os.walk(bbox_subdir))[1] 
 
-            for traj_subdir in traj_subdirs:
-                traj_dir = os.path.join(bbox_subdir, traj_subdir)
-                anno_dict = self.deepen_decode_bbox(bbox_subdir, traj_dir, traj_subdir)
+            for traj in traj_subdirs:
+                traj_dir = os.path.join(bbox_subdir, traj)
+                anno_dict = self.deepen_decode_bbox(traj_dir, traj)
                 if self._gen_data:
                     self.save_anno_json(anno_dict)
 
@@ -87,12 +87,12 @@ class AnnotationDecoder(object):
             semantic_subdir = os.path.join(tred_dir, "semantic")
             traj_subdirs   = next(os.walk(semantic_subdir))[1]
 
-            for traj_subdir in traj_subdirs:
-                traj_dir = os.path.join(semantic_subdir, traj_subdir)
+            for traj in traj_subdirs:
+                traj_dir = os.path.join(semantic_subdir, traj)
                 
                 start_frames = [ frame.split('.')[0] for frame in os.listdir(traj_dir) if frame.endswith(".dpn") ]
                 for start_frame in start_frames:
-                    anno_dict = self.deepen_decode_semantic(semantic_subdir, traj_dir, start_frame)
+                    anno_dict = self.deepen_decode_semantic(traj_dir, traj, start_frame)
 
     def deepen_decode_bbox(self, filepath, traj):
         anno_dict = {
@@ -165,6 +165,9 @@ class AnnotationDecoder(object):
         return anno_dict
 
     def deepen_decode_semantic(self, filepath, traj, start_frame):
+        """
+        Currently assumes a each file uses 10Hz rate
+        """
         sem_str = DEEPEN_SEMANTIC_STR % start_frame
         sem_path  = os.path.join(filepath, sem_str)
         meta_path   = sem_path.replace(".dpn", ".json")
@@ -174,22 +177,32 @@ class AnnotationDecoder(object):
 
         meta_file = yaml.safe_load(open(meta_path, "r"))
         # Check for exact match between metadata classes and constants
-        assert set(SEM_CLASS_TO_ID.keys())==set(meta_file['paint_categories']) % \
+        assert set(SEM_ID_TO_CLASS)!=set(meta_file['paint_categories']), \
             "metadata classes inconsistent with constants"
 
         sem_file = open(sem_path, "rb").read()
         pc_size = np.prod(OS1_POINTCLOUD_SHAPE[:2])
         sem_np = np.frombuffer(sem_file, dtype=np.uint8).reshape(-1, pc_size)
 
-        outdir = os.path.join(self._outdir, SEMANTIC_LABEL_TYPE, "os1", traj)
+        outdir = os.path.join(self._outdir, DIR_SEMANTIC_LABEL, "os1", traj)
+        if not os.path.exists(outdir):
+            print("3D Semantic directory %s does not exist, creating..." % outdir)
+            os.makedirs(outdir)
+
+        deepen_id_to_coda_id = np.array([SEM_ID_TO_CLASS.index(cat) for cat in meta_file['paint_categories']], np.uint8)
+        deepen_id_to_coda_id = np.insert(deepen_id_to_coda_id, 0, 0)
+
         num_frames = sem_np.shape[0]
-        for frame in range(start_frame, start_frame+num_frames):
-            filename = set_filename_by_prefix(SEMANTIC_LABEL_TYPE, "os1", traj, str(frame))
+        start_frame = int(start_frame)
+        for frame_idx in range(0, num_frames):
+            frame = start_frame + frame_idx
+            filename = set_filename_by_prefix(DIR_SEMANTIC_LABEL, "os1", traj, str(frame))
             frame_path = os.path.join(outdir, filename)
-            import pdb; pdb.set_trace()
-            frame_label_np = sem_np[frame].reshape(-1, 1)
+
+            frame_label_np = sem_np[frame_idx].reshape(-1,).astype(np.uint8)
+            frame_label_np = deepen_id_to_coda_id[frame_label_np]
             print("Saving 3d semantic traj %s frame %s to %s"%(traj, frame, frame_path))
-            np.savetxt(frame_path, frame_label_np, fmt="%d")
+            frame_label_np.tofile(frame_path)
 
     def ewannotate_decoder(self, filepath, traj):
         with open(filepath, 'r') as annos_file:
@@ -285,7 +298,7 @@ class AnnotationDecoder(object):
         frame_dict_file.close()
 
     def save_anno_json(self, anno_dict):
-        subdir  = anno_dict["subdir"].replace("3d_raw", BBOX_LABEL_TYPE)
+        subdir  = anno_dict["subdir"].replace(DIR_3D_RAW, DIR_BBOX_LABEL)
         modality, sensor_name   = subdir.split('/')[0], subdir.split('/')[1]
         traj    = anno_dict["trajectory"]
         anno_dir = os.path.join(self._outdir, subdir, traj)
@@ -300,7 +313,7 @@ class AnnotationDecoder(object):
             anno_filename   = "%s_%s_%s_%s.json"%(modality, sensor_name, traj, frame)
             anno_path = os.path.join(anno_dir, anno_filename)
 
-            print("Writing frame %s to %s..."%(frame, anno_path))
+            print("Writing 3D bbox traj %s frame %s to %s..."%(traj, frame, anno_path))
             anno_json = open(anno_path, "w+")
             anno_json.write(json.dumps(annotation, indent=2))
             anno_json.close()

@@ -20,17 +20,21 @@ OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 """
 DATASET PARAMETER CONSTANTS
 """
-SEMANTIC_LABEL_TYPE = "3d_semantic"
-BBOX_LABEL_TYPE     = "3d_bbox"
+
+DIR_2D_RAW         = "2d_raw"
+DIR_3D_RAW         = "3d_raw"
+DIR_2D_SEMANTIC    = "2d_semantic"
+DIR_SEMANTIC_LABEL = "3d_semantic"
+DIR_BBOX_LABEL     = "3d_bbox"
 
 DATASET_L1_DIR_LIST = [
     "metadata",
-    "calibration",
+    "calibrations",
     "timestamps",
-    "2d_raw",
-    "3d_raw",
-    BBOX_LABEL_TYPE,
-    SEMANTIC_LABEL_TYPE,
+    DIR_2D_RAW,
+    DIR_3D_RAW,
+    DIR_BBOX_LABEL,
+    DIR_SEMANTIC_LABEL,
     "2d_label",
     "poses"
 ]
@@ -247,42 +251,59 @@ BBOX_ID_TO_COLOR = [
 TERRAIN SEMANTIC CLASS CONSTANTS
 """
 
-SEM_CLASS_TO_ID = {
-    "Concrete":             0,
-    "Grass":                1,
-    "Rocks":                2,
-    "Speedway Bricks":      3,
-    "Metal Grates":         4,
-    "Red Bricks":           5,
-    "Pebble Pavement":      6,
-    "Light Marble Tiling":  7,
-    "Dark Marble Tiling":   8,
-    "Dirt Path":            9,
-    "Road":                 10,
-    "Road Pavement":        11,
-    "Short Vegetation":     12,
-    "Porcelain Tiles":      13
-}
+SEM_ID_TO_CLASS = [
+    "Unlabeled",
+    "Concrete",
+    "Grass",
+    "Rocks",
+    "Speedway Bricks",
+    "Metal Grates",
+    "Red Bricks",
+    "Pebble Pavement",
+    "Light Marble Tiling",
+    "Dark Marble Tiling",
+    "Dirt Path",
+    "Road Pavement",
+    "Short Vegetation",
+    "Porcelain Tile"
+]
+
+SEM_ID_TO_COLOR = [
+    (0, 0, 0),          #0 Unlabeled
+    (210, 210, 210),    #1 Concrete
+    (20, 200, 0),       #2 Grass
+    (170, 170, 170),    #3 Rocks
+    (230, 150, 83),     #4 Speedway Bricks
+    (60, 35, 5),        #5 Metal Grates
+    (250, 100, 90),     #6 Red Bricks
+    (240, 150, 140),    #7 Pebble Pavement
+    (250, 200, 200),    #8 Light Marble Tiling
+    (100, 100, 100),    #9 Dark Marble Tiling
+    (70, 30, 5),        #10 Dirt Path
+    (40, 40, 40),       #11 Road Pavement
+    (40, 255, 0),       #12 Short Vegetation
+    (255, 255, 255)     #13 Porcelain Tiles
+]
 
 """
 Manifest file generation sensor to subdirectory mappings
 """
 SENSOR_DIRECTORY_SUBPATH = {
     "/ouster/lidar_packets": "3d_raw/os1",
-    "/stereo/left/image_raw/compressed": "2d_raw/cam0",
-    "/stereo/right/image_raw/compressed": "2d_raw/cam1",
-    "/camera/rgb/image_raw/compressed": "2d_raw/cam2",
-    "/zed/zed_node/left/image_rect_color/compressed": "2d_raw/cam3",
+    "/stereo/left/image_raw/compressed": "%s/cam0"%DIR_2D_RAW,
+    "/stereo/right/image_raw/compressed": "%s/cam1"%DIR_2D_RAW,
+    "/camera/rgb/image_raw/compressed": "%s/cam2"%DIR_2D_RAW,
+    "/zed/zed_node/left/image_rect_color/compressed": "%s/cam3"%DIR_2D_RAW,
 }
 
 SENSOR_DIRECTORY_FILETYPES = {
-    "3d_raw/os1": "bin",
-    "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png",
-    "2d_label/cam0": "png",
-    "2d_label/cam1": "png",
-    "%s/os1"%BBOX_LABEL_TYPE: "json",
-    "%s/os1"%SEMANTIC_LABEL_TYPE: "txt"
+    "%s/os1"%DIR_3D_RAW: "bin",
+    "%s/cam0"%DIR_2D_RAW: "png",
+    "%s/cam1"%DIR_2D_RAW: "png",
+    "%s/cam0"%DIR_2D_SEMANTIC: "png",
+    "%s/cam1"%DIR_2D_SEMANTIC: "png",
+    "%s/os1"%DIR_BBOX_LABEL: "json",
+    "%s/os1"%DIR_SEMANTIC_LABEL: "bin"
 }
 
 """

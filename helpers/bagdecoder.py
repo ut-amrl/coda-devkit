@@ -40,7 +40,7 @@ class BagDecoder(object):
 
         #Load visualization
         if self._viz_imu:
-            self._imu_pub = rospy.Publisher('/vectornav/IMU', Imu, queue_size=10)
+            self._imu_pub = rospy.Publisher('/coda/vectornav/IMU', Imu, queue_size=10)
         
         #Generate Dataset
         if self._gen_data:
@@ -139,7 +139,7 @@ class BagDecoder(object):
 
             if topic_class!=None:
                 self._sync_pubs[topic] = rospy.Publisher(
-                    topic, topic_class, queue_size=10
+                    "/coda"+topic, topic_class, queue_size=10
                 )
                 self._sync_msg_queue[topic] = []
 

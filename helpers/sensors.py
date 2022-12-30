@@ -87,6 +87,10 @@ def read_bin(bin_path, keep_intensity=True):
         bin_np = bin_np[:, :3]
     return bin_np
 
+def read_sem(sem_path):
+    sem_np = np.fromfile(sem_path, dtype=np.uint8).reshape(-1, 1)
+    return sem_np
+
 def pc_to_bin(pc, filename):
     # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
 
@@ -126,7 +130,7 @@ def get_ouster_packet_info(os1_info, data):
 
 def process_compressed_image(img_data, encoding="bgr8"):
     sensor_ts = img_data.header.stamp
-
+    
     cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding="bgr8")
     image_np = np.array(cv_image)
 

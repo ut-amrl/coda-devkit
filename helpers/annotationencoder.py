@@ -81,7 +81,7 @@ class AnnotationEncoder(object):
         # Camera directory
         cams_dir = ["cam0", "cam1"]
         for cam in cams_dir:
-            cam_dir = os.path.join(self._outdir, "2d_raw", cam)
+            cam_dir = os.path.join(self._outdir, DIR_2D_RAW, cam)
             if not os.path.exists(cam_dir):
                 os.makedirs(cam_dir)
 
@@ -125,8 +125,8 @@ class AnnotationEncoder(object):
                     json_file.close()
 
                     # Copy .bin files
-                    subdir = os.path.join("3d_raw", "os1")
-                    bin_name= set_filename_by_prefix("3d_raw", "os1", traj, frame)
+                    subdir = os.path.join(DIR_3D_RAW, "os1")
+                    bin_name= set_filename_by_prefix(DIR_3D_RAW, "os1", traj, frame)
                     self.copy_file_dir(self._indir, self._outdir, subdir, str(traj), bin_name)
 
                     # Copy matched images
@@ -136,7 +136,7 @@ class AnnotationEncoder(object):
                     print("Wrote json output for frame %i at path %s" % (frame, json_path))
 
     def copy_cam_dir(self, traj, frame, sensor_name):
-        modality = "2d_raw"
+        modality = DIR_2D_RAW
         img_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
         img_path        = os.path.join(self._indir, modality, sensor_name, 
             str(traj), img_filename)
@@ -146,7 +146,7 @@ class AnnotationEncoder(object):
         copy_image(img_in_path, img_out_path)
 
     def create_json_points_str(self, traj, frame, pose):
-        modality, sensor_name = "3d_raw", "os1"
+        modality, sensor_name = DIR_3D_RAW, "os1"
         bin_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
         bin_path        = os.path.join(self._indir, modality, sensor_name, str(traj), bin_filename)
 
@@ -209,7 +209,7 @@ class AnnotationEncoder(object):
         cam0pose    = wcs_pose @ np.linalg.inv(os1tocam0)
         cam1pose    = cam0pose @ np.linalg.inv(cam0tocam1)
 
-        modality, sensor_name = "2d_raw", "cam0"
+        modality, sensor_name = DIR_2D_RAW, "cam0"
         cam0_filename   = set_filename_by_prefix(modality, sensor_name, traj, frame)
         cam0_dict  = self.create_image_dict(cam0_filename, ts, cam0pose, cam0_intr)
 
