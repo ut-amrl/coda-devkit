@@ -1,11 +1,11 @@
-repository_root: "/home/arthur/AMRL/Datasets/Deepen_cal"
-dataset_output_root: "/home/arthur/AMRL/Datasets/Deepen_proc"
-bag_date:    ""
+repository_root: "/robodata/husky_logs/CODa_bags"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa"
+bag_date: "20230116"
 
 #Bag Decoder Settings
-gen_data: False   # Generates data files
-viz_imu: True     # Republish imu messages
-verbose: True    # Debugging
+gen_data: True   # Generates data files
+viz_topics: False     # Republish sensor messages
+verbose: False    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
@@ -32,13 +32,13 @@ sensor_topics: [
   "/vectornav/Odom",
 
   #ZED
-  "/zed/zed_node/depth/depth_registered/compressedDepth",
+  "/zed/zed_node/depth/depth_registered",
   "/zed/zed_node/left/image_rect_color/compressed",
+  "/zed/zed_node/right/image_rect_color/compressed",
 
   #Odometry
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1671032593.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [3] # Leave empty to assign ids in sequential order from 0
-
+bags_to_process: ["1673884184.bag", "1673885216.bag", "1673913890.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [0, 1, 2] # Leave empty to assign ids in sequential order from 0

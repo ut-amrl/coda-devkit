@@ -101,6 +101,53 @@ def pc_to_bin(pc, filename):
     flat_pc = pc_np.reshape(-1).astype(np.float32)
     flat_pc.tofile(filename) # empty sep=bytes
 
+def imu_to_txt(imu, filename):
+    ts = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
+    imu_np = np.array([
+        ts, imu.linear_acceleration.x, imu.linear_acceleration.y, imu.linear_acceleration.z,
+        imu.angular_velocity.x, imu.angular_velocity.y, imu.angular_velocity.z,
+        imu.orientation.w, imu.orientation.x, imu.orientation.y, imu.orientation.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as imu_file:
+        np.savetxt(imu_file, imu_np, fmt='%6.8f', delimiter=" ")
+    imu_file.close()
+
+def mag_to_txt(mag, filename):
+    ts = mag.header.stamp.secs + mag.header.stamp.nsecs*1e-9
+    mag_np = np.array([
+        ts, mag.magnetic_field.x, mag.magnetic_field.y, mag.magnetic_field.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as mag_file:
+        np.savetxt(mag_file, mag_np, fmt='%6.8f', delimiter=" ")
+    mag_file.close()
+
+def gps_to_txt(gps, filename):
+    ts = gps.header.stamp.secs + gps.header.stamp.nsecs*1e-9
+    gps_np = np.array([
+        ts, gps.latitude, gps.longitude, gps.altitude
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as gps_file:
+        np.savetxt(gps_file, gps_np, fmt='%6.8f', delimiter=" ")
+    gps_file.close()
+
+def odom_to_txt(odom, filename):
+    ts = odom.header.stamp.secs + odom.header.stamp.nsecs*1e-9
+    odom_np = np.array([
+        ts, 
+        odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z,
+        odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y,
+        odom.pose.pose.orientation.z, odom.twist.twist.linear.x, odom.twist.twist.linear.y, 
+        odom.twist.twist.linear.z, odom.twist.twist.angular.x, odom.twist.twist.angular.y, 
+        odom.twist.twist.angular.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as odom_file:
+        np.savetxt(odom_file, odom_np, fmt='%6.8f', delimiter=" ")
+    odom_file.close()
+
 def img_to_png(img_np, filename):
     cv2.imwrite(filename, img_np)
 
@@ -124,16 +171,27 @@ def copy_image(inpath, outpath):
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)
 
-def process_compressed_image(img_data, encoding="bgr8"):
+def process_image(img_data, encoding="passthrough"):
     sensor_ts = img_data.header.stamp
-
-    cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding="bgr8")
+    cv_image = CvBridge().imgmsg_to_cv2(img_data, desired_encoding=encoding)
     image_np = np.array(cv_image)
 
     return image_np, sensor_ts
 
-def process_imu(imu_data, trans):
+def process_compressed_image(img_data, encoding="bgr8"):
+    sensor_ts = img_data.header.stamp
+   
+    # Decode mono16 separately due to compressed decoding bug in CvBridge()
+    if encoding=="mono16":
+        compressed_image_np = np.frombuffer(img_data.data, np.uint8)
+        image_np = cv2.imdecode(compressed_image_np, -1)
+    else:
+        cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding=encoding)
+        image_np = np.array(cv_image)
 
+    return image_np, sensor_ts
+
+def process_imu(imu_data, trans):
     orientation = np.array([
         imu_data.orientation.x, imu_data.orientation.y, 
         imu_data.orientation.z, imu_data.orientation.w
@@ -170,4 +228,10 @@ def process_imu(imu_data, trans):
 def process_mag(mag_data):
     pass
 
+def process_gps(gps_data):
+    sensor_ts = gps_data.header.stamp
 
+    if gps_data.status==-1:
+        return None, sensor_ts
+    
+    return gps_data, sensor_ts

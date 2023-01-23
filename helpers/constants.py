@@ -268,21 +268,46 @@ SEM_CLASS_TO_ID = {
 Manifest file generation sensor to subdirectory mappings
 """
 SENSOR_DIRECTORY_SUBPATH = {
+    #Depth
     "/ouster/lidar_packets": "3d_raw/os1",
+    "/camera/depth/image_raw/compressed": "3d_raw/cam2",
+    "/zed/zed_node/depth/depth_registered": "3d_raw/cam3",
+    #RGB
     "/stereo/left/image_raw/compressed": "2d_raw/cam0",
     "/stereo/right/image_raw/compressed": "2d_raw/cam1",
     "/camera/rgb/image_raw/compressed": "2d_raw/cam2",
     "/zed/zed_node/left/image_rect_color/compressed": "2d_raw/cam3",
+    "/zed/zed_node/right/image_rect_color/compressed": "2d_raw/cam4",
+    #Inertial
+    "/vectornav/IMU": "poses/imu",
+    "/vectornav/Mag": "poses/mag",
+    "/vectornav/GPS": "poses/gps",
+    "/vectornav/Odom": "poses/gpsodom",
+    "/husky_velocity_controller/odom": "poses/inekfodom",
 }
 
 SENSOR_DIRECTORY_FILETYPES = {
+    #Depth
     "3d_raw/os1": "bin",
+    "3d_raw/cam2": "png",
+    "3d_raw/cam3": "png",
+    #RGB
     "2d_raw/cam0": "png",
     "2d_raw/cam1": "png",
+    "2d_raw/cam2": "png",
+    "2d_raw/cam3": "png",
+    "2d_raw/cam4": "png",
     "2d_label/cam0": "png",
     "2d_label/cam1": "png",
+    #Labels
     "%s/os1"%BBOX_LABEL_TYPE: "json",
-    "%s/os1"%SEMANTIC_LABEL_TYPE: "txt"
+    "%s/os1"%SEMANTIC_LABEL_TYPE: "txt",
+    #Inertial
+    "poses/imu": "txt",
+    "poses/mag": "txt",
+    "poses/gps": "txt",
+    "poses/gpsodom": "txt",
+    "poses/inekfodom": "txt"
 }
 
 """

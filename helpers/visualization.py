@@ -170,9 +170,9 @@ def pub_pose(pose_pub, pose, frame, frame_time):
     p.pose.orientation.w = pose[4]
     pose_pub.publish(p)
 
-def pub_img(img_pub, img_path):
-    img = cv2.imread(img_path)
-    bridge = CvBridge()
-    img_msg = bridge.cv2_to_imgmsg(img, encoding="passthrough")
+def pub_img(img_pub, img_header, img_path, read_type=cv2.IMREAD_COLOR):
+    img = cv2.imread(img_path, read_type)
+    img_msg = CvBridge().cv2_to_compressed_imgmsg(img, dst_format="png")
+    img_msg.header = img_header
 
     img_pub.publish(img_msg)
