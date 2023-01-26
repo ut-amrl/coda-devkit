@@ -264,10 +264,9 @@ class BagDecoder(object):
 
         #After each queue contains at least one msg, choose earliest message among queues
         while( not self.is_sync_queue_empty() ):
-            # If difference between earliest message is too much larger than earliest
+            #If difference between earliest message is too much larger than earliest
             # message in other queues, discard message and advance forward
-            # print("Entering loop")
-            latest_topic, latest_ts = self.get_earliest_queue_msg(ts)
+            latest_topic, latest_ts = self.get_latest_queue_msg(ts)
             
             self.remove_old_topics(latest_ts)
             
@@ -275,8 +274,6 @@ class BagDecoder(object):
                 #If difference between earliest message and others is acceptable
                 #save all messages in queue, discard them, and continue looping
                 self._past_sync_ts = self.save_sync_topics()
-            else:
-                print("Difference in timestamps is too large")
     
     def save_sync_topics(self):
         earliest_sync_timestamp = None
@@ -296,6 +293,7 @@ class BagDecoder(object):
                 earliest_sync_timestamp = ts
             elif ts < earliest_sync_timestamp:
                 earliest_sync_timestamp = ts
+
         #Perform state sync updates
         self.save_frame_ts(earliest_sync_timestamp)
         self._curr_frame += 1
@@ -314,13 +312,12 @@ class BagDecoder(object):
             for idx, msg in enumerate(self._sync_msg_queue[topic]):
                 curr_ts = msg.header.stamp.to_sec()
                 if abs(curr_ts - latest_ts)>=0.1:
-                    print("Deleted old ts ", curr_ts, "latest", latest_ts)
                     delete_indices.append(idx)
                     break
             self._sync_msg_queue[topic] = [msg for idx, msg in \
                 enumerate(self._sync_msg_queue[topic]) if idx not in delete_indices]
             
-    def get_earliest_queue_msg(self, last_ts):
+    def get_latest_queue_msg(self, last_ts):
         earliest_ts     = last_ts
         earliest_topic  = None 
 
@@ -365,12 +362,7 @@ class BagDecoder(object):
         return published_packet
 
     def save_topic(self, data, topic, trajectory, frame):
-        if not self._gen_data:
-            return
-        if self._verbose and not topic in SENSOR_DIRECTORY_SUBPATH:
-            print("Topic %s type not defined in SENSOR_DIRECTORY_SUBPATH, skipping save..."%topic)
-            return 
-        
+        # Generate path of topic
         topic_type      = self._topic_to_type[topic]
         topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
 
@@ -378,6 +370,13 @@ class BagDecoder(object):
         filename = set_filename_by_topic(topic, trajectory, frame)
         filepath = os.path.join(save_dir, filename)
 
+        if not self._gen_data:
+            return filepath
+        
+        if self._verbose and not topic in SENSOR_DIRECTORY_SUBPATH:
+            print("Topic %s type not defined in SENSOR_DIRECTORY_SUBPATH, skipping save..."%topic)
+            return filepath 
+        
         if "vectornav" in topic or "husky" in topic:
             save_dir = os.path.join(self._outdir, topic_type_subpath)
             filename = "%s.txt" % trajectory

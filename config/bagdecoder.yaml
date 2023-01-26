@@ -3,9 +3,9 @@ dataset_output_root: "/robodata/arthurz/Datasets/CODa"
 bag_date: "20230116"
 
 #Bag Decoder Settings
-gen_data: True   # Generates data files
-viz_topics: False     # Republish sensor messages
-verbose: False    # Debugging
+gen_data: False   # Generates data files
+viz_topics: True     # Republish sensor messages
+verbose: True    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
@@ -40,5 +40,5 @@ sensor_topics: [
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1673884184.bag", "1673885216.bag", "1673913890.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [0, 1, 2] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1673913890.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [2] # Leave empty to assign ids in sequential order from 0

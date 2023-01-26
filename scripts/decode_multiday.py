@@ -23,7 +23,7 @@ def main(args):
         settings = yaml.safe_load(settings_file)
         root_repo = settings['repository_root']
 
-        subdirs_to_process = ["20230120"]
+        subdirs_to_process = ["20230118"]
         trajectory_curr = 8
 
         if subdirs_to_process==-1: # Default to all subdirs
