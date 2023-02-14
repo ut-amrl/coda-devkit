@@ -166,7 +166,7 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None)
     K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
     d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, k3, p1, p2
 
-    image_points, _ = cv2.projectPoints(pc_np[:, :3],
+    image_points, _ = cv2.projectPoints(pc_np[:, :3].astype(np.float64), 
         ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
     image_points = np.swapaxes(image_points, 0, 1).astype(np.int32).squeeze()
     valid_points_mask = get_pointsinfov_mask(

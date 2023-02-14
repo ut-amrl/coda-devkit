@@ -172,8 +172,11 @@ def pub_pose(pose_pub, pose, frame, frame_time):
 
 def pub_img(img_pub, img_header, img_path, read_type=cv2.IMREAD_COLOR):
     img = cv2.imread(img_path, read_type)
-
+    if img is None:
+        print("Error reading image from file %s, skipping..." % img_path)
+        return
+    # img_msg = CvBridge().cv2_to_compressed_imgmsg(img, dst_format="png")
     img_msg = CvBridge().cv2_to_compressed_imgmsg(img, dst_format="png")
-    img_msg.header = img_header
 
+    img_msg.header = img_header
     img_pub.publish(img_msg)

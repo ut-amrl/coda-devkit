@@ -5,6 +5,7 @@ import shutil
 import yaml
 import numpy as np
 import shutil
+from zipfile import ZipFile
 
 import rospy
 from sensor_msgs.msg import PointCloud2
@@ -33,6 +34,7 @@ class AnnotationEncoder(object):
             self._outdir        = settings['dataset_output_root']
             self._sensor_topics = settings['sensor_topics']
             self._copy_files    = settings['copy_files']
+            self._zip_files     = settings['zip_files']
             self._enc_format    = settings['encoding_format']
             self._use_wcs       = settings['use_wcs']
 
@@ -134,6 +136,47 @@ class AnnotationEncoder(object):
                     self.copy_cam_dir(traj, frame, "cam1")
 
                     print("Wrote json output for frame %i at path %s" % (frame, json_path))
+
+                if self._zip_files:
+                    self.zip_deepen_frame_seq(traj, frame, start, end)
+
+    def zip_deepen_frame_seq(self, traj, frame, start, end):
+        if self._zip_files:
+            #Zip each frame range to separate zip file
+            zip_subdir = "zips"
+            zip_dir = os.path.join(self._outdir, zip_subdir)
+            if not os.path.exists(zip_dir):
+                os.makedirs(zip_dir)
+            zip_name = "trajectory%i_%i_%i.zip"%(traj, start, end)
+            zip_path = os.path.join(zip_dir, zip_name)
+            
+            json_subdir= os.path.join("3d_formatted", str(traj))
+            cam0_subdir= os.path.join("2d_raw", "cam0", str(traj))
+            cam1_subdir= os.path.join("2d_raw", "cam1", str(traj))
+            json_indir = os.path.join(self._outdir, json_subdir)
+            cam0_indir  = os.path.join(self._outdir, cam0_subdir)
+            cam1_indir = os.path.join(self._outdir, cam1_subdir)
+            print("Zipping trajectory %i frames %i to %i..." % (traj, start, end))
+            with ZipFile(zip_path,'w') as zip_file:
+                for frame in range(start, end):
+                    
+                    json_abspath   = os.path.join(json_indir, "%06d.json"%frame)
+                    json_relpath   = os.path.join(json_subdir, "%06d.json"%frame)
+                    
+                    cam0_filename   = set_filename_by_prefix("2d_raw", "cam0", str(traj), str(frame))
+                    cam0_abspath    = os.path.join(cam0_indir, cam0_filename)
+                    cam0_relpath    = os.path.join(cam0_subdir, cam0_filename)
+
+                    cam1_filename   = set_filename_by_prefix("2d_raw", "cam1", str(traj), str(frame))
+                    cam1_abspath    = os.path.join(cam1_indir, cam1_filename)
+                    cam1_relpath    = os.path.join(cam1_subdir, cam1_filename)
+
+                    zip_file.write(json_abspath, json_relpath)
+                    zip_file.write(cam0_abspath, cam0_relpath)
+                    zip_file.write(cam1_abspath, cam1_relpath)
+                    print("Zipping frame %i..."% frame)
+            print("Finished zipping trajectory %i frames %i to %i..." % (traj, start, end))
+                        
 
     def copy_cam_dir(self, traj, frame, sensor_name):
         modality = "2d_raw"
@@ -328,7 +371,6 @@ class AnnotationEncoder(object):
 
         np.savetxt(out_pose_file, out_pose_np, fmt="%10.6f", delimiter=" ")
         
-
     def load_frames(self, traj, start, end):
         """
         Assumes that 
@@ -454,6 +496,7 @@ class AnnotationEncoder(object):
         shutil.copyfile(infile, outfile)
 
     def fill_frame_text(self, filepaths, pose, ts, frameno, cam_parameters):
+        print("Fill frames text with constants file ")
         assert len(filepaths)==3, "Incorrect number of sensors %i passed to manifest \
             file" % len(filepaths)
 
@@ -469,6 +512,9 @@ class AnnotationEncoder(object):
         frame_info['evphy']     = pose[6]
         frame_info['evphz']     = pose[7]
         frame_info['evphw']     = pose[4]
+
+        calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
+        calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
 
         #Camera Extrinsics to LiDAR
         cam0_r = R.from_euler('xyz', CAM0_CALIBRATIONS['extrinsics'][3:], degrees=True)

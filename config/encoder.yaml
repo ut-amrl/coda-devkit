@@ -1,47 +1,95 @@
 # Path to processed CODa dataset root directort
-dataset_input_root: "/home/arthur/AMRL/Datasets/CODa"
+dataset_input_root: "/robodata/arthurz/Datasets/CODa"
 # dataset_output_root: "/home/arthur/AMRL/Tools/kitti360LabelTool/public/data" 
 # dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
-dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_scale"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_deepen"
 
-encoding_format: "scale"
+encoding_format: "deepen"
 use_wcs: True
 
 # Defines which topics to copy. Should contain at least os1 and cam0
 copy_files: True
+zip_files: True
 sensor_topics: [
   "/ouster/lidar_packets",
-  "/stereo/left/image_raw/compressed"
-  , "/stereo/right/image_raw/compressed"
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed"
 ]
 
 downsample_rate: 1
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
-  2, 3
+  0, 1, 2, 3, 4, 5, 6, 7
 ]
 
 trajectory_frames:
-  # 0: [
-  #   [900, 1200], # 1 minute worth of annotations\
-  #   [1200, 1500]
-  # ]
-  # 1: [
-  #   [50, 300],
-  #   [300, 550]
-  # ]
+  0: [
+    [400, 800],   #Outdoor
+    [4020, 4400], #Indoor
+    [4750, 5000], #Indoor
+    [5600, 5800]  # Outdoor
+  ]
+  1: [
+    [1750, 2250], #Outdoor
+    [2900, 3400]  #Indoor
+  ]
   2: [
-    [2760, 2810]
+    [2400, 2600], #Outdoor
+    [5040, 5340], #Outdoor
+    [5475, 5660], #Outdoor
+    [6850, 7150]  #Outdoor
   ]
   3: [
-    [700, 750]
+    [1800, 2100], #Outdoor
+    [5010, 5280], #Indoor,
+    [11950, 12150] #Outdoor
   ]
-# trajectory_frames:
-#   0: [
-#     [900, 950], # 1 minute worth of annotations\
-#     [1200, 1300]
-#   ]
+  4: [
+    [1300, 1480], #Outdoor
+    [3950, 4140], #Indoor
+    [6630, 7030]  #Outdoor
+  ]
+  5: [
+    [1800, 2000], #Outdoor
+    [3500, 3700]  #Indoor
+  ]
+  6: [
+    [1200, 1450], #Outdoor
+    [2600, 2900], #Outdoor
+    [4500, 4800], #Outdoor
+    [5500, 5800], #Outdoor
+    [6150, 6300], #Indoor
+    [6620, 7450], #Indoor
+    [8450, 9300], #Outdoor
+    [10300, 10600]  #Outdoor
+  ]
+  7: [
+    [4750, 5000], # Outdoor
+    [6615, 6915], # Outdoor
+    [8250, 8450], # Outdoor
+    [12950, 13150], #Outdoor
+    [14700, 15400]  #Outdoor
+  ]
+  # 13: [
+  #   [900, 1200],
+  #   [1800, 2200],
+  #   [5550, 7100],
+  #   [7225, 7425],
+  #   [9000, 10100],  #Outdoor
+  #   [10350, 11450],
+  #   [11900, 12400]
+  # ],
+  # 16: [
+  #   [3100, 3800],
+  #   [4050, 4300],
+  #   [5800, 6090],
+  #   [7000, 7150],
+  #   [7250, 7500],
+  #   [8650, 9250],
+  #   [10520, 11560],
+
+  # ]
 
 # Sagemaker specific settings (only need to set encoding format="sagemaker")
 s3_prefix: "s3://ut-coda-test-sagemaker/artifacts/"

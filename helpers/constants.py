@@ -25,7 +25,7 @@ BBOX_LABEL_TYPE     = "3d_bbox"
 
 DATASET_L1_DIR_LIST = [
     "metadata",
-    "calibration",
+    "calibrations",
     "timestamps",
     "2d_raw",
     "3d_raw",
@@ -283,7 +283,7 @@ SENSOR_DIRECTORY_SUBPATH = {
     "/vectornav/Mag": "poses/mag",
     "/vectornav/GPS": "poses/gps",
     "/vectornav/Odom": "poses/gpsodom",
-    "/husky_velocity_controller/odom": "poses/inekfodom",
+    "/husky_velocity_controller/odom": "poses/inekfodom"
 }
 
 SENSOR_DIRECTORY_FILETYPES = {
@@ -323,23 +323,35 @@ SENSOR_TO_XYZ_FRAME = {
         0, 0, 0, 1      
     ],
     "/vectornav/IMU": [
-        1, 0, 0, 0, 
+        1, 0, 0,  0, 
         0, -1, 0, 0,
         0, 0, -1, 0,
+        0, 0, 0, 1
+    ],
+    # "/vectornav/IMU": [
+    #     0, 1, 0,  0, 
+    #     -1, 0, 0, 0,
+    #     0, 0, 1, 0,
+    #     0, 0, 0, 1
+    # ],
+    "/vectornav/Odom": [
+        -1, 0, 0,  0, 
+        0, -1, 0, 0,
+        0, 0, 1, 0,
         0, 0, 0, 1
     ]
 }
 SENSOR_TO_BASE_LINK = {
     "/ouster/lidar_packets": [
-        1, 0, 0, 0,
-        0, 1, 0, 0,
+        -1, 0, 0, 0,
+        0, -1, 0, 0,
         0, 0, 1, 0.43,
         0, 0, 0, 1       
     ],
     "/vectornav/IMU": [
-        1, 0, 0, 0, 
-        0, -1, 0, 0,
-        0, 0, -1, -0.31,
+        0, -1, 0, 0, 
+        1, 0, 0, 0,
+        0, 0, 1, 0,
         0, 0, 0, 1
     ]
 }

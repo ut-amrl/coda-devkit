@@ -11,6 +11,7 @@ import rosbag
 import message_filters
 from visualization_msgs.msg import *
 from sensor_msgs.msg import PointCloud2, CompressedImage, Imu, MagneticField, Image, NavSatFix
+from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Clock
 
@@ -59,6 +60,7 @@ class BagDecoder(object):
 
         #Load sync publisher
         rospy.init_node('coda', anonymous=True)
+        self._pub_rate = rospy.Rate(5) # Publish at 10 hz
         self._topic_to_type = None
 
         self._qp_counter = 0
@@ -66,13 +68,6 @@ class BagDecoder(object):
         self._qp_scan_queue = []
 
         self._past_sync_ts = None
-
-        #Reset imu and mag files
-        self._init_imu_file = False
-        self._init_mag_file = False
-        self._init_gps_file = False
-        self._init_gpsodom_file     = False
-        self._init_inekfodom_file   = False
 
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
@@ -204,6 +199,8 @@ class BagDecoder(object):
                     topic_class = NavSatFix
                 elif topic_type=="nav_msgs/Odometry":
                     topic_class = Odometry
+                elif topic_type=="tf2_msgs/TFMessage":
+                    topic_class = TFMessage
                 else:
                     if self._verbose:
                         print("""Not publishing topic %s over ros because
@@ -213,15 +210,27 @@ class BagDecoder(object):
                     self._async_pubs[topic] = rospy.Publisher(
                         "/coda%s"%topic, topic_class, queue_size=10
                     )
+                    
 
             #Create frame to timestamp map
             frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%self._trajectory)
             if self._gen_data:
                 self._frame_to_ts     = open(frame_to_ts_path, 'w+')
+                for topic in self._sensor_topics:
+                    if "vectornav" in topic or "husky" in topic:
+                        topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
+                        save_dir = os.path.join(self._outdir, topic_type_subpath)
+                        filename = "%s.txt" % self._trajectory
+                        filepath = os.path.join(save_dir, filename)
+                        print("Resetting old nav file at location %s ", filepath)
+                        topic_file  = open(filepath, 'w+')
+                        topic_file.close()
+
             if self._verbose:
                 print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
 
             for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
+
                 if topic in self._sync_topics:
                     topic_type = self._topic_to_type[topic]
                     if topic_type=="ouster_ros/PacketMsg":
@@ -229,20 +238,20 @@ class BagDecoder(object):
                     else:
                         self.sync_sensor(topic, msg, ts)
                         self._sync_pubs[topic].publish(msg)
-                else:
-                    if topic in self._sensor_topics:
-                        # data, ts = self.process_topic(topic, msg, ts)
-                        #Use ts as frame for non synchronized sensors
-                        filepath = self.save_topic(msg, topic, self._trajectory, ts)
+                elif topic in self._sensor_topics:
+                    #Use ts as frame for non synchronized sensors
+                    filepath = self.save_topic(msg, topic, self._trajectory, ts)
 
-                        # Publish non sync topics
-                        if self._viz_topics and self._async_pubs[topic]!=None:
-                            # Special case for Kinect
-                            if topic=="/camera/depth/image_raw/compressed":
-                                pub_img(self._async_pubs[topic], msg.header, filepath, -1)
-                            else:
-                                self._async_pubs[topic].publish(msg)
-            
+                    # Publish non sync topics
+                    if self._viz_topics and self._async_pubs[topic]!=None:
+                        # Special case for Kinect
+                        if topic=="/camera/depth/image_raw/compressed":
+                            pub_img(self._async_pubs[topic], msg.header, filepath, -1)
+                        else:
+                            # if "vectornav" in topic: #Vnav to sensor frame
+                            #     proc_msg, _ = self.process_topic(topic, msg, msg.header.stamp)
+                            #     msg = proc_msg
+                            self._async_pubs[topic].publish(msg)
             print("Completed processing bag ", bag_fp)
             if self._gen_data:
                 self._frame_to_ts.close()
@@ -251,14 +260,14 @@ class BagDecoder(object):
         if self._past_sync_ts==None:
             self._past_sync_ts = ts
             self._past_sync_ts.secs -= 1 # Set last sync time to be less than first msg
-
+        
         # print("call by topic %s with timestamp %10.6f" % (topic, ts.to_sec()))
         #Remove all timestamps earlier than last synced timestamp
         for topic_key in self._sync_msg_queue.keys():
             while len(self._sync_msg_queue[topic_key]) > 0 and \
                 self._sync_msg_queue[topic_key][0].header.stamp < self._past_sync_ts:
                 self._sync_msg_queue[topic_key].pop(0)
-
+        
         #Insert new message into topic queue
         self._sync_msg_queue[topic].append(msg)
 
@@ -267,7 +276,6 @@ class BagDecoder(object):
             #If difference between earliest message is too much larger than earliest
             # message in other queues, discard message and advance forward
             latest_topic, latest_ts = self.get_latest_queue_msg(ts)
-            
             self.remove_old_topics(latest_ts)
             
             if ( not self.is_sync_queue_empty() ):
@@ -297,6 +305,7 @@ class BagDecoder(object):
         #Perform state sync updates
         self.save_frame_ts(earliest_sync_timestamp)
         self._curr_frame += 1
+        
         return latest_sync_timestamp
 
     def save_frame_ts(self, timestamp):
@@ -311,7 +320,9 @@ class BagDecoder(object):
             delete_indices = []
             for idx, msg in enumerate(self._sync_msg_queue[topic]):
                 curr_ts = msg.header.stamp.to_sec()
-                if abs(curr_ts - latest_ts)>=0.1:
+                if abs(curr_ts - latest_ts)>=0.5:
+                    if self._verbose:
+                        print("Found difference of ", abs(curr_ts - latest_ts), " for topic ", topic)
                     delete_indices.append(idx)
                     break
             self._sync_msg_queue[topic] = [msg for idx, msg in \
@@ -346,8 +357,10 @@ class BagDecoder(object):
             if self._qp_counter==OS1_PACKETS_PER_FRAME: # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
                 if self._verbose:
-                    print("Publishing frame %i over ros..." %self._curr_frame)
-                pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                    print("Publishing frame %d over ros..." %self._curr_frame)
+                if self._viz_topics:
+                    pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+                    self._pub_rate.sleep() #Limit publish rate of point clouds for LeGO-LOAM
 
                 self.sync_sensor(topic, pc_msg, ts)
                 published_packet = True
@@ -364,6 +377,10 @@ class BagDecoder(object):
     def save_topic(self, data, topic, trajectory, frame):
         # Generate path of topic
         topic_type      = self._topic_to_type[topic]
+
+        if self._verbose and not topic in SENSOR_DIRECTORY_SUBPATH:
+            print("Topic %s type not defined in SENSOR_DIRECTORY_SUBPATH, skipping save..."%topic)
+            return None
         topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
 
         save_dir = os.path.join(self._outdir, topic_type_subpath, str(trajectory))
@@ -372,11 +389,7 @@ class BagDecoder(object):
 
         if not self._gen_data:
             return filepath
-        
-        if self._verbose and not topic in SENSOR_DIRECTORY_SUBPATH:
-            print("Topic %s type not defined in SENSOR_DIRECTORY_SUBPATH, skipping save..."%topic)
-            return filepath 
-        
+  
         if "vectornav" in topic or "husky" in topic:
             save_dir = os.path.join(self._outdir, topic_type_subpath)
             filename = "%s.txt" % trajectory
@@ -401,45 +414,21 @@ class BagDecoder(object):
             img_to_png(proc_data, filepath)
         elif topic_type=="sensor_msgs/Imu":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-            if not self._init_imu_file:
-                print("Resetting IMU file for trajectory %s" % trajectory)
-                imu_file = open(filepath, 'w')
-                imu_file.close()
-                self._init_imu_file = True
+
             imu_to_txt(proc_data, filepath)
         elif topic_type=="sensor_msgs/MagneticField":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
 
-            if not self._init_mag_file:
-                print("Resetting magnetometer file for trajectory %s" % trajectory)
-                mag_file = open(filepath, 'w')
-                mag_file.close()
-                self._init_mag_file = True
             mag_to_txt(proc_data, filepath)
         elif topic_type=="sensor_msgs/NavSatFix":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-
-            if not self._init_gps_file:
-                gps_file = open(filepath, 'w')
-                gps_file.close()
-                self._init_gps_file = True
 
             if proc_data!=None:
                 gps_to_txt(proc_data, filepath)
         elif topic_type=="nav_msgs/Odometry":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-      
-            if "vectornav" in topic and not self._init_gpsodom_file:
-                odom_file = open(filepath, 'w')
-                odom_file.close()
-                self._init_gpsodom_file = True 
-  
-            if "husky" in topic and not self._init_inekfodom_file:
-                odom_file = open(filepath, 'w')
-                odom_file.close()
-                self._init_inekfodom_file = True 
 
-            odom_to_txt(proc_data, filepath)            
+            odom_to_txt(proc_data, filepath)   
         else:
             if self._verbose:
                 print("Entered undefined topic %s in save, skipping..."%topic)
@@ -464,7 +453,7 @@ class BagDecoder(object):
             data, sensor_ts = process_compressed_image(msg, encoding)
         elif topic_type=="sensor_msgs/Imu":
             imu_to_wcs = np.array(SENSOR_TO_XYZ_FRAME[topic]).reshape(4, 4)
-            data = process_imu(msg, imu_to_wcs)
+            data, sensor_ts = process_imu(msg, imu_to_wcs)
         elif topic_type=="sensor_msgs/MagneticField":
             #No need to process magnetometer reading
             data = msg

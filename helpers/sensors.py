@@ -68,7 +68,7 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
         filetype
         )
     return sensor_filename
-    
+
 def get_filename_info(filename):
     # pdb.set_trace()
     filename_prefix  = filename.split('.')[0]
@@ -203,15 +203,15 @@ def process_imu(imu_data, trans):
         imu_data.linear_acceleration.x, imu_data.linear_acceleration.y,
         imu_data.linear_acceleration.z, 0
     ])
-    orientation = R.from_quat(orientation).as_rotvec(degrees=True)
+    orientation = R.from_quat(orientation).as_euler('xyz', degrees=True)
     orientation = np.append(orientation, 0)
 
-    # Transform imu coordinates to LiDAR coordinate frame
+    # Transform imu coordinates to sensor coordinate frame
     o_trans     = np.dot(trans, orientation)
     a_trans     = np.dot(trans, angular_vel)
     l_trans     = np.dot(trans, linear_acc)
 
-    o_trans = R.as_quat( R.from_rotvec(o_trans[:3]) )
+    o_trans = R.as_quat( R.from_euler('xyz', o_trans[:3], degrees=True) )
     imu_data.orientation.x = o_trans[0]
     imu_data.orientation.y = o_trans[1]
     imu_data.orientation.z = o_trans[2]
@@ -223,7 +223,10 @@ def process_imu(imu_data, trans):
     imu_data.linear_acceleration.x  = l_trans[0]
     imu_data.linear_acceleration.y  = l_trans[1]
     imu_data.linear_acceleration.z  = l_trans[2]
-    return imu_data
+    return imu_data, imu_data.header.stamp
+
+# def process_vnav_odometry(odom_data, trans):
+
 
 def process_mag(mag_data):
     pass

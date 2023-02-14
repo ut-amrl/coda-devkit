@@ -5,18 +5,18 @@ import pdb
 import yaml
 import time
 import numpy as np
-from helpers.sensors import get_filename_info, set_filename_by_prefix
 
 #ROS Imports
 import rospy
-from sensor_msgs.msg import PointCloud2, Image
+from sensor_msgs.msg import PointCloud2, CompressedImage
+from std_msgs.msg import Header
 
 # For imports
 sys.path.append(os.getcwd())
 
 #CustomImports
+from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
 from helpers.visualization import *
-from helpers.sensors import read_bin
 from helpers.constants import OS1_POINTCLOUD_SHAPE
 
 def save_bboxmask_and_pose(object_mask_dir, trajectory, frame, bin_np, threed_label_file, pose_np):
@@ -43,11 +43,12 @@ def main():
         viz_3danno     = settings['viz_3danno']
         viz_pose    = settings['viz_pose']
 
-        img_root_dir    = settings['img_root_dir']
-        bin_root_dir    = settings['bin_root_dir']
-        pose_root_dir   = settings['pose_root_dir']
-        ts_root_dir     = settings['ts_root_dir']
-        bbox3d_root_dir = settings['bbox3d_root_dir']
+        root_dir = settings['root_dir']
+        img_root_dir    = os.path.join(root_dir, "2d_raw")
+        bin_root_dir    = os.path.join(root_dir, "3d_raw/os1")
+        pose_root_dir   = os.path.join(root_dir, "poses")
+        ts_root_dir     = os.path.join(root_dir, "timestamps")
+        bbox3d_root_dir = os.path.join(root_dir, "3d_bbox/os1")
         trajectory_frames   = settings['trajectory_frames']
         ds_rate         = settings['downsample_rate']
         save_object_masks= settings['save_object_masks']
@@ -75,8 +76,8 @@ def main():
 
     #Initialize ros point cloud publisher
     rospy.init_node('bin_publisher', anonymous=True)
-    pc_pub = rospy.Publisher('/coda/bin/points', PointCloud2, queue_size=10)
-    img_pubs = [rospy.Publisher('/coda/stereo/%s'%cam, Image, queue_size=10) for cam in cam_list ]
+    pc_pub = rospy.Publisher('/coda/ouster/lidar_packets', PointCloud2, queue_size=10)
+    img_pubs = [rospy.Publisher('/coda/stereo/%s/compressed'%cam, CompressedImage, queue_size=10) for cam in cam_list ]
     pose_pub = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
     marker_pub = rospy.Publisher('/coda/bbox', MarkerArray, queue_size=10)
     pub_rate = rospy.Rate(5) # Publish at 10 hz
@@ -106,7 +107,7 @@ def main():
                 pose = find_closest_pose(pose_np, ts)
                 pub_pose(pose_pub, pose, frame, frame_time)
 
-            label_filename = set_filename_by_prefix("3d_label", "os1",
+            label_filename = set_filename_by_prefix("3d_bbox", "os1",
                     str(trajectory), frame)
             threed_label_file = os.path.join(bbox3d_root_dir, str(trajectory), 
                 label_filename)
@@ -114,7 +115,8 @@ def main():
             #Publish images
             if viz_img:
                 for (cam_idx, cam_dir) in enumerate(cam_dirs):
-
+                    if cam_idx > 1: # Only flir images supported for now
+                        continue
                     cam_name = cam_list[cam_idx]
                     img_file = set_filename_by_prefix("2d_raw", cam_name, trajectory, frame)
                     img_path = os.path.join(cam_dir, img_file)
@@ -143,15 +145,19 @@ def main():
                             obj_color = BBOX_ID_TO_COLOR[obj_id]
                             image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color)
 
-                        img_label_dir = cam_dir.replace("raw", "label")
-                        img_label_file = set_filename_by_prefix("2d_label", cam_name, trajectory, frame)
+                        img_label_dir = cam_dir.replace("raw", "bbox")
+                        img_label_file = set_filename_by_prefix("2d_bbox", cam_name, trajectory, frame)
                         if not os.path.exists(img_label_dir):
                             os.makedirs(img_label_dir)
 
                         img_path = os.path.join(img_label_dir, img_label_file)
                         cv2.imwrite(img_path, image)
 
-                    pub_img(img_pubs[cam_idx], img_path)
+                    img_header = Header()
+                    img_header.stamp = frame_time
+                    img_header.frame_id = "left_optical"
+                    img_header.seq = int(frame)
+                    pub_img(img_pubs[cam_idx], img_header, img_path)
 
             #Publish point cloud
             if viz_pc:

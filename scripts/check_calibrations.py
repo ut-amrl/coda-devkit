@@ -1,4 +1,5 @@
 import os
+import sys
 import pdb
 import json
 
@@ -7,6 +8,9 @@ from sensor_msgs.msg import PointCloud2, Image
 
 import cv2
 import numpy as np
+
+# For imports
+sys.path.append(os.getcwd())
 
 from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
 from helpers.geometry import find_closest_pose, project_3dto2d_bbox, draw_bbox
@@ -17,15 +21,15 @@ def main():
     indir - CODa directory (assumes 3d_labels exists)
     outdir - directory to save bbox projections to
     """
-    indir   = "/home/arthur/AMRL/Datasets/CODa"
-    trajectory = 2
+    indir   = "/robodata/arthurz/Datasets/CODa"
+    trajectory = 1
     use_wcs = False
 
     #Project 3d bbox annotations to 2d
     calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
     calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
     tred_bin_dir   = os.path.join(indir, "3d_raw", "os1", str(trajectory))
-    tred_anno_dir  = os.path.join(indir, "3d_label", "os1", str(trajectory))
+    tred_anno_dir  = os.path.join(indir, "3d_bbox", "os1", str(trajectory))
     twod_anno_dir  = os.path.join(indir, "2d_raw", "cam0", str(trajectory))
 
     #Locate closest pose from frame
@@ -41,18 +45,15 @@ def main():
     bin_files   = np.array(os.listdir(tred_bin_dir))[frame_order]
 
     image_pub   = rospy.Publisher('/coda/stereo/%s'%"cam0", Image, queue_size=10)
-    pc_pub      = rospy.Publisher('/coda/bin/points', PointCloud2, queue_size=10)
+    pc_pub      = rospy.Publisher('/coda/ouster/lidar_packets', PointCloud2, queue_size=10)
     dense_poses = densify_poses_between_ts(frame_to_poses_np, frame_to_ts_np)
 
     for (idx, bin_file) in enumerate(bin_files):
-        if idx < 2760:
+        if idx < 1750:
             continue
+
         modality, sensor_name, trajectory, frame = get_filename_info(bin_file)
 
-        indir="/home/arthur/AMRL/Datasets/CODa"
-        calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
-        calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
-        
         bin_path = os.path.join(tred_bin_dir, bin_file)
         bin_np = read_bin(bin_path, False)
 
@@ -61,7 +62,7 @@ def main():
             wcs_pose = pose_to_homo(dense_poses[idx])
             bin_np_homo = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
             bin_np      = (wcs_pose @ bin_np_homo.T).T[:, :3]
-
+      
         image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
         # pdb.set_trace()
         in_bounds = np.logical_and(
@@ -78,9 +79,11 @@ def main():
             image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=(0, 0, 255))
         # print("valid_points", in_bounds_and_fov)
         # pdb.set_trace()
-        cv2.imshow('img', image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        cv2.imwrite("testcalibration.png", image)
+        import pdb; pdb.set_trace()
+        # cv2.imshow('img', image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()

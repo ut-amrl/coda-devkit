@@ -23,8 +23,8 @@ def main(args):
         settings = yaml.safe_load(settings_file)
         root_repo = settings['repository_root']
 
-        subdirs_to_process = ["20230118"]
-        trajectory_curr = 8
+        subdirs_to_process = ["220230126"]
+        trajectory_curr = 6
 
         if subdirs_to_process==-1: # Default to all subdirs
             subdirs_to_process = [ subdir for subdir in os.listdir(root_repo) if os.path.isdir(os.path.join(
@@ -35,9 +35,6 @@ def main(args):
 
             bag_files = [ subdir_file for subdir_file in os.listdir(dir_path) if subdir_file.endswith(".bag") and
                 "calibration" not in subdir_file]
-
-            if subdir=="20230119":
-                bag_files = ["1674164498.bag"]
 
             # Modify bagdecoder.yaml settings with correct config
             settings['bag_date'] = subdir

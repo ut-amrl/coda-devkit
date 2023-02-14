@@ -1,23 +1,20 @@
 viz_img: True
 viz_pc: True
-viz_3danno: True
-viz_pose: True
-viz_2danno: True
+viz_3danno: False
+viz_pose: False
+viz_2danno: False
 
 use_wcs: False
 save_object_masks: False
-object_mask_dir: "/home/arthur/AMRL/Datasets/ZixArt"
+object_mask_dir: "/robodata/arthurz/Datasets/ZixArt"
 
-img_root_dir: "/home/arthur/AMRL/Datasets/CODa/2d_raw"
-bin_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_raw/os1"
-pose_root_dir: "/home/arthur/AMRL/Datasets/CODa/poses"
-ts_root_dir: "/home/arthur/AMRL/Datasets/CODa/timestamps"
-bbox3d_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_label/os1"
+root_dir: "/robodata/arthurz/Datasets/CODa"
 
 trajectory_frames:
+  [-1, -1] # Visualize all frames in trajectory
   # [50, 545]
   # [-1, -1]
-  [900, 1200]
+  # [900, 1200]
   # [2760, 2809]
   # [700, 749]
 
