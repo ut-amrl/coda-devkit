@@ -27,8 +27,10 @@ class BagDecoder(object):
     This decoder requires the bag files to contain /ouster/lidar_packets and
     two compressed image topics to be published within 50 milliseconds of each other.
     """
-    def __init__(self, config, is_config_dict=False):
+    def __init__(self, config, bag_dir, bag_name, is_config_dict=False):
         self._is_config_dict = is_config_dict
+        self.bag_dir = bag_dir
+        self.bag_name = bag_name
         if not is_config_dict:
             self._settings_fp = os.path.join(os.getcwd(), config)
             assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
@@ -60,7 +62,7 @@ class BagDecoder(object):
 
         #Load sync publisher
         rospy.init_node('coda', anonymous=True)
-        self._pub_rate = rospy.Rate(5) # Publish at 10 hz
+        self._pub_rate = rospy.Rate(2) # Publish at 10 hz
         self._topic_to_type = None
 
         self._qp_counter = 0
@@ -161,17 +163,20 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for trajectory_idx, bag_file in enumerate(self._all_bags):
-            if bag_file not in self._bags_to_process:
-                continue
+        all_bags = [self.bag_name]
+        # for trajectory_idx, bag_file in enumerate(self._all_bags):
+        for trajectory_idx, bag_file in enumerate(all_bags):
+            # if bag_file not in self._bags_to_process:
+            #     continue
                 
             self._trajectory = trajectory_idx
-            if len(self._bags_to_traj_ids)==len(self._bags_to_process):
-                bag_idx = self._bags_to_process.index(bag_file)
-                self._trajectory = self._bags_to_traj_ids[bag_idx]
+            # if len(self._bags_to_traj_ids)==len(self._bags_to_process):
+            #     bag_idx = self._bags_to_process.index(bag_file)
+            #     self._trajectory = self._bags_to_traj_ids[bag_idx]
 
             self._curr_frame = 0
-            bag_fp = os.path.join(self._bag_dir, bag_file)
+            # bag_fp = os.path.join(self._bag_dir, bag_file)
+            bag_fp = os.path.join(self.bag_dir, bag_file)
             print("Processing bag ", bag_fp, " as trajectory", self._trajectory)
 
             #Preprocess topics

@@ -8,6 +8,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config', default="config/bagdecoder.yaml",
                     help="decode config file (see config/decode.yaml for example)")
 parser.add_argument('--all_days', default=False, help="decode all sudirs or the one specified in .yaml")
+parser.add_argument('--bag_dir', required=True, help="directory for rosbags")
+parser.add_argument('--bag_name', required=True, help="Name of the rosbag within the directory")
 
 # For imports
 sys.path.append(os.getcwd())
@@ -45,7 +47,7 @@ def main(args):
             bag_decoder = BagDecoder(settings, is_config_dict=True)
             bag_decoder.convert_bag()
     else:
-        bag_decoder = BagDecoder(args.config, is_config_dict=False)
+        bag_decoder = BagDecoder(args.config, args.bag_dir, args.bag_name, is_config_dict=False)
         bag_decoder.convert_bag()
     
 if __name__ == "__main__":
