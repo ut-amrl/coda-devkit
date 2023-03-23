@@ -1,5 +1,6 @@
 import os
 import pdb
+import yaml
 import shutil
 
 #Sys Tools
@@ -80,6 +81,24 @@ def get_filename_info(filename):
     frame           = filename_prefix[4]
     return (modality, sensor_name, trajectory, frame)
 
+def get_calibration_info(filepath):
+    filename = filepath.split('/')[-1]
+    filename_prefix = filename.split('.')[0]
+    filename_split = filename_prefix.split('_')
+
+    calibration_info = None
+    src, tar = filename_split[1], filename_split[-1]
+    if len(filename_split) > 3:
+        #Sensor to Sensor transform
+        extrinsic = yaml.safe_load(open(filepath, 'r'))
+        calibration_info = extrinsic
+    else:
+        #Intrinsic transform
+        intrinsic = yaml.safe_load(open(filepath, 'r'))
+        calibration_info = intrinsic
+    
+    return calibration_info, src, tar
+
 def read_bin(bin_path, keep_intensity=True):
     bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
 
@@ -148,7 +167,7 @@ def odom_to_txt(odom, filename):
         np.savetxt(odom_file, odom_np, fmt='%6.8f', delimiter=" ")
     odom_file.close()
 
-def img_to_png(img_np, filename):
+def img_to_file(img_np, filename):
     cv2.imwrite(filename, img_np)
 
 def bin_to_ply(bin_np, ply_path):
@@ -190,6 +209,23 @@ def process_compressed_image(img_data, encoding="bgr8"):
         image_np = np.array(cv_image)
 
     return image_np, sensor_ts
+
+def rectify_image(img_path, intrinsics):
+    img = np.array(cv2.imread(img_path))
+    w, h = intrinsics['image_width'], intrinsics['image_height']
+    #Need to be float32s to match cv type
+    K = np.float32(intrinsics['camera_matrix']['data']).reshape(3,3)
+    D = np.float32(intrinsics['distortion_coefficients']['data'])
+    
+    Kn, roi = cv2.getOptimalNewCameraMatrix(K, D, (w,h), 1, (w,h))
+    mapx, mapy = cv2.initUndistortRectifyMap(K,D, None, Kn, (w,h), 5)
+    img_rect = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
+
+    #Uncomment below to crop rectified image
+    # x,y,w,h = roi
+    # img_rect = img_rect[y:y+h, x:x+w]
+    return img_rect
+
 
 def process_imu(imu_data, trans):
     orientation = np.array([

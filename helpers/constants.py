@@ -28,6 +28,7 @@ DATASET_L1_DIR_LIST = [
     "calibrations",
     "timestamps",
     "2d_raw",
+    "2d_rect",
     "3d_raw",
     BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_TYPE,
@@ -70,12 +71,12 @@ BBOX_CLASS_VIZ_LIST = [
 "Motorcycle",
 "Golf Cart",
 "Truck",
-"Person",
+"Pedestrian",
 # Static Classes
 "Tree",
 "Traffic Sign",
 "Canopy",
-"Traffic Lights",
+"Traffic Light",
 "Bike Rack",
 "Bollard",
 "Construction Barrier",
@@ -105,7 +106,20 @@ BBOX_CLASS_VIZ_LIST = [
 "Fire Extinguisher",
 "Computer",
 "Television",
-"Other"
+"Other",
+# New Classes
+"Horse",
+"Pickup Truck",
+"Delivery Truck",
+"Service Vehicle",
+"Utility Vehicle",
+"Fire Alarm",
+"ATM",
+"Cart",
+"Couch",
+"Traffic Arm",
+"Wall Sign",
+"Floor Sign"
 ]
 
 BBOX_CLASS_REMAP = {
@@ -115,12 +129,12 @@ BBOX_CLASS_REMAP = {
     "Motorcycle":           "Motorcycle",
     "Golf Cart":            "Vehicle",
     "Truck":                "Vehicle",
-    "Person":               "Person",
+    "Pedestrian":            "Pedestrian",
     # Static Classes     
     "Tree":                 "Tree",
     "Traffic Sign":         "Sign",
     "Canopy":               "Canopy",
-    "Traffic Lights":       "Traffic Lights",
+    "Traffic Light":       "Traffic Light",
     "Bike Rack":            "Bike Rack",
     "Bollard":              "Barrier",
     "Construction Barrier": "Barrier",
@@ -150,7 +164,19 @@ BBOX_CLASS_REMAP = {
     "Fire Extinguisher":    "Dispenser",
     "Computer":             "Screen",
     "Television":           "Screen",
-    "Other":                "Other"
+    "Other":                "Other",
+    "Horse":                "Other",
+    "Pickup Truck":         "Vehicle",
+    "Delivery Truck":       "Vehicle",
+    "Service Vehicle":      "Vehicle",
+    "Utility Vehicle":      "Vehicle",
+    "Fire Alarm":           "Fire Alarm",
+    "ATM":                  "Dispenser",
+    "Cart":                 "Cart",
+    "Couch":                "Couch",
+    "Traffic Arm":          "Traffic Arm",
+    "Wall Sign":            "Sign",
+    "Floor Sign":           "Sign"
 }
 
 BBOX_CLASS_TO_ID = {
@@ -166,7 +192,7 @@ BBOX_CLASS_TO_ID = {
     "Tree": 7,
     "Traffic Sign": 8,
     "Canopy": 9,
-    "Traffic Lights": 10,
+    "Traffic Light": 10,
     "Bike Rack": 11,
     "Bollard": 12,
     "Construction Barrier": 13,
@@ -196,7 +222,19 @@ BBOX_CLASS_TO_ID = {
     "Fire Extinguisher": 35,
     "Computer": 36,
     "Television": 37,
-    "Other": 38
+    "Other": 38,
+    "Horse": 39,
+    "Pickup Truck": 40,
+    "Delivery Truck": 41,
+    "Service Vehicle": 42,
+    "Utility Vehicle": 43,
+    "Fire Alarm": 44,
+    "ATM": 45,
+    "Cart": 46,
+    "Couch": 47,
+    "Traffic Arm": 48,
+    "Wall Sign": 49,
+    "Floor Sign": 50
 }
 
 NONRIGID_CLASS_IDS = [6, 7]
@@ -241,6 +279,7 @@ BBOX_ID_TO_COLOR = [
     (0, 153, 76),       #36 Computer
     (32, 32, 32),       #37 Television
     (255, 255, 255)     #38 Other
+    #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
 ]
 
 """
@@ -289,16 +328,23 @@ SENSOR_DIRECTORY_SUBPATH = {
 SENSOR_DIRECTORY_FILETYPES = {
     #Depth
     "3d_raw/os1": "bin",
-    "3d_raw/cam2": "png",
-    "3d_raw/cam3": "png",
+    "3d_raw/cam2": "jpg",
+    "3d_raw/cam3": "jpg",
     #RGB
-    "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png",
-    "2d_raw/cam2": "png",
-    "2d_raw/cam3": "png",
-    "2d_raw/cam4": "png",
-    "2d_label/cam0": "png",
-    "2d_label/cam1": "png",
+    "2d_raw/cam0": "jpg",
+    "2d_raw/cam1": "jpg",
+    "2d_raw/cam2": "jpg",
+    "2d_raw/cam3": "jpg",
+    "2d_raw/cam4": "jpg",
+    "2d_raw/cam0": "jpg",
+    "2d_raw/cam1": "jpg",
+    "2d_raw/cam2": "jpg",
+    "2d_raw/cam3": "jpg",
+    "2d_raw/cam4": "jpg",
+    "2d_rect/cam0": "jpg",
+    "2d_rect/cam1": "jpg",
+    "2d_label/cam0": "jpg",
+    "2d_label/cam1": "jpg",
     #Labels
     "%s/os1"%BBOX_LABEL_TYPE: "json",
     "%s/os1"%SEMANTIC_LABEL_TYPE: "txt",
@@ -371,6 +417,17 @@ CAM0_CALIBRATIONS = {
     "extrinsics": [0.1125, -0.1937500000000003, -0.1906249999999992, -7, -96, 94],
     "width": 1224,
     "height": 1024
+}
+
+KITTI_INTRINSIC_FORMAT = {
+    'S': [],
+    'K': [],
+    'D': [],
+    'R': [],
+    'T': [],
+    'S_rect': [],
+    'R_rect': [],
+    'P_rect': []
 }
 
 """

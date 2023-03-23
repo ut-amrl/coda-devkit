@@ -20,6 +20,9 @@ from helpers.geometry import wcs_mat
 from helpers.visualization import pub_pc_to_rviz, pub_img
 from helpers.constants import *
 
+from multiprocessing import Pool
+import tqdm
+
 class BagDecoder(object):
     """
     Decodes directory of bag files into dataset structure defined in README.md
@@ -60,7 +63,7 @@ class BagDecoder(object):
 
         #Load sync publisher
         rospy.init_node('coda', anonymous=True)
-        self._pub_rate = rospy.Rate(5) # Publish at 10 hz
+        self._pub_rate = rospy.Rate(2) # Publish at 10 hz
         self._topic_to_type = None
 
         self._qp_counter = 0
@@ -256,6 +259,83 @@ class BagDecoder(object):
             if self._gen_data:
                 self._frame_to_ts.close()
 
+    def rectify_images(self, num_workers):
+        cam0_dir = os.path.join(self._outdir, '2d_raw', 'cam0')
+        assert os.path.isdir(cam0_dir), "Camera 0 directory not found at %s " % cam0_dir
+        trajectories = sorted([int(traj) for traj in next(os.walk(cam0_dir))[1]])
+
+        outdirs = [self._outdir]*len(trajectories)
+        cam_calibrations = []
+        for traj in trajectories:
+            #Load calibrations if they exist
+            calibrations_path = os.path.join(self._outdir, "calibrations", str(traj))
+            if os.path.exists(calibrations_path):
+                print("Calibrations directory exists %s, loading calibrations" % calibrations_path)
+                cam_calibrations.append(self.load_cam_calibrations(traj))
+
+            assert cam_calibrations!=None, "No camera calibrations found for traj %i" % traj
+
+        pool = Pool(processes=num_workers)
+        for _ in tqdm.tqdm(pool.imap_unordered(self.rectify_image, zip(outdirs, trajectories, cam_calibrations)), total=len(trajectories)):
+            pass
+
+    @staticmethod
+    def rectify_image(args):
+        """
+        Rectifies all images for a single trajectory
+        """
+        outdir, traj, cam_calibration = args
+        cams = ['cam0', 'cam1']
+        for cam in cams:
+            cam_dir = os.path.join(outdir, '2d_raw', cam)
+            cam_out_dir = os.path.join(outdir, '2d_rect', cam)
+            if not os.path.exists(cam_out_dir):
+                print("Creating %s rectified dir at %s " % (cam, cam_dir))
+                os.mkdir(cam_out_dir)
+
+            img_dir = os.path.join(outdir, '2d_raw', cam, str(traj))
+            img_dir_files = os.listdir(img_dir)
+            img_dir_files = sorted(img_dir_files, key=lambda x: int(x.split('.')[0].split('_')[-1]))
+            
+            rect_img_dir = os.path.join(img_dir.replace('raw', 'rect'))
+
+            for img_file in img_dir_files:
+                _, _, _, frame = get_filename_info(img_file)
+                img_path = os.path.join(img_dir, img_file)
+                rect_img_file   = set_filename_by_prefix('2d_rect', cam, traj, frame)
+
+                if not os.path.exists(rect_img_dir):
+                    os.makedirs(rect_img_dir)
+                if os.path.isfile(img_path):
+                    intrinsics = cam_calibration['%s_intrinsics'%cam]
+
+                    rectified_img_np = rectify_image(img_path, intrinsics)
+
+                    rect_img_path = os.path.join(rect_img_dir, rect_img_file)
+                    success = cv2.imwrite(rect_img_path, rectified_img_np)
+                    if not success:
+                        print("Error writing rectified image to %s " % (rect_img_path))
+                            
+            
+    def load_cam_calibrations(self, trajectory):
+        calibrations_path = os.path.join(self._outdir, "calibrations", str(trajectory))
+        calibration_fps = [os.path.join(calibrations_path, file) for file in os.listdir(calibrations_path) if file.endswith(".yaml")]
+
+        cam_calibrations = {}
+        for calibration_fp in calibration_fps:
+            cal, src, tar = get_calibration_info(calibration_fp)
+
+            if 'cam' in src:
+                cal_id = "%s_%s"%(src, tar)
+                cam_id = src[-1]
+
+                if cal_id not in cam_calibrations.keys():
+                    cam_calibrations[cal_id] = {}
+                    cam_calibrations[cal_id]['cam_id'] = cam_id
+
+                cam_calibrations[cal_id].update(cal)
+        return cam_calibrations
+
     def sync_sensor(self, topic, msg, ts):
         if self._past_sync_ts==None:
             self._past_sync_ts = ts
@@ -408,10 +488,10 @@ class BagDecoder(object):
             pc_to_bin(data, filepath)
         elif topic_type=="sensor_msgs/Image":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-            img_to_png(proc_data, filepath)
+            img_to_file(proc_data, filepath)
         elif topic_type=="sensor_msgs/CompressedImage":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-            img_to_png(proc_data, filepath)
+            img_to_file(proc_data, filepath)
         elif topic_type=="sensor_msgs/Imu":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
 

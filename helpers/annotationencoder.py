@@ -88,7 +88,32 @@ class AnnotationEncoder(object):
                 os.makedirs(cam_dir)
 
     def create_json_files(self):
-         for traj in self._trajs:
+        frame_start_offsets = None
+        # frame_start_offsets = {
+        # }
+        # in_pose_files = {
+        #     8: [    "/robodata/arthurz/Research/coda/8_980_1180.txt",    
+        #             "/robodata/arthurz/Research/coda/8_1400_1700.txt",
+        #             "/robodata/arthurz/Research/coda/8_4000_4300.txt"],
+        #     14: [   "/robodata/arthurz/Research/coda/14_200_300.txt",
+        #             "/robodata/arthurz/Research/coda/14_3330_3430.txt",
+        #             "/robodata/arthurz/Research/coda/14_3840_3940.txt",
+        #             "/robodata/arthurz/Research/coda/14_6470_6570.txt",
+        #             "/robodata/arthurz/Research/coda/14_7100_7240.txt"],
+        #     15: [   "/robodata/arthurz/Research/coda/15_2770_3320.txt",
+        #             "/robodata/arthurz/Research/coda/15_3470_3870.txt",
+        #             "/robodata/arthurz/Research/coda/15_4380_4680.txt",
+        #             "/robodata/arthurz/Research/coda/15_6200_6400.txt",
+        #             "/robodata/arthurz/Research/coda/15_6650_6950.txt"]
+        # }
+        # for traj, files in in_pose_files.items():
+        #     frame_start_offsets[traj] = []
+
+        #     for filename in files:
+        #         frame_offset = int(filename.split('/')[-1].split('_')[1])
+        #         frame_start_offsets[traj].append(frame_offset)
+
+        for traj in self._trajs:
             traj_frames = self._traj_frames[traj]
 
             in_pose_file = os.path.join(self._indir, "poses", "%i.txt"%traj)
@@ -100,8 +125,14 @@ class AnnotationEncoder(object):
             in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
             frame_to_ts_np = np.fromfile(in_ts_file, sep=' ').reshape(-1, 1)
             out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np)
-
-            for frame_seq in traj_frames:
+            
+            for frame_seq_index, frame_seq in enumerate(traj_frames):
+                if frame_start_offsets!=None:
+                    in_pose_file = in_pose_files[traj][frame_seq_index]
+                    in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
+                    out_pose_np = densify_poses_between_ts(in_pose_np, frame_to_ts_np[frame_seq[0]:frame_seq[1]])
+                    frame_start_offset = frame_start_offsets[traj][frame_seq_index]
+                    
                 start, end = frame_seq[0], frame_seq[1]
 
                 out_frame_dir = os.path.join(self._outdir, "3d_formatted", str(traj))
@@ -111,8 +142,13 @@ class AnnotationEncoder(object):
                     os.makedirs(out_frame_dir)
 
                 for frame in range(start, end):
-                    pose        = out_pose_np[frame]
-                    timestamp   = frame_to_ts_np[frame]
+                    if frame_start_offset==None:
+                        corrected_frame = frame
+                    else:
+                        corrected_frame = frame - frame_start_offset
+
+                    pose        = out_pose_np[corrected_frame]
+                    timestamp   = frame_to_ts_np[corrected_frame]
 
                     # Save images and points to json formatted str
                     image_str = self.fill_json_images_dict(traj, frame, pose, timestamp)
@@ -161,7 +197,7 @@ class AnnotationEncoder(object):
                 for frame in range(start, end):
                     
                     json_abspath   = os.path.join(json_indir, "%06d.json"%frame)
-                    json_relpath   = os.path.join(json_subdir, "%06d.json"%frame)
+                    json_relpath   = "%06d.json"%frame #write json files to root
                     
                     cam0_filename   = set_filename_by_prefix("2d_raw", "cam0", str(traj), str(frame))
                     cam0_abspath    = os.path.join(cam0_indir, cam0_filename)

@@ -96,13 +96,14 @@ def main():
         trajectory_frame_enum = enumerate(trajectory_frames)
         
     for (frame_idx, frame) in trajectory_frame_enum:
-        frame_time = rospy.get_rostime()
+        # frame_time = rospy.get_rostime()
+        ts  = frame_ts_np[int(frame)][0]
+        frame_time = rospy.Time.from_sec(ts)
 
         if frame_idx%ds_rate==0:
             print("Visualizing frame ", frame)
 
             #Publish pose
-            ts  = frame_ts_np[int(frame)][0]
             if viz_pose:
                 pose = find_closest_pose(pose_np, ts)
                 pub_pose(pose_pub, pose, frame, frame_time)

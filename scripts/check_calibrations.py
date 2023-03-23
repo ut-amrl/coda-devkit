@@ -16,13 +16,21 @@ from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
 from helpers.geometry import find_closest_pose, project_3dto2d_bbox, draw_bbox
 from helpers.visualization import *
 
-def main():
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--traj', default=0,
+                    help="trajectory to visualization calibation for (default 0)")
+parser.add_argument('--frame', default=0, help="first frame to visualization calibration for")
+
+def main(args):
     """
     indir - CODa directory (assumes 3d_labels exists)
     outdir - directory to save bbox projections to
     """
     indir   = "/robodata/arthurz/Datasets/CODa"
-    trajectory = 1
+    trajectory = int(args.traj)
+    start_frame = int(args.frame)
     use_wcs = False
 
     #Project 3d bbox annotations to 2d
@@ -49,7 +57,7 @@ def main():
     dense_poses = densify_poses_between_ts(frame_to_poses_np, frame_to_ts_np)
 
     for (idx, bin_file) in enumerate(bin_files):
-        if idx < 1750:
+        if idx < start_frame:
             continue
 
         modality, sensor_name, trajectory, frame = get_filename_info(bin_file)
@@ -86,4 +94,5 @@ def main():
         # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    args = parser.parse_args()
+    main(args)
