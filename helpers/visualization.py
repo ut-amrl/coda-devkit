@@ -23,6 +23,7 @@ from helpers.geometry import *
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
     is_intensity    = pc.shape[-1]>=4
     is_ring         = pc.shape[-1]>=5
+    is_time         = pc.shape[-1]>=6
     if is_ring:
         ring        = pc[:, :, 4].astype(np.uint16)
         pc_noring   = pc[:, :, :4]
@@ -30,11 +31,17 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
         pc_bytes        = pc_noring.reshape(-1, 1).tobytes()
         ring_bytes      = ring.reshape(-1, 1).tobytes()
 
-        pc_bytes_np = np.frombuffer(pc_bytes, dtype=np.uint8)
+        pc_bytes_np = np.frombuffer(pc_bytes, dtype=np.uint8).reshape(-1, 16)
         ring_bytes_np = np.frombuffer(ring_bytes, dtype=np.uint8).reshape(-1, 2)
 
-        pc_bytes_np = pc_bytes_np.reshape(-1, 16)
-        all_bytes_np= np.hstack((pc_bytes_np, ring_bytes_np)).reshape(-1, 1)
+        all_bytes_np= np.hstack((pc_bytes_np, ring_bytes_np))
+
+        if is_time:
+            time_bytes = pc[:, :, 5].astype(np.float32).reshape(-1, 1).tobytes()
+            time_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+            all_bytes_np = np.hstack((all_bytes_np, time_np))
+
+        all_bytes_np = all_bytes_np.reshape(-1, 1)
 
     pc_flat = pc.reshape(-1, 1)
 
@@ -63,7 +70,12 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
         PointField('z', pc.itemsize*2, DATATYPE, 1)
     ]
 
-    if is_ring:
+    if is_time:
+        pc_msg.point_step   = pc.itemsize*5 + 2
+        fields.append(PointField('intensity', pc.itemsize*3, DATATYPE, 1))
+        fields.append(PointField('ring', pc.itemsize*4, PointField.UINT16, 1))
+        fields.append(PointField('time', int(pc.itemsize*4.5), DATATYPE, 1))
+    elif is_ring:
         pc_msg.point_step   = pc.itemsize*4 + 2
         fields.append(PointField('intensity', pc.itemsize*3, DATATYPE, 1))
         fields.append(PointField('ring', pc.itemsize*4, PointField.UINT16, 1))

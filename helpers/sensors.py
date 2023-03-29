@@ -28,6 +28,11 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     scan = nth(scans, 0).field(client.ChanField.RANGE)
     intensity =  nth(scans, 0).field(client.ChanField.REFLECTIVITY)
     ring =  nth(scans, 0).field(client.ChanField.SIGNAL)
+    ts_horizontal = nth(scans, 0).timestamp
+    ts_offset = ts_horizontal[0]
+    ts_horizontal_rel = ts_horizontal - ts_offset
+
+    ts_points = np.tile(ts_horizontal_rel,  (OS1_POINTCLOUD_SHAPE[1], 1) )
     sensor_ts = sum(nth(scans, 0).timestamp) / len(nth(scans, 0).timestamp)
     
     # Project Points to ouster LiDAR Frame
@@ -42,10 +47,11 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     # xyz_points  = np.dot(lidar_to_sens, xyz_points.T).T
     # xyz_points  = xyz_points[:, :3].reshape(h, w, d)
     intensity   = np.expand_dims(intensity, axis=-1)
-    ring   = np.expand_dims(ring, axis=-1)
+    ring        = np.expand_dims(ring, axis=-1)
+    ts_points   = np.expand_dims(ts_points, axis=-1)
 
     # TODO figure out how to add ring to publisher
-    pc = np.dstack((xyz_points, intensity, ring)).astype(np.float32)
+    pc = np.dstack((xyz_points, intensity, ring, ts_points)).astype(np.float32)
     return pc, sensor_ts
 
 def set_filename_by_topic(topic, trajectory, frame):
