@@ -13,7 +13,6 @@ import numpy as np
 sys.path.append(os.getcwd())
 
 from helpers.sensors import get_filename_info, set_filename_by_prefix, read_bin
-from helpers.geometry import find_closest_pose, project_3dto2d_bbox, draw_bbox
 from helpers.visualization import *
 
 import argparse
@@ -32,13 +31,14 @@ def main(args):
     trajectory = int(args.traj)
     start_frame = int(args.frame)
     use_wcs = False
+    use_sem = False
 
     #Project 3d bbox annotations to 2d
     calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
     calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
     tred_bin_dir   = os.path.join(indir, "3d_raw", "os1", str(trajectory))
     tred_anno_dir  = os.path.join(indir, "3d_bbox", "os1", str(trajectory))
-    twod_anno_dir  = os.path.join(indir, "2d_raw", "cam0", str(trajectory))
+    twod_anno_dir  = os.path.join(indir, "2d_rect", "cam0", str(trajectory))
 
     #Locate closest pose from frame
     ts_to_frame_path = os.path.join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
@@ -71,24 +71,31 @@ def main(args):
             bin_np_homo = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
             bin_np      = (wcs_pose @ bin_np_homo.T).T[:, :3]
       
-        image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
-        # pdb.set_trace()
-        in_bounds = np.logical_and(
-                np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
-                np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
-            )
-        valid_point_mask = in_bounds & pts_mask
-        valid_points = image_pts[valid_point_mask, :]
-
-        twod_img_file   = set_filename_by_prefix("2d_raw", "cam0", trajectory, frame)
+        twod_img_file   = set_filename_by_prefix("2d_rect", "cam0", trajectory, frame)
         twod_img_path = os.path.join(twod_anno_dir, twod_img_file)
         image = cv2.imread(twod_img_path)
-        for pt in valid_points:
-            image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=(0, 0, 255))
-        # print("valid_points", in_bounds_and_fov)
-        # pdb.set_trace()
-        cv2.imwrite("testcalibration.png", image)
+
+        tred_label_file = set_filename_by_prefix("3d_bbox", "os1", trajectory, frame)
+        tred_label_path = os.path.join(tred_anno_dir, tred_label_file)
+
+        if use_sem:
+            valid_points = project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
+
+            for pt in valid_points:
+                image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=(0, 0, 255))
+            cv2.imwrite("testcalibration.png", image)
+        else:
+            anno_dict       = json.load(open(tred_label_path))
+            image = project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image)
+            cv2.imwrite("testbboxcalibration.png", image)
+
+            bbox_coords = project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file)
+            image = cv2.imread(twod_img_path)
+            image = draw_2d_bbox(image, bbox_coords)
+            cv2.imwrite("test2dbboxcalibration.png", image)
+
         import pdb; pdb.set_trace()
+
         # cv2.imshow('img', image)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()

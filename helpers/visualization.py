@@ -155,7 +155,64 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
         bbox_markers.markers.append(bbox_marker)
 
     m_pub.publish(bbox_markers)
+
+def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
+    # pdb.set_trace()
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+        )
+    valid_point_mask = in_bounds & pts_mask
+    valid_points = image_pts[valid_point_mask, :]
+    return valid_points
+
+def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
+    """
+    Projects 3D Bbox to 2d image
+    """
+    bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
     
+    for obj_idx in range(0, bbox_pts.shape[0]):
+        in_bounds = np.logical_and(
+            np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
+            np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
+        )
+
+        valid_point_mask = bbox_mask[obj_idx] & in_bounds
+        valid_points = bbox_pts[obj_idx, valid_point_mask, :]
+        if valid_points.shape[0]==0:
+            continue
+
+        bbox_idx = bbox_idxs[obj_idx][0]
+        obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
+        obj_color = BBOX_ID_TO_COLOR[obj_id]
+        image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color)
+    return image
+
+def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
+    bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
+    num_boxes = bbox_pts.shape[0]
+
+    bbox_coords = np.zeros((num_boxes, 4)) # (left top) minxy, (right bottom) maxxy 
+    for obj_idx in range(0, num_boxes):
+        in_bounds = np.logical_and(
+            np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
+            np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
+        )
+
+        valid_point_mask = bbox_mask[obj_idx] & in_bounds
+        valid_points = bbox_pts[obj_idx, valid_point_mask, :]
+        if valid_points.shape[0]==0:
+            continue
+
+        bbox_idx = bbox_idxs[obj_idx][0]
+        max_xy = np.max(valid_points, axis=0)
+        min_xy = np.min(valid_points, axis=0)
+        bbox_coords[bbox_idx] = np.concatenate((min_xy, max_xy), axis=0)
+
+    return bbox_coords
+
 def pub_pose(pose_pub, pose, frame, frame_time):
     p = PoseStamped()
     p.header.stamp = frame_time

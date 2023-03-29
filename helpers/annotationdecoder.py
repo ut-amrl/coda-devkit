@@ -1,4 +1,5 @@
 import os
+from os.path import join
 import yaml
 import glob
 import json
@@ -15,12 +16,13 @@ from scipy.spatial.transform import Rotation as R
 
 from helpers.constants import *
 from helpers.geometry import *
+from helpers.visualization import project_3dto2d_bbox_image
 
 class AnnotationDecoder(object):
 
     def __init__(self):
         
-        settings_fp = os.path.join(os.getcwd(), "config/decoder.yaml")
+        settings_fp = join(os.getcwd(), "config/decoder.yaml")
         with open(settings_fp, 'r') as settings_file:
             settings = yaml.safe_load(settings_file)
             self._indir   = settings['annotations_input_root']
@@ -28,7 +30,7 @@ class AnnotationDecoder(object):
             self._anno_type = settings['annotation_type']
             self._gen_data  = settings['gen_data']
             self._use_wcs   = settings['use_wcs']
-            import pdb; pdb.set_trace()
+
             assert os.path.exists(self._indir), "%s does not exist, provide valid dataset root directory."
 
     def decode_annotations(self):
@@ -38,7 +40,7 @@ class AnnotationDecoder(object):
         if self._anno_type=="sagemaker":
             anno_subdir, anno_files, manifest_file = "", None, None
             for dir_item in os.listdir(self._indir):
-                subitem = os.path.join(self._indir, dir_item)
+                subitem = join(self._indir, dir_item)
                 
                 if os.path.isdir(subitem):
                     anno_subdir = dir_item
@@ -56,7 +58,7 @@ class AnnotationDecoder(object):
                         self.save_anno_json(anno_dict)
         elif self._anno_type=="ewannotate":
             for dir_item in sorted(os.listdir(self._indir)):
-                subitem = os.path.join(self._indir, dir_item)
+                subitem = join(self._indir, dir_item)
                 if os.path.isdir(subitem):
                     continue
                 traj = dir_item.split('.')[0]
@@ -68,47 +70,57 @@ class AnnotationDecoder(object):
             print("Undefined annotation format type specified, exiting...")
 
     def deepen_decoder(self, datadir):
-        tred_dir = os.path.join(datadir, "3d_label")
-        assert os.path.exists(tred_dir), "3d_label directory does not exist in %s"%tred_dir
+        assert os.path.exists(datadir), "3d_label directory does not exist in %s"%datadir
+        tred_subdirs = next(os.walk(datadir))[1]
 
-        tred_subdirs = next(os.walk(tred_dir))[1]
-        
-        if "bbox" in tred_subdirs:
-            bbox_subdir = os.path.join(tred_dir, "bbox")
+        if "3d_bbox" in tred_subdirs:
+            bbox_subdir = join(datadir, "3d_bbox")
             traj_subdirs   = next(os.walk(bbox_subdir))[1] 
-
             for traj_subdir in traj_subdirs:
-                traj_dir = os.path.join(bbox_subdir, traj_subdir)
-                anno_dict = self.deepen_decode_bbox(bbox_subdir, traj_dir, traj_subdir)
-                if self._gen_data:
-                    self.save_anno_json(anno_dict)
+                traj_dir = join(bbox_subdir, traj_subdir)
 
-        if "semantic" in tred_subdirs:
-            semantic_subdir = os.path.join(tred_dir, "semantic")
+                annotation_files   = next(os.walk(traj_dir))[2]
+
+                for annotation_file in annotation_files:
+                    trajectoryx, _, _ = annotation_file.split('.')[0].split('_')
+                    traj = trajectoryx.replace("trajectory", "")
+                    annotation_path = join(traj_dir, annotation_file)
+
+                    anno_dict = self.deepen_decode_bbox(annotation_path, traj)
+                    if self._gen_data:
+                        self.save_anno_json(anno_dict)
+                        self.project_annos_3d_to_2d(anno_dict)
+
+        if "3d_semantic" in tred_subdirs:
+            semantic_subdir = join(datadir, "3d_semantic")
             traj_subdirs   = next(os.walk(semantic_subdir))[1]
 
             for traj_subdir in traj_subdirs:
-                traj_dir = os.path.join(semantic_subdir, traj_subdir)
-                
-                start_frames = [ frame.split('.')[0] for frame in os.listdir(traj_dir) if frame.endswith(".dpn") ]
-                for start_frame in start_frames:
-                    anno_dict = self.deepen_decode_semantic(semantic_subdir, traj_dir, start_frame)
+                traj_dir = join(semantic_subdir, traj_subdir)
 
-    def deepen_decode_bbox(self, filepath, traj):
+                annotation_files   = next(os.walk(traj_dir))[2]
+
+                for annotation_file in annotation_files:
+                    if annotation_file.endswith(".dpn"):
+                        trajectoryx, start_frame, _ = annotation_file.split('.')[0].split('_')
+                        traj = trajectoryx.replace("trajectory", "")
+                        annotation_path = join(traj_dir, annotation_file)
+
+                        self.deepen_decode_semantic(annotation_path, traj, start_frame)
+
+    def deepen_decode_bbox(self, label_path, traj):
         anno_dict = {
             "tredannotations": []
         }
 
-        label_str = DEEPEN_LABEL_STR % traj
-        label_path  = os.path.join(filepath, label_str)
         anno_file   = open(label_path, "r")
 
         anno_json               = json.load(anno_file)
         anno_dict["trajectory"] = traj   
         anno_dict["sensor"]     = "os1"
 
-        ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
-        pose_path   = os.path.join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
+        ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+        pose_path   = join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
         pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
         ts_np       = np.loadtxt(ts_to_frame_path)
 
@@ -137,7 +149,13 @@ class AnnotationDecoder(object):
                     pc_list[pc_idx].pop("qz"), pc_list[pc_idx].pop("qw")
                 euler = R.from_quat([qx, qy, qz, qw]).as_euler("xyz", degrees=False)
                 pc_list[pc_idx]["r"], pc_list[pc_idx]["p"], pc_list[pc_idx]["y"] = euler
-                
+
+                if "labelAttributes" not in pc_anno.keys() or \
+                    "isOccluded" not in pc_anno["labelAttributes"].keys():
+                    pc_list[pc_idx]["labelAttributes"] = {
+                        "isOccluded": "Unknown"
+                    }
+
             pc_dict = {"3dbbox": pc_list}
             #Copy frame and filetype over from existing data
             pc_dict["filetype"]   = "json"
@@ -164,9 +182,7 @@ class AnnotationDecoder(object):
     
         return anno_dict
 
-    def deepen_decode_semantic(self, filepath, traj, start_frame):
-        sem_str = DEEPEN_SEMANTIC_STR % start_frame
-        sem_path  = os.path.join(filepath, sem_str)
+    def deepen_decode_semantic(self, sem_path, traj, start_frame):
         meta_path   = sem_path.replace(".dpn", ".json")
         
         assert os.path.exists(sem_path), "Label path %s does not exist"%sem_path
@@ -174,34 +190,64 @@ class AnnotationDecoder(object):
 
         meta_file = yaml.safe_load(open(meta_path, "r"))
         # Check for exact match between metadata classes and constants
-        assert set(SEM_CLASS_TO_ID.keys())==set(meta_file['paint_categories']) % \
+        assert set(meta_file['paint_categories']).issubset(set(SEM_CLASS_TO_ID.keys())), \
             "metadata classes inconsistent with constants"
 
         sem_file = open(sem_path, "rb").read()
         pc_size = np.prod(OS1_POINTCLOUD_SHAPE[:2])
         sem_np = np.frombuffer(sem_file, dtype=np.uint8).reshape(-1, pc_size)
 
-        outdir = os.path.join(self._outdir, SEMANTIC_LABEL_TYPE, "os1", traj)
+        outdir = join(self._outdir, SEMANTIC_LABEL_TYPE, "os1", traj)
         num_frames = sem_np.shape[0]
-        for frame in range(start_frame, start_frame+num_frames):
+
+        if self._gen_data and not os.path.exists(outdir):
+            print("Annotation path %s does not exist, creating now..."%outdir)
+            os.makedirs(outdir)
+        
+        start_frame = int(start_frame)
+        for annotation_idx, frame in enumerate(range(start_frame, start_frame+num_frames)):
             filename = set_filename_by_prefix(SEMANTIC_LABEL_TYPE, "os1", traj, str(frame))
-            frame_path = os.path.join(outdir, filename)
-            import pdb; pdb.set_trace()
-            frame_label_np = sem_np[frame].reshape(-1, 1)
-            print("Saving 3d semantic traj %s frame %s to %s"%(traj, frame, frame_path))
-            np.savetxt(frame_path, frame_label_np, fmt="%d")
+            frame_path = join(outdir, filename)
+ 
+            frame_label_np = sem_np[annotation_idx].reshape(-1, 1)
+            if self._gen_data:
+                print("Saving 3d semantic traj %s frame %s to %s"%(traj, frame, frame_path))
+                frame_label_np.astype(np.uint8).tofile(frame_path)
+
+    def project_annos_3d_to_2d(self, anno_dict):
+        traj = anno_dict['trajectory']
+        sensor = "cam0"
+        calib_dir = join(self._outdir, "calibrations", traj)
+        assert os.path.exists(calib_dir), "Calibration directory for traj %s does not exist: %s" %(traj, calib_dir)
+        calib_ext_file = join(calib_dir, "calib_os1_to_cam0.yaml")
+        calib_intr_file = join(calib_dir, "calib_cam0_intrinsics.yaml")
+        
+        for annotation in anno_dict['tredannotations']:
+            frame = annotation['frame']
+            bbox_coords = project_3dto2d_bbox_image(annotation, calib_ext_file, calib_intr_file)
+            bbox_coords = bbox_coords.astype(np.int)
+            
+            twod_label_dir = join(self._outdir, "2d_bbox", sensor, traj)
+            if self._gen_data and not os.path.exists(twod_label_dir):
+                print("Annotation path %s does not exist, creating now..."%twod_label_dir)
+                os.makedirs(twod_label_dir)
+            twod_label_file = set_filename_by_prefix(TWOD_BBOX_LABEL_TYPE, sensor, traj, frame)
+            twod_label_path = join(twod_label_dir, twod_label_file)
+            if self._gen_data:
+                print("Saving 2d bbox traj %s frame %s to %s"%(traj, frame, twod_label_path))
+                np.savetxt(twod_label_path, bbox_coords, fmt='%d', delimiter=' ')
 
     def ewannotate_decoder(self, filepath, traj):
         with open(filepath, 'r') as annos_file:
             annos = yaml.safe_load(annos_file)
 
-            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
-            ts_to_poses_path = os.path.join(self._outdir, "poses", "%s.txt"%traj)
+            ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
+            ts_to_poses_path = join(self._outdir, "poses", "%s.txt"%traj)
 
             frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
 
             ts_to_frame_np = np.loadtxt(ts_to_frame_path)
-            annos_dir = os.path.join(self._outdir, "3d_label", "os1", str(traj))
+            annos_dir = join(self._outdir, "3d_label", "os1", str(traj))
             curr_anno_dict = None
             curr_frame = -1
 
@@ -277,7 +323,7 @@ class AnnotationDecoder(object):
                 self.write_anno_to_file(traj, frame, annos_dir, curr_anno_dict)
 
     def write_anno_to_file(self, traj, frame, annos_dir, anno_dict):
-        frame_dict_path = os.path.join(annos_dir,
+        frame_dict_path = join(annos_dir,
         set_filename_by_prefix("3d_label", "os1", str(traj), str(frame)) )
         print("Saving frame %s annotations to %s " % (frame, frame_dict_path))
         frame_dict_file = open(frame_dict_path, "w+")
@@ -285,10 +331,10 @@ class AnnotationDecoder(object):
         frame_dict_file.close()
 
     def save_anno_json(self, anno_dict):
-        subdir  = anno_dict["subdir"].replace("3d_raw", BBOX_LABEL_TYPE)
+        subdir  = anno_dict["subdir"].replace("3d_raw", TRED_BBOX_LABEL_TYPE)
         modality, sensor_name   = subdir.split('/')[0], subdir.split('/')[1]
         traj    = anno_dict["trajectory"]
-        anno_dir = os.path.join(self._outdir, subdir, traj)
+        anno_dir = join(self._outdir, subdir, traj)
 
         if not os.path.exists(anno_dir):
             print("Annotation path %s does not exist, creating now..."%anno_dir)
@@ -297,8 +343,9 @@ class AnnotationDecoder(object):
         #Write each annotated frame object to json file
         for annotation in anno_dict["tredannotations"]:
             frame   = annotation["frame"]
+
             anno_filename   = "%s_%s_%s_%s.json"%(modality, sensor_name, traj, frame)
-            anno_path = os.path.join(anno_dir, anno_filename)
+            anno_path = join(anno_dir, anno_filename)
 
             print("Writing frame %s to %s..."%(frame, anno_path))
             anno_json = open(anno_path, "w+")
@@ -312,8 +359,8 @@ class AnnotationDecoder(object):
         }
 
         for anno_filename in anno_files:
-            anno_path = os.path.join(self._indir, anno_subdir, anno_filename)
-            mani_path = os.path.join(self._indir, manifest_file)
+            anno_path = join(self._indir, anno_subdir, anno_filename)
+            mani_path = join(self._indir, manifest_file)
 
             mani_file   = open(mani_path, "r")
             anno_file   = open(anno_path, "r")
@@ -329,8 +376,8 @@ class AnnotationDecoder(object):
             anno_dict["trajectory"] = labeling_job_name[1]    
             anno_dict["sensor"]     = labeling_job_name[2]
 
-            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
-            pose_path   = os.path.join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
+            ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+            pose_path   = join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
             pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
             ts_np       = np.loadtxt(ts_to_frame_path)
             frame       = int(anno_filename.split("_")[4].split(".")[0])

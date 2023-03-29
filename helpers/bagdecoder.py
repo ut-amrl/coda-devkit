@@ -3,22 +3,19 @@ import pdb
 
 # Utility Libraries
 import yaml
-import time
 
 # ROS Libraries
 import rospy
 import rosbag
-import message_filters
 from visualization_msgs.msg import *
 from sensor_msgs.msg import PointCloud2, CompressedImage, Imu, MagneticField, Image, NavSatFix
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
-from rosgraph_msgs.msg import Clock
 
 from helpers.sensors import *
-from helpers.geometry import wcs_mat
 from helpers.visualization import pub_pc_to_rviz, pub_img
 from helpers.constants import *
+from helpers.geometry import densify_poses_between_ts
 
 from multiprocessing import Pool
 import tqdm
@@ -271,13 +268,43 @@ class BagDecoder(object):
             calibrations_path = os.path.join(self._outdir, "calibrations", str(traj))
             if os.path.exists(calibrations_path):
                 print("Calibrations directory exists %s, loading calibrations" % calibrations_path)
-                cam_calibrations.append(self.load_cam_calibrations(traj))
+                cam_calibrations.append(self.load_cam_calibrations(self._outdir, traj))
 
             assert cam_calibrations!=None, "No camera calibrations found for traj %i" % traj
 
         pool = Pool(processes=num_workers)
         for _ in tqdm.tqdm(pool.imap_unordered(self.rectify_image, zip(outdirs, trajectories, cam_calibrations)), total=len(trajectories)):
             pass
+
+    def densify_poses(self):
+        poses_dir = os.path.join(self._outdir, 'poses')
+        poses_dense_dir = os.path.join(poses_dir, 'dense')
+
+        if not os.path.exists(poses_dense_dir):
+            print("Creating dense poses directory %s" % poses_dense_dir)
+            os.mkdir(poses_dense_dir)
+        
+        pose_files = [pose_file for pose_file in os.listdir(poses_dir) if pose_file.endswith(".txt")]
+        pose_files = sorted(pose_files, key=lambda x: int(x.split(".")[0]) )
+        for pose_file in pose_files:
+            traj = pose_file.split(".")[0]
+
+            #Locate closest pose from frame
+            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
+            ts_to_poses_path = os.path.join(poses_dir, pose_file)
+            frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
+            frame_to_ts_np = np.loadtxt(ts_to_frame_path)
+
+            dense_poses = densify_poses_between_ts(frame_to_poses_np, frame_to_ts_np)
+
+            #Save dense poses
+            pose_file_path = os.path.join(poses_dense_dir, pose_file)
+
+            if self._gen_data:
+                if self._verbose:
+                    print("Saving dense poses for trajectory %s at path %s" % (traj, pose_file_path))
+                np.savetxt(pose_file_path, dense_poses, fmt="%10.6f", delimiter=" ")
+        print("Done generating dense poses...")
 
     @staticmethod
     def rectify_image(args):
@@ -315,10 +342,10 @@ class BagDecoder(object):
                     success = cv2.imwrite(rect_img_path, rectified_img_np)
                     if not success:
                         print("Error writing rectified image to %s " % (rect_img_path))
-                            
-            
-    def load_cam_calibrations(self, trajectory):
-        calibrations_path = os.path.join(self._outdir, "calibrations", str(trajectory))
+
+    @staticmethod
+    def load_cam_calibrations(outdir, trajectory):
+        calibrations_path = os.path.join(outdir, "calibrations", str(trajectory))
         calibration_fps = [os.path.join(calibrations_path, file) for file in os.listdir(calibrations_path) if file.endswith(".yaml")]
 
         cam_calibrations = {}

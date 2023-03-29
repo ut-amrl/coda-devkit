@@ -6,8 +6,8 @@ import json
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 import cv2
 
@@ -246,6 +246,24 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
             )
     return all_image_points, all_points_fov_mask, all_valid_obj_idx
 
+def draw_2d_bbox(image, bbox_coords, color=(0,0,255), thickness=2):
+    # Expects nx4 array of minxy, maxxy
+    for bbox in bbox_coords:
+        if np.sum(bbox==0)==4:
+            continue
+        
+        bbox = bbox.astype(np.int)
+        tl_corner = (bbox[0], bbox[1])
+        tr_corner = (bbox[0], bbox[3])
+        bl_corner = (bbox[2], bbox[1])
+        br_corner = (bbox[2], bbox[3])
+        corners = [tl_corner, tr_corner, br_corner, bl_corner]
+        
+        for i in range(0, 4):
+            image = cv2.line(image, corners[i], corners[(i+1)%4], color, thickness)
+
+    return image
+
 def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
@@ -305,10 +323,10 @@ def get_pointsinfov_mask(points):
 
     return in_fov_mask
 
-def matplot_3d_points(points, title="coda 3d plot"):
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.scatter3D(points[:, 0], points[:, 1], points[:, 2], cmap='Greens')
-    ax.set_title(title)
-    plt.show()
-    return ax
+# def matplot_3d_points(points, title="coda 3d plot"):
+#     fig = plt.figure()
+#     ax = plt.axes(projection='3d')
+#     ax.scatter3D(points[:, 0], points[:, 1], points[:, 2], cmap='Greens')
+#     ax.set_title(title)
+#     plt.show()
+#     return ax
