@@ -193,7 +193,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         else:
             qx, qy, qz, qw = annotation['qx'], annotation['qy'], annotation['qz'], annotation["qw"]
             tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
-
+        
         #Compute corners in axis aligned coordinates
         x_sign = np.array([-1, -1, 1, 1])
         y_sign = np.array([1, -1, -1, 1])

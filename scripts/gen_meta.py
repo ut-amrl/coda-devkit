@@ -37,10 +37,9 @@ def main(args):
         os.path.join(pc_fulldir, traj) )]
     traj_list = sorted(traj_list, key=lambda x: int(x), reverse=False)
 
-
     train_percent = 0.7
     val_percent = 0.1
-    test_percent = 0.3
+    test_percent = 0.2
     rng = np.random.default_rng(seed=42)
     for traj in traj_list:
         print("Creating metadata file for traj %s"%traj)

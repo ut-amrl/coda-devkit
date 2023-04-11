@@ -1,4 +1,5 @@
 import os
+from os.path import join
 import sys
 import pdb
 import json
@@ -21,6 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--traj', default=0,
                     help="trajectory to visualization calibation for (default 0)")
 parser.add_argument('--frame', default=0, help="first frame to visualization calibration for")
+parser.add_argument('--outdir', default='.', help="directory to write output calibrations to")
 
 def main(args):
     """
@@ -30,19 +32,22 @@ def main(args):
     indir   = "/robodata/arthurz/Datasets/CODa"
     trajectory = int(args.traj)
     start_frame = int(args.frame)
+    outdir  = args.outdir
+    assert os.path.exists(outdir), "Out directory is not empty and does not exist %s " % args.outdir
+
     use_wcs = False
     use_sem = False
 
     #Project 3d bbox annotations to 2d
-    calib_ext_file = os.path.join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
-    calib_intr_file= os.path.join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
-    tred_bin_dir   = os.path.join(indir, "3d_raw", "os1", str(trajectory))
-    tred_anno_dir  = os.path.join(indir, "3d_bbox", "os1", str(trajectory))
-    twod_anno_dir  = os.path.join(indir, "2d_rect", "cam0", str(trajectory))
+    calib_ext_file = join(indir, "calibrations", str(trajectory), "calib_os1_to_cam0.yaml")
+    calib_intr_file= join(indir, "calibrations", str(trajectory), "calib_cam0_intrinsics.yaml")
+    tred_bin_dir   = join(indir, "3d_raw", "os1", str(trajectory))
+    tred_anno_dir  = join(indir, "3d_bbox", "os1", str(trajectory))
+    twod_anno_dir  = join(indir, "2d_rect", "cam0", str(trajectory))
 
     #Locate closest pose from frame
-    ts_to_frame_path = os.path.join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
-    ts_to_poses_path = os.path.join(indir, "poses", "%s.txt"%trajectory)
+    ts_to_frame_path = join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
+    ts_to_poses_path = join(indir, "poses", "%s.txt"%trajectory)
     frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
     frame_to_ts_np = np.loadtxt(ts_to_frame_path)
 
@@ -62,7 +67,7 @@ def main(args):
 
         modality, sensor_name, trajectory, frame = get_filename_info(bin_file)
 
-        bin_path = os.path.join(tred_bin_dir, bin_file)
+        bin_path = join(tred_bin_dir, bin_file)
         bin_np = read_bin(bin_path, False)
 
         wcs_pose = None
@@ -72,12 +77,16 @@ def main(args):
             bin_np      = (wcs_pose @ bin_np_homo.T).T[:, :3]
       
         twod_img_file   = set_filename_by_prefix("2d_rect", "cam0", trajectory, frame)
-        twod_img_path = os.path.join(twod_anno_dir, twod_img_file)
+        twod_img_path = join(twod_anno_dir, twod_img_file)
         image = cv2.imread(twod_img_path)
 
         tred_label_file = set_filename_by_prefix("3d_bbox", "os1", trajectory, frame)
-        tred_label_path = os.path.join(tred_anno_dir, tred_label_file)
+        tred_label_path = join(tred_anno_dir, tred_label_file)
 
+        sem_tred_label_file = set_filename_by_prefix("3d_semantic", "os1", trajectory, frame)
+        sem_tred_label_path = join(tred_anno_dir, sem_tred_label_file)
+
+        assert os.path.exists(tred_label_path), "3D Label File Does Not Exist %s " % tred_label_path
         if use_sem:
             valid_points = project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose)
 
@@ -86,15 +95,24 @@ def main(args):
             cv2.imwrite("testcalibration.png", image)
         else:
             anno_dict       = json.load(open(tred_label_path))
-            image = project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image)
-            cv2.imwrite("testbboxcalibration.png", image)
+            tred_bbox_image = project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image, )
 
-            bbox_coords = project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file)
-            image = cv2.imread(twod_img_path)
-            image = draw_2d_bbox(image, bbox_coords)
-            cv2.imwrite("test2dbboxcalibration.png", image)
+            if outdir!='.':
+                image_file = set_filename_by_prefix("2d_rect", "cam0", str(trajectory), str(frame))
+                image_path = join(outdir, image_file)
 
-        import pdb; pdb.set_trace()
+                cv2.imwrite(image_path, tred_bbox_image)
+            else:
+                cv2.imwrite("testbboxcalibration.png", tred_bbox_image)
+                import pdb; pdb.set_trace()
+
+            # Uncomment Below to Visualize 2D
+            # bbox_coords = project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file)
+            # image = cv2.imread(twod_img_path)
+            # twod_bbox_image = draw_2d_bbox(image, bbox_coords)
+            # cv2.imwrite("test2dbboxcalibration.png", tred_bbox_image)
+
+        # import pdb; pdb.set_trace()
 
         # cv2.imshow('img', image)
         # cv2.waitKey(0)

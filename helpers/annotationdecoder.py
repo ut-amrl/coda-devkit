@@ -18,6 +18,9 @@ from helpers.constants import *
 from helpers.geometry import *
 from helpers.visualization import project_3dto2d_bbox_image
 
+from multiprocessing import Pool
+import tqdm
+
 class AnnotationDecoder(object):
 
     def __init__(self):
@@ -30,6 +33,7 @@ class AnnotationDecoder(object):
             self._anno_type = settings['annotation_type']
             self._gen_data  = settings['gen_data']
             self._use_wcs   = settings['use_wcs']
+            self._verbose   = settings['verbose']
 
             assert os.path.exists(self._indir), "%s does not exist, provide valid dataset root directory."
 
@@ -69,44 +73,98 @@ class AnnotationDecoder(object):
         else:
             print("Undefined annotation format type specified, exiting...")
 
-    def deepen_decoder(self, datadir):
+    def deepen_decode_single_bbox_file(self, args):
+        """
+        Decodes all bbox frames contained in a single file
+        """
+        traj_dir, annotation_file = args
+        
+        trajectoryx, _, _ = annotation_file.split('.')[0].split('_')
+        traj = trajectoryx.replace("trajectory", "")
+        annotation_path = join(traj_dir, annotation_file)
+
+        anno_dict = self.deepen_decode_bbox(annotation_path, traj)
+
+        if self._gen_data:
+            self.save_anno_json(anno_dict)
+            self.project_annos_3d_to_2d(anno_dict)
+
+    def deepen_decode_single_sem_file(self, args):
+        """
+        Decodes all bbox frames contained in a single file
+        """
+        traj_dir, annotation_file = args
+
+        if annotation_file.endswith(".dpn"):
+            trajectoryx, start_frame, _ = annotation_file.split('.')[0].split('_')
+            traj = trajectoryx.replace("trajectory", "")
+            annotation_path = join(traj_dir, annotation_file)
+
+            self.deepen_decode_semantic(annotation_path, traj, start_frame)
+
+    def deepen_decoder(self, datadir, num_workers=16):
         assert os.path.exists(datadir), "3d_label directory does not exist in %s"%datadir
         tred_subdirs = next(os.walk(datadir))[1]
 
         if "3d_bbox" in tred_subdirs:
             bbox_subdir = join(datadir, "3d_bbox")
             traj_subdirs   = next(os.walk(bbox_subdir))[1] 
+
+            annotation_files_multi  = []
+            traj_dir_multi          = []
             for traj_subdir in traj_subdirs:
                 traj_dir = join(bbox_subdir, traj_subdir)
+                
+                annotation_files    = next(os.walk(traj_dir))[2]
+                traj_dir_packed     = [traj_dir] * len(annotation_files)
+                annotation_files_multi.extend(annotation_files)
+                traj_dir_multi.extend(traj_dir_packed)
+                
+                self.deepen_decode_single_bbox_file((traj_dir_packed[0], annotation_files[0]))
 
-                annotation_files   = next(os.walk(traj_dir))[2]
-
-                for annotation_file in annotation_files:
-                    trajectoryx, _, _ = annotation_file.split('.')[0].split('_')
-                    traj = trajectoryx.replace("trajectory", "")
-                    annotation_path = join(traj_dir, annotation_file)
-
-                    anno_dict = self.deepen_decode_bbox(annotation_path, traj)
-                    if self._gen_data:
-                        self.save_anno_json(anno_dict)
-                        self.project_annos_3d_to_2d(anno_dict)
+            pool = Pool(processes=num_workers)
+            for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_bbox_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
+                pass
 
         if "3d_semantic" in tred_subdirs:
             semantic_subdir = join(datadir, "3d_semantic")
             traj_subdirs   = next(os.walk(semantic_subdir))[1]
 
+            annotation_files_multi  = []
+            traj_dir_multi          = []
             for traj_subdir in traj_subdirs:
                 traj_dir = join(semantic_subdir, traj_subdir)
 
                 annotation_files   = next(os.walk(traj_dir))[2]
+                traj_dir_packed     = [traj_dir] * len(annotation_files)
+                annotation_files_multi.extend(annotation_files)
+                traj_dir_multi.extend(traj_dir_packed)
 
-                for annotation_file in annotation_files:
-                    if annotation_file.endswith(".dpn"):
-                        trajectoryx, start_frame, _ = annotation_file.split('.')[0].split('_')
-                        traj = trajectoryx.replace("trajectory", "")
-                        annotation_path = join(traj_dir, annotation_file)
+            pool = Pool(processes=num_workers)
+            for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_sem_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
+                pass
+            
+    def load_alt_poses(self, dense_poses_np, dense_ts_np, curr_traj):
+        alt_pose_dir = join(self._outdir, "poses_redone")
+        old_dense_poses_shape = dense_poses_np.shape
+        
+        if os.path.exists(alt_pose_dir):
+            alt_pose_files    = next(os.walk(alt_pose_dir))[2]
 
-                        self.deepen_decode_semantic(annotation_path, traj, start_frame)
+            for alt_pose_file in alt_pose_files:
+                traj, start_frame, end_frame = alt_pose_file.split('.')[0].split('_')
+                start_frame = int(start_frame)
+                end_frame = int(end_frame)
+
+                if traj==curr_traj:
+                    #Load alt poses
+                    alt_pose_path   = join(alt_pose_dir, alt_pose_file)
+                    alt_pose_np     = np.loadtxt(alt_pose_path, dtype=np.float64).reshape(-1, 8)
+                    dense_alt_pose_np = densify_poses_between_ts(alt_pose_np, dense_ts_np[start_frame:end_frame])
+                    dense_poses_np[start_frame:end_frame, :] = dense_alt_pose_np
+
+        assert old_dense_poses_shape==dense_poses_np.shape, "Dense pose shape changed error!"
+        return dense_poses_np
 
     def deepen_decode_bbox(self, label_path, traj):
         anno_dict = {
@@ -123,8 +181,10 @@ class AnnotationDecoder(object):
         pose_path   = join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
         pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
         ts_np       = np.loadtxt(ts_to_frame_path)
-
         dense_pose_np   = densify_poses_between_ts(pose_np, ts_np)
+        
+        # Overwrite corresponding frames with redone poses if files exist
+        dense_pose_np = self.load_alt_poses(dense_pose_np, ts_np, traj)
 
         for frame_str in anno_json["labels"].keys():
             if frame_str == "dataset_attributes":
@@ -211,7 +271,8 @@ class AnnotationDecoder(object):
  
             frame_label_np = sem_np[annotation_idx].reshape(-1, 1)
             if self._gen_data:
-                print("Saving 3d semantic traj %s frame %s to %s"%(traj, frame, frame_path))
+                if self._verbose:
+                    print("Saving 3d semantic traj %s frame %s to %s"%(traj, frame, frame_path))
                 frame_label_np.astype(np.uint8).tofile(frame_path)
 
     def project_annos_3d_to_2d(self, anno_dict):
@@ -234,7 +295,8 @@ class AnnotationDecoder(object):
             twod_label_file = set_filename_by_prefix(TWOD_BBOX_LABEL_TYPE, sensor, traj, frame)
             twod_label_path = join(twod_label_dir, twod_label_file)
             if self._gen_data:
-                print("Saving 2d bbox traj %s frame %s to %s"%(traj, frame, twod_label_path))
+                if self._verbose:
+                    print("Saving 2d bbox traj %s frame %s to %s"%(traj, frame, twod_label_path))
                 np.savetxt(twod_label_path, bbox_coords, fmt='%d', delimiter=' ')
 
     def ewannotate_decoder(self, filepath, traj):
@@ -325,7 +387,8 @@ class AnnotationDecoder(object):
     def write_anno_to_file(self, traj, frame, annos_dir, anno_dict):
         frame_dict_path = join(annos_dir,
         set_filename_by_prefix("3d_label", "os1", str(traj), str(frame)) )
-        print("Saving frame %s annotations to %s " % (frame, frame_dict_path))
+        if self._verbose:
+            print("Saving frame %s annotations to %s " % (frame, frame_dict_path))
         frame_dict_file = open(frame_dict_path, "w+")
         frame_dict_file.write(json.dumps(anno_dict, indent=2))
         frame_dict_file.close()
@@ -347,7 +410,8 @@ class AnnotationDecoder(object):
             anno_filename   = "%s_%s_%s_%s.json"%(modality, sensor_name, traj, frame)
             anno_path = join(anno_dir, anno_filename)
 
-            print("Writing frame %s to %s..."%(frame, anno_path))
+            if self._verbose:
+                print("Writing frame %s to %s..."%(frame, anno_path))
             anno_json = open(anno_path, "w+")
             anno_json.write(json.dumps(annotation, indent=2))
             anno_json.close()
