@@ -165,6 +165,7 @@ def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
         )
 
     valid_point_mask = in_bounds & pts_mask
+
     valid_points = image_pts[valid_point_mask, :]
     return valid_points
 

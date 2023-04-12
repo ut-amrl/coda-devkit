@@ -248,6 +248,15 @@ BBOX_CLASS_TO_ID = {
     "Vacuum Cleaner"        : 54
 }
 
+OCCLUSION_TO_ID ={
+    "None": 0,
+    "Light": 1,
+    "Medium": 2,
+    "Heavy": 3,
+    "Full": 4,
+    "Unknown": 5
+}
+
 NONRIGID_CLASS_IDS = [6, 7]
 
 BBOX_ID_TO_COLOR = [

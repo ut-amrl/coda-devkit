@@ -104,15 +104,14 @@ def main(args):
                 cv2.imwrite(image_path, tred_bbox_image)
             else:
                 cv2.imwrite("testbboxcalibration.png", tred_bbox_image)
-                import pdb; pdb.set_trace()
-
+            
             # Uncomment Below to Visualize 2D
-            # bbox_coords = project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file)
-            # image = cv2.imread(twod_img_path)
-            # twod_bbox_image = draw_2d_bbox(image, bbox_coords)
-            # cv2.imwrite("test2dbboxcalibration.png", tred_bbox_image)
+            bbox_coords = project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file)
+            image = cv2.imread(twod_img_path)
+            twod_bbox_image = draw_2d_bbox(image, bbox_coords)
+            cv2.imwrite("test2dbboxcalibration.png", twod_bbox_image)
 
-        # import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
 
         # cv2.imshow('img', image)
         # cv2.waitKey(0)

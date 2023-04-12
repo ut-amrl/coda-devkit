@@ -287,6 +287,17 @@ class AnnotationDecoder(object):
             frame = annotation['frame']
             bbox_coords = project_3dto2d_bbox_image(annotation, calib_ext_file, calib_intr_file)
             bbox_coords = bbox_coords.astype(np.int)
+
+            bbox_labels = []
+            bbox_occlusion = []
+            for annotation_idx, annotation in enumerate(annotation["3dbbox"]):
+                class_label = annotation["classId"]
+                occlusion = OCCLUSION_TO_ID[annotation["labelAttributes"]["isOccluded"]]
+                bbox_labels.append(BBOX_CLASS_TO_ID[class_label])
+                bbox_occlusion.append(occlusion)
+            bbox_labels = np.array(bbox_labels).reshape(-1, 1)
+            bbox_occlusion = np.array(bbox_occlusion).reshape(-1, 1)
+            gt_anno = np.hstack((bbox_labels, bbox_occlusion, bbox_coords))
             
             twod_label_dir = join(self._outdir, "2d_bbox", sensor, traj)
             if self._gen_data and not os.path.exists(twod_label_dir):
@@ -297,7 +308,7 @@ class AnnotationDecoder(object):
             if self._gen_data:
                 if self._verbose:
                     print("Saving 2d bbox traj %s frame %s to %s"%(traj, frame, twod_label_path))
-                np.savetxt(twod_label_path, bbox_coords, fmt='%d', delimiter=' ')
+                np.savetxt(twod_label_path, gt_anno, fmt='%d', delimiter=' ')
 
     def ewannotate_decoder(self, filepath, traj):
         with open(filepath, 'r') as annos_file:
