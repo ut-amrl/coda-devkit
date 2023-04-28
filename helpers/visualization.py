@@ -167,7 +167,7 @@ def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
     valid_point_mask = in_bounds & pts_mask
 
     valid_points = image_pts[valid_point_mask, :]
-    return valid_points
+    return valid_points, valid_point_mask
 
 def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
     """
@@ -181,32 +181,41 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
             np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
         )
 
-        valid_point_mask = bbox_mask[obj_idx] & in_bounds
+        valid_point_mask = bbox_mask[obj_idx]
         valid_points = bbox_pts[obj_idx, valid_point_mask, :]
-        if valid_points.shape[0]==0:
+        if np.sum(valid_point_mask)==0:
             continue
+
+        valid_points[:, 0] = valid_points[:, 0].clip(min=0, max=1223)
+        valid_points[:, 1] = valid_points[:, 1].clip(min=0, max=1023)
 
         bbox_idx = bbox_idxs[obj_idx][0]
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
+
         image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color)
     return image
 
 def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
     bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
     num_boxes = bbox_pts.shape[0]
-
     bbox_coords = np.zeros((num_boxes, 4)) # (left top) minxy, (right bottom) maxxy 
     for obj_idx in range(0, num_boxes):
-        in_bounds = np.logical_and(
-            np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
-            np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
-        )
+        # in_bounds = np.logical_and(
+        #     np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
+        #     np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
+        # )
 
-        valid_point_mask = bbox_mask[obj_idx] & in_bounds
-        valid_points = bbox_pts[obj_idx, valid_point_mask, :]
+        # valid_point_mask = bbox_mask[obj_idx] & in_bounds
+        # valid_points = bbox_pts[obj_idx, valid_point_mask, :]
+        # if valid_points.shape[0]==0:
+        #     continue
+        
+        valid_points = bbox_pts[obj_idx, bbox_mask[obj_idx], :]
         if valid_points.shape[0]==0:
             continue
+        valid_points[:, 0] = valid_points[:, 0].clip(min=0, max=1223)
+        valid_points[:, 1] = valid_points[:, 1].clip(min=0, max=1023)
 
         bbox_idx = bbox_idxs[obj_idx][0]
         max_xy = np.max(valid_points, axis=0)

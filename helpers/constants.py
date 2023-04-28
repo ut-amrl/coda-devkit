@@ -350,6 +350,33 @@ SEM_CLASS_TO_ID = {
     "Metal Floor":          23
 }
 
+SEM_ID_TO_COLOR = [
+    (0, 0, 0),    #Unknown
+    (100, 100, 100),    #Concrete
+    (0, 158, 33),       #Grass
+    (120, 120, 120),    #Rocks
+    (213, 126, 83),     #Speedway Bricks
+    (80, 80, 80),       #Metallic Grates
+    (140, 45, 0),       # Red Bricks
+    (100, 90, 80),      #Pebble Pavement
+    (255, 180, 140),    # Light Marble
+    (250, 240, 190),    # Blond Marble
+    (50, 50, 50),       # Dark Marble
+    (75, 60, 40),       # Dirt
+    (140, 140, 140),    # Road
+    (10, 120, 50),      # Short Vegetation
+    (55, 60, 40),       #Wood Panel
+    (240, 200, 75),     # Porcelain Tile
+    (60, 100, 180),     # PAtterned
+    (0, 50, 125),       # Carpet
+    (230, 230, 230),    # Crosswalk
+    (165, 100, 0),      # Dome Mat
+    (160, 0, 160),      # Stairs
+    (240, 180, 240),    #Doot Mat
+    (150, 255, 250),    #Threshold
+    (0, 120, 110)       # Metal Floor
+]
+
 """
 Manifest file generation sensor to subdirectory mappings
 """

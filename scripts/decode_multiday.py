@@ -47,8 +47,8 @@ def main(args):
             bag_decoder.convert_bag()
     else:
         bag_decoder = BagDecoder(args.config, is_config_dict=False)
-        # bag_decoder.convert_bag()
-        bag_decoder.densify_poses()
+        bag_decoder.convert_bag()
+        # bag_decoder.densify_poses()
         # bag_decoder.rectify_images(num_workers=24)
     
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation as R
 
 import cv2
 
-from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST
+from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR
 
 def densify_poses_between_ts(pose_np, ts_np):
     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
@@ -264,6 +264,14 @@ def draw_2d_bbox(image, bbox_coords, color=(0,0,255), thickness=2):
 
     return image
 
+def draw_2d_sem(image, valid_pts, pts_labels):
+    for pt_idx, pt in enumerate(valid_pts):
+        pt_label = pts_labels[pt_idx]
+
+        pt_color = SEM_ID_TO_COLOR[pt_label]
+        image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=pt_color)
+    return image
+
 def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
@@ -300,7 +308,9 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
                 image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
     except Exception as e:
         print(e)
-        pdb.set_trace()
+        import pdb; pdb.set_trace()
+    # print("valid points ", valid_points)
+    # import pdb; pdb.set_trace()
     #Draw
     # image = cv2.drawContours(image, np.array([contour_top]), 0, color, thickness)
     # image = cv2.drawContours(image, np.array([contour_bottom]), 0, color, thickness)

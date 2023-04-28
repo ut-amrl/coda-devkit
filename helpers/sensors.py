@@ -16,6 +16,7 @@ import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from ouster import client
+import matplotlib.pyplot as plt 
 
 from helpers.constants import *
 import sensor_msgs
@@ -43,7 +44,9 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     intensity   = np.expand_dims(intensity, axis=-1)
     ring   = np.expand_dims(ring, axis=-1)
 
-    # TODO figure out how to add ring to publisher
+    # ranges_destaggered = client.destagger(os1_info, scan)
+    # plt.imsave("rangetest.png", ranges_destaggered, cmap='gray', resample=False)
+    # import pdb; pdb.set_trace()
     pc = np.dstack((xyz_points, intensity, ring)).astype(np.float32)
     return pc, sensor_ts
 
@@ -96,6 +99,11 @@ def get_calibration_info(filepath):
         calibration_info = intrinsic
     
     return calibration_info, src, tar
+
+def read_sem_label(label_path):
+    assert os.path.exists(label_path), "%s does not exist " % label_path
+    sem_tred_np = np.array(list(open(label_path, "rb").read()))
+    return sem_tred_np
 
 def read_bin(bin_path, keep_intensity=True):
     bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
