@@ -2,7 +2,7 @@
 dataset_input_root: "/robodata/arthurz/Datasets/CODa"
 # dataset_output_root: "/home/arthur/AMRL/Tools/kitti360LabelTool/public/data" 
 # dataset_output_root: "/home/arthur/AMRL/Datasets/CODa_aws"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa_deepen"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_deepen_sem"
 
 encoding_format: "deepen"
 use_wcs: True
@@ -20,7 +20,7 @@ downsample_rate: 20 # Frame Rate=10hz so Actual Rate = FR / ds
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
-  8, 14, 15
+  14
   #0, 1, 2, 3, 4, 5, 6, 
   # 7, 8, 9, 10, 11, 12, 13, 14, 15,
   # 16, 17, 18, 19, 20, 
@@ -147,8 +147,8 @@ trajectory_frames:
     [200, 300],
     [3330, 3430],
     [3840, 3940],
-    [6470, 6570],
-    [7100, 7240]
+    # [6470, 6570],
+    # [7100, 7240]
   ]
   15: [
     # [100, 300],

@@ -367,7 +367,7 @@ class BagDecoder(object):
         if self._past_sync_ts==None:
             self._past_sync_ts = ts
             self._past_sync_ts.secs -= 1 # Set last sync time to be less than first msg
-        
+        import pdb; pdb.set_trace()
         # print("call by topic %s with timestamp %10.6f" % (topic, ts.to_sec()))
         #Remove all timestamps earlier than last synced timestamp
         for topic_key in self._sync_msg_queue.keys():
@@ -377,9 +377,10 @@ class BagDecoder(object):
         
         #Insert new message into topic queue
         self._sync_msg_queue[topic].append(msg)
-
+        
         #After each queue contains at least one msg, choose earliest message among queues
         while( not self.is_sync_queue_empty() ):
+            # import pdb; pdb.set_trace()
             #If difference between earliest message is too much larger than earliest
             # message in other queues, discard message and advance forward
             latest_topic, latest_ts = self.get_latest_queue_msg(ts)
@@ -390,6 +391,11 @@ class BagDecoder(object):
                 #save all messages in queue, discard them, and continue looping
                 self._past_sync_ts = self.save_sync_topics()
     
+    """
+    1
+        1.1
+            1.2
+    """
     def save_sync_topics(self):
         earliest_sync_timestamp = None
         latest_sync_timestamp = self._past_sync_ts
@@ -427,7 +433,7 @@ class BagDecoder(object):
             delete_indices = []
             for idx, msg in enumerate(self._sync_msg_queue[topic]):
                 curr_ts = msg.header.stamp.to_sec()
-                if abs(curr_ts - latest_ts)>=0.5:
+                if abs(curr_ts - latest_ts)>=0.05:
                     if self._verbose:
                         print("Found difference of ", abs(curr_ts - latest_ts), " for topic ", topic)
                     delete_indices.append(idx)

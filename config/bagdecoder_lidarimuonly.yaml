@@ -1,6 +1,6 @@
 repository_root: "/robodata/husky_logs/CODa_bags"
 dataset_output_root: "/robodata/arthurz/Datasets/CODa"
-bag_date: "20230127"
+bag_date: "20230130"
 
 #Bag Decoder Settings
 gen_data: False   # Generates data files
@@ -44,5 +44,5 @@ sensor_topics: [
   # "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1674833816.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [81] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1675092394.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [42] # Leave empty to assign ids in sequential order from 0

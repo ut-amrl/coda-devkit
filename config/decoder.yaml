@@ -4,5 +4,5 @@ annotations_output_root: "/robodata/arthurz/Datasets/CODa"
 annotation_type: "deepen"
 
 verbose: False
-gen_data: True
+gen_data: False
 use_wcs: True
