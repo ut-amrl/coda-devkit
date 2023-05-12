@@ -34,7 +34,7 @@ sensor_topics: [
 
   # #Vectornav
   # "/vectornav/GPS",
-  "/vectornav/IMU",
+#  "/vectornav/IMU",
   # "/vectornav/Mag",
   # "/vectornav/Odom",
 
