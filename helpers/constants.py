@@ -254,7 +254,8 @@ OCCLUSION_TO_ID ={
     "Medium": 2,
     "Heavy": 3,
     "Full": 4,
-    "Unknown": 5
+    "Unknown": 5,
+    "unknown": 5
 }
 
 NONRIGID_CLASS_IDS = [6, 7]

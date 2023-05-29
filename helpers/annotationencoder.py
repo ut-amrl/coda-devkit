@@ -88,25 +88,27 @@ class AnnotationEncoder(object):
                 os.makedirs(cam_dir)
 
     def create_json_files(self):
-        frame_start_offsets = None
+        # frame_start_offsets = None
         frame_start_offsets = {
         }
         in_pose_files = {
             # 8: [    "/robodata/arthurz/Research/coda/8_980_1180.txt",    
             #         "/robodata/arthurz/Research/coda/8_1400_1700.txt",
             #         "/robodata/arthurz/Research/coda/8_4000_4300.txt"],
-            14: [   
-                    "/robodata/arthurz/Research/coda/14_200_300.txt",
-                    "/robodata/arthurz/Research/coda/14_3330_3430.txt",
-                    "/robodata/arthurz/Research/coda/14_3840_3940.txt",
-                    # "/robodata/arthurz/Research/coda/14_6470_6570.txt",
-                    # "/robodata/arthurz/Research/coda/14_7100_7240.txt"
-            ],
-            # 15: [   "/robodata/arthurz/Research/coda/15_2770_3320.txt",
-            #         "/robodata/arthurz/Research/coda/15_3470_3870.txt",
-            #         "/robodata/arthurz/Research/coda/15_4380_4680.txt",
-            #         "/robodata/arthurz/Research/coda/15_6200_6400.txt",
-            #         "/robodata/arthurz/Research/coda/15_6650_6950.txt"]
+            # 14: [   
+            #         # "/robodata/arthurz/Research/coda/14_200_300.txt",
+            #         # "/robodata/arthurz/Research/coda/14_3330_3430.txt",
+            #         # "/robodata/arthurz/Research/coda/14_3840_3940.txt",
+            #         # "/robodata/arthurz/Research/coda/14_6470_6570.txt",
+            #         # "/robodata/arthurz/Research/coda/14_7100_7240.txt"
+            # ],
+            15: [   
+                # "/robodata/arthurz/Research/coda/15_2770_3320.txt",
+                "/robodata/arthurz/Research/coda/15_3470_3870.txt",
+                # "/robodata/arthurz/Research/coda/15_4380_4680.txt",
+                # "/robodata/arthurz/Research/coda/15_6200_6400.txt",
+                # "/robodata/arthurz/Research/coda/15_6650_6950.txt"
+            ]
         }
         for traj, files in in_pose_files.items():
             frame_start_offsets[traj] = []
