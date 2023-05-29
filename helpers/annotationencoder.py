@@ -88,30 +88,34 @@ class AnnotationEncoder(object):
                 os.makedirs(cam_dir)
 
     def create_json_files(self):
-        frame_start_offsets = None
-        # frame_start_offsets = {
-        # }
-        # in_pose_files = {
-        #     8: [    "/robodata/arthurz/Research/coda/8_980_1180.txt",    
-        #             "/robodata/arthurz/Research/coda/8_1400_1700.txt",
-        #             "/robodata/arthurz/Research/coda/8_4000_4300.txt"],
-        #     14: [   "/robodata/arthurz/Research/coda/14_200_300.txt",
-        #             "/robodata/arthurz/Research/coda/14_3330_3430.txt",
-        #             "/robodata/arthurz/Research/coda/14_3840_3940.txt",
-        #             "/robodata/arthurz/Research/coda/14_6470_6570.txt",
-        #             "/robodata/arthurz/Research/coda/14_7100_7240.txt"],
-        #     15: [   "/robodata/arthurz/Research/coda/15_2770_3320.txt",
-        #             "/robodata/arthurz/Research/coda/15_3470_3870.txt",
-        #             "/robodata/arthurz/Research/coda/15_4380_4680.txt",
-        #             "/robodata/arthurz/Research/coda/15_6200_6400.txt",
-        #             "/robodata/arthurz/Research/coda/15_6650_6950.txt"]
-        # }
-        # for traj, files in in_pose_files.items():
-        #     frame_start_offsets[traj] = []
+        # frame_start_offsets = None
+        frame_start_offsets = {
+        }
+        in_pose_files = {
+            # 8: [    "/robodata/arthurz/Research/coda/8_980_1180.txt",    
+            #         "/robodata/arthurz/Research/coda/8_1400_1700.txt",
+            #         "/robodata/arthurz/Research/coda/8_4000_4300.txt"],
+            # 14: [   
+            #         # "/robodata/arthurz/Research/coda/14_200_300.txt",
+            #         # "/robodata/arthurz/Research/coda/14_3330_3430.txt",
+            #         # "/robodata/arthurz/Research/coda/14_3840_3940.txt",
+            #         # "/robodata/arthurz/Research/coda/14_6470_6570.txt",
+            #         # "/robodata/arthurz/Research/coda/14_7100_7240.txt"
+            # ],
+            15: [   
+                # "/robodata/arthurz/Research/coda/15_2770_3320.txt",
+                "/robodata/arthurz/Research/coda/15_3470_3870.txt",
+                # "/robodata/arthurz/Research/coda/15_4380_4680.txt",
+                # "/robodata/arthurz/Research/coda/15_6200_6400.txt",
+                # "/robodata/arthurz/Research/coda/15_6650_6950.txt"
+            ]
+        }
+        for traj, files in in_pose_files.items():
+            frame_start_offsets[traj] = []
 
-        #     for filename in files:
-        #         frame_offset = int(filename.split('/')[-1].split('_')[1])
-        #         frame_start_offsets[traj].append(frame_offset)
+            for filename in files:
+                frame_offset = int(filename.split('/')[-1].split('_')[1])
+                frame_start_offsets[traj].append(frame_offset)
 
         for traj in self._trajs:
             traj_frames = self._traj_frames[traj]
@@ -141,11 +145,14 @@ class AnnotationEncoder(object):
                         (traj, out_frame_dir) )
                     os.makedirs(out_frame_dir)
 
-                for frame in range(start, end):
-                    if frame_start_offset==None:
+                for frame_idx, frame in enumerate(range(start, end)):
+                    if frame_start_offsets==None:
                         corrected_frame = frame
                     else:
                         corrected_frame = frame - frame_start_offset
+
+                    if frame_idx%self._ds_rate!=0:
+                        continue
 
                     pose        = out_pose_np[corrected_frame]
                     timestamp   = frame_to_ts_np[corrected_frame]
@@ -194,8 +201,9 @@ class AnnotationEncoder(object):
             cam1_indir = os.path.join(self._outdir, cam1_subdir)
             print("Zipping trajectory %i frames %i to %i..." % (traj, start, end))
             with ZipFile(zip_path,'w') as zip_file:
-                for frame in range(start, end):
-                    
+                for frame_idx, frame in enumerate(range(start, end)):
+                    if frame_idx%self._ds_rate!=0:
+                        continue
                     json_abspath   = os.path.join(json_indir, "%06d.json"%frame)
                     json_relpath   = "%06d.json"%frame #write json files to root
                     

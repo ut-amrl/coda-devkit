@@ -254,7 +254,8 @@ OCCLUSION_TO_ID ={
     "Medium": 2,
     "Heavy": 3,
     "Full": 4,
-    "Unknown": 5
+    "Unknown": 5,
+    "unknown": 5
 }
 
 NONRIGID_CLASS_IDS = [6, 7]
@@ -402,8 +403,8 @@ SENSOR_DIRECTORY_SUBPATH = {
 SENSOR_DIRECTORY_FILETYPES = {
     #Depth
     "3d_raw/os1": "bin",
-    "3d_raw/cam2": "jpg",
-    "3d_raw/cam3": "jpg",
+    "3d_raw/cam2": "png",
+    "3d_raw/cam3": "png",
     #RGB
     "2d_raw/cam0": "png",
     "2d_raw/cam1": "png",
