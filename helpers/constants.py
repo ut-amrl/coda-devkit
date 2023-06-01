@@ -20,18 +20,20 @@ OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 """
 DATASET PARAMETER CONSTANTS
 """
-SEMANTIC_LABEL_TYPE = "3d_semantic"
-BBOX_LABEL_TYPE     = "3d_bbox"
+SEMANTIC_LABEL_TYPE     = "3d_semantic"
+TRED_BBOX_LABEL_TYPE    = "3d_bbox"
+TWOD_BBOX_LABEL_TYPE    = "2d_bbox"
 
 DATASET_L1_DIR_LIST = [
     "metadata",
     "calibrations",
     "timestamps",
     "2d_raw",
+    "2d_rect",
     "3d_raw",
-    BBOX_LABEL_TYPE,
+    TRED_BBOX_LABEL_TYPE,
+    TWOD_BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_TYPE,
-    "2d_label",
     "poses"
 ]
 
@@ -64,48 +66,66 @@ SAGEMAKER_TO_COMMON_ANNO = {
 BBOX CLASS CONSTANTS
 """
 BBOX_CLASS_VIZ_LIST = [  
-"Scooter",
-"Bike",
-"Car",
-"Motorcycle",
-"Golf Cart",
-"Truck",
-"Person",
-# Static Classes
-"Tree",
-"Traffic Sign",
-"Canopy",
-"Traffic Lights",
-"Bike Rack",
-"Bollard",
-"Construction Barrier",
-"Parking Kiosk",
-"Mailbox",
-"Fire Hydrant",
-# Static Class Mixed
-"Freestanding Plant",
-"Pole",
-"Informational Sign",
-"Door",
-"Fence",
-"Railing",
-"Cone",
-"Chair",
-"Bench",
-"Table",
-"Trash Can",
-"Newspaper Dispenser",
-# Static Classes Indoor
-"Room Label",
-"Stanchion",
-"Sanitizer Dispenser",
-"Condiment Dispenser",
-"Vending Machine",
-"Emergency Aid Kit",
-"Fire Extinguisher",
-"Computer",
-"Television",
-"Other"
+    # Dynamic Classes
+    "Car"                   ,
+    "Pedestrian"            ,
+    "Bike"                  ,
+    "Motorcycle"            ,
+    "Golf Cart"             ,
+    "Truck"                 ,
+    "Scooter"               ,
+    # Static Classes
+    "Tree"                  ,
+    "Traffic Sign"          ,
+    "Canopy"                ,
+    "Traffic Light"         ,
+    "Bike Rack"             ,
+    "Bollard"               ,
+    "Construction Barrier"  ,
+    "Parking Kiosk"         ,
+    "Mailbox"               ,
+    "Fire Hydrant"          ,
+    # Static Class Mixed
+    "Freestanding Plant"    ,
+    "Pole"                  ,
+    "Informational Sign"    ,
+    "Door"                  ,
+    "Fence"                 ,
+    "Railing"               ,
+    "Cone"                  ,
+    "Chair"                 ,
+    "Bench"                 ,
+    "Table"                 ,
+    "Trash Can"             ,
+    "Newspaper Dispenser"   ,
+    # Static Classes Indoor
+    "Room Label"            ,
+    "Stanchion"             ,
+    "Sanitizer Dispenser"   ,
+    "Condiment Dispenser"   ,
+    "Vending Machine"       ,
+    "Emergency Aid Kit"     ,
+    "Fire Extinguisher"     ,
+    "Computer"              ,
+    "Television"            ,
+    "Other"                 ,
+    "Horse"                 ,
+    # New Classes
+    "Pickup Truck"          ,
+    "Delivery Truck"        ,
+    "Service Vehicle"       ,
+    "Utility Vehicle"       ,
+    "Fire Alarm"            ,
+    "ATM"                   ,
+    "Cart"                  ,
+    "Couch"                 ,
+    "Traffic Arm"           ,
+    "Wall Sign"             ,
+    "Floor Sign"            ,
+    "Door Switch"           ,
+    "Emergency Phone"       ,
+    "Dumpster"              ,
+    "Vacuum Cleaner"        
 ]
 
 BBOX_CLASS_REMAP = {
@@ -115,12 +135,12 @@ BBOX_CLASS_REMAP = {
     "Motorcycle":           "Motorcycle",
     "Golf Cart":            "Vehicle",
     "Truck":                "Vehicle",
-    "Person":               "Person",
+    "Pedestrian":            "Pedestrian",
     # Static Classes     
     "Tree":                 "Tree",
     "Traffic Sign":         "Sign",
     "Canopy":               "Canopy",
-    "Traffic Lights":       "Traffic Lights",
+    "Traffic Light":       "Traffic Light",
     "Bike Rack":            "Bike Rack",
     "Bollard":              "Barrier",
     "Construction Barrier": "Barrier",
@@ -150,53 +170,92 @@ BBOX_CLASS_REMAP = {
     "Fire Extinguisher":    "Dispenser",
     "Computer":             "Screen",
     "Television":           "Screen",
-    "Other":                "Other"
+    "Other":                "Other",
+    "Horse":                "Other",
+    "Pickup Truck":         "Vehicle",
+    "Delivery Truck":       "Vehicle",
+    "Service Vehicle":      "Vehicle",
+    "Utility Vehicle":      "Vehicle",
+    "Fire Alarm":           "Fire Alarm",
+    "ATM":                  "Dispenser",
+    "Cart":                 "Cart",
+    "Couch":                "Couch",
+    "Traffic Arm":          "Traffic Arm",
+    "Wall Sign":            "Sign",
+    "Floor Sign":           "Sign"
 }
 
 BBOX_CLASS_TO_ID = {
     # Dynamic Classes
-    "Scooter": 0,
-    "Bike": 1,
-    "Car": 2,
-    "Motorcycle": 3,
-    "Golf Cart": 4,
-    "Truck": 5,
-    "Person": 6,
+    "Car"                   : 0,
+    "Pedestrian"            : 1,
+    "Bike"                  : 2,
+    "Motorcycle"            : 3,
+    "Golf Cart"             : 4,
+    "Truck"                 : 5,
+    "Scooter"               : 6,
     # Static Classes
-    "Tree": 7,
-    "Traffic Sign": 8,
-    "Canopy": 9,
-    "Traffic Lights": 10,
-    "Bike Rack": 11,
-    "Bollard": 12,
-    "Construction Barrier": 13,
-    "Parking Kiosk": 14,
-    "Mailbox": 15,
-    "Fire Hydrant": 16,
+    "Tree"                  : 7,
+    "Traffic Sign"          : 8,
+    "Canopy"                : 9,
+    "Traffic Light"         : 10,
+    "Bike Rack"             : 11,
+    "Bollard"               : 12,
+    "Construction Barrier"  : 13,
+    "Parking Kiosk"         : 14,
+    "Mailbox"               : 15,
+    "Fire Hydrant"          : 16,
     # Static Class Mixed
-    "Freestanding Plant": 17,
-    "Pole": 18,
-    "Informational Sign": 19,
-    "Door": 20,
-    "Fence": 21,
-    "Railing": 22,
-    "Cone": 23,
-    "Chair": 24,
-    "Bench": 25,
-    "Table": 26,
-    "Trash Can": 27,
-    "Newspaper Dispenser": 28,
+    "Freestanding Plant"    : 17,
+    "Pole"                  : 18,
+    "Informational Sign"    : 19,
+    "Door"                  : 20,
+    "Fence"                 : 21,
+    "Railing"               : 22,
+    "Cone"                  : 23,
+    "Chair"                 : 24,
+    "Bench"                 : 25,
+    "Table"                 : 26,
+    "Trash Can"             : 27,
+    "Newspaper Dispenser"   : 28,
     # Static Classes Indoor
-    "Room Label": 29,
-    "Stanchion": 30,
-    "Sanitizer Dispenser": 31,
-    "Condiment Dispenser": 32,
-    "Vending Machine": 33,
-    "Emergency Aid Kit": 34,
-    "Fire Extinguisher": 35,
-    "Computer": 36,
-    "Television": 37,
-    "Other": 38
+    "Room Label"            : 29,
+    "Stanchion"             : 30,
+    "Sanitizer Dispenser"   : 31,
+    "Condiment Dispenser"   : 32,
+    "Vending Machine"       : 33,
+    "Emergency Aid Kit"     : 34,
+    "Fire Extinguisher"     : 35,
+    "Computer"              : 36,
+    "Television"            : 37,
+    "Other"                 : 38,
+    "Horse"                 : 39,
+    # New Classes
+    "Pickup Truck"          : 40,
+    "Delivery Truck"        : 41,
+    "Service Vehicle"       : 42,
+    "Utility Vehicle"       : 43,
+    "Fire Alarm"            : 44,
+    "ATM"                   : 45,
+    "Cart"                  : 46,
+    "Couch"                 : 47,
+    "Traffic Arm"           : 48,
+    "Wall Sign"             : 49,
+    "Floor Sign"            : 50,
+    "Door Switch"           : 51,
+    "Emergency Phone"       : 52,
+    "Dumpster"              : 53,
+    "Vacuum Cleaner"        : 54
+}
+
+OCCLUSION_TO_ID ={
+    "None": 0,
+    "Light": 1,
+    "Medium": 2,
+    "Heavy": 3,
+    "Full": 4,
+    "Unknown": 5,
+    "unknown": 5
 }
 
 NONRIGID_CLASS_IDS = [6, 7]
@@ -240,7 +299,25 @@ BBOX_ID_TO_COLOR = [
     (255, 102, 102),    #35 Fire Extinguisher
     (0, 153, 76),       #36 Computer
     (32, 32, 32),       #37 Television
-    (255, 255, 255)     #38 Other
+    (255, 255, 255),     #38 Other
+    # Temp new classes
+    (255, 204, 153),    #39 Newspaper Dispenser
+    (255, 51, 255),     #40 Room Label
+    (224, 224, 224),    #41 Stanchion
+    (51, 255, 255),     #42 Sanitizer Dispenser
+    (76, 153, 0),       #43 Condiment Dispenser
+    (51, 152, 255),     #44 Vending Machine
+    (255, 204, 204),    #45 Emergency Aid Kit
+    (255, 102, 102),    #46 Fire Extinguisher
+    (0, 153, 76),       #47 Computer
+    (32, 32, 32),       #48 Television
+    (255, 255, 255),     #49 Other
+    (255, 102, 102),    #50 Fire Extinguisher
+    (0, 153, 76),       #51 Computer
+    (32, 32, 32),       #52 Television
+    (255, 255, 255),    #53 Other
+    (255, 255, 255)     #54 Other
+    #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
 ]
 
 """
@@ -248,21 +325,58 @@ TERRAIN SEMANTIC CLASS CONSTANTS
 """
 
 SEM_CLASS_TO_ID = {
-    "Concrete":             0,
-    "Grass":                1,
-    "Rocks":                2,
-    "Speedway Bricks":      3,
-    "Metal Grates":         4,
-    "Red Bricks":           5,
-    "Pebble Pavement":      6,
-    "Light Marble Tiling":  7,
-    "Dark Marble Tiling":   8,
-    "Dirt Path":            9,
-    "Road":                 10,
-    "Road Pavement":        11,
-    "Short Vegetation":     12,
-    "Porcelain Tiles":      13
+    "Unknown":              0,
+    "Concrete":             1,
+    "Grass":                2,
+    "Rocks":                3,
+    "Speedway Bricks":      4,
+    "Metal Grates":         5,
+    "Red Bricks":           6,
+    "Pebble Pavement":      7,
+    "Light Marble Tiling":  8,
+    "Blond Marble Tiling":  9,
+    "Dark Marble Tiling":   10,
+    "Dirt Paths":           11,
+    "Road Pavement":        12,
+    "Short Vegetation":     13,
+    "Wood Panel":           14,
+    "Porcelain Tile":       15,
+    "Patterned Tile":       16,
+    "Carpet":               17,
+    "Crosswalk":            18,
+    "Dome Mat":             19,
+    "Stairs":               20,
+    "Door Mat":             21,
+    "Threshold":            22,
+    "Metal Floor":          23
 }
+
+SEM_ID_TO_COLOR = [
+    (0, 0, 0),    #Unknown
+    (100, 100, 100),    #Concrete
+    (0, 158, 33),       #Grass
+    (120, 120, 120),    #Rocks
+    (213, 126, 83),     #Speedway Bricks
+    (80, 80, 80),       #Metallic Grates
+    (140, 45, 0),       # Red Bricks
+    (100, 90, 80),      #Pebble Pavement
+    (255, 180, 140),    # Light Marble
+    (250, 240, 190),    # Blond Marble
+    (50, 50, 50),       # Dark Marble
+    (75, 60, 40),       # Dirt
+    (140, 140, 140),    # Road
+    (10, 120, 50),      # Short Vegetation
+    (55, 60, 40),       #Wood Panel
+    (240, 200, 75),     # Porcelain Tile
+    (60, 100, 180),     # PAtterned
+    (0, 50, 125),       # Carpet
+    (230, 230, 230),    # Crosswalk
+    (165, 100, 0),      # Dome Mat
+    (160, 0, 160),      # Stairs
+    (240, 180, 240),    #Doot Mat
+    (150, 255, 250),    #Threshold
+    (0, 120, 110)       # Metal Floor
+]
 
 """
 Manifest file generation sensor to subdirectory mappings
@@ -297,11 +411,13 @@ SENSOR_DIRECTORY_FILETYPES = {
     "2d_raw/cam2": "png",
     "2d_raw/cam3": "png",
     "2d_raw/cam4": "png",
-    "2d_label/cam0": "png",
-    "2d_label/cam1": "png",
+    "2d_rect/cam0": "jpg",
+    "2d_rect/cam1": "jpg",
     #Labels
-    "%s/os1"%BBOX_LABEL_TYPE: "json",
-    "%s/os1"%SEMANTIC_LABEL_TYPE: "txt",
+    "%s/cam0"%TWOD_BBOX_LABEL_TYPE: "txt", # KITTI FORMAT
+    "%s/cam1"%TWOD_BBOX_LABEL_TYPE: "txt",
+    "%s/os1"%TRED_BBOX_LABEL_TYPE: "json",
+    "%s/os1"%SEMANTIC_LABEL_TYPE: "bin",
     #Inertial
     "poses/imu": "txt",
     "poses/mag": "txt",
@@ -373,6 +489,17 @@ CAM0_CALIBRATIONS = {
     "height": 1024
 }
 
+KITTI_INTRINSIC_FORMAT = {
+    'S': [],
+    'K': [],
+    'D': [],
+    'R': [],
+    'T': [],
+    'S_rect': [],
+    'R_rect': [],
+    'P_rect': []
+}
+
 """
 DeepenAI Generation
 """
@@ -380,7 +507,7 @@ DEEPEN_TO_COMMON_ANNO = {
     #Frame Specific
     # "file_id": "frame",
     # "labels": "3dbbox",
-    "attributes_source": "labelCategoryAttributes",
+    "attributes": "labelAttributes",
     "three_d_bbox": ".",
     "quaternion": ".",
     # Object Specific 
@@ -396,10 +523,9 @@ DEEPEN_TO_COMMON_ANNO = {
     "qy": "qy",
     "qz": "qz",
     "qw": "qw",
-    "Occlusion": "isOccluded"
+    "Occlusion ": "isOccluded"
 }
 
-DEEPEN_LABEL_STR = "CODa_deepen_%s.json"
 
 DEEPEN_SEMANTIC_STR = "%s.dpn"
 

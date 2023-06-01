@@ -1,7 +1,8 @@
-annotations_input_root: "/home/arthur/AMRL/Datasets/CODa_deepen"
-annotations_output_root: "/home/arthur/AMRL/Datasets/CODa"
+annotations_input_root: "/robodata/arthurz/Datasets/CODa_annotations_raw"
+annotations_output_root: "/robodata/arthurz/Datasets/CODa"
 
 annotation_type: "deepen"
 
+verbose: False
 gen_data: True
 use_wcs: True

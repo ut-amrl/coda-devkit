@@ -11,7 +11,7 @@ object_mask_dir: "/robodata/arthurz/Datasets/ZixArt"
 root_dir: "/robodata/arthurz/Datasets/CODa"
 
 trajectory_frames:
-  [-1, -1] # Visualize all frames in trajectory
+  [600, 700] # Visualize all frames in trajectory
   # [50, 545]
   # [-1, -1]
   # [900, 1200]
