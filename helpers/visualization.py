@@ -190,8 +190,8 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
         valid_points[:, 1] = valid_points[:, 1].clip(min=0, max=1023)
 
         bbox_idx = bbox_idxs[obj_idx][0]
-        if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
-            continue
+        # if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
+        #     continue
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
 
