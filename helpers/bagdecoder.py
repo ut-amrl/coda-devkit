@@ -552,7 +552,7 @@ class BagDecoder(object):
         data        = None
         sensor_ts   = t
         if topic_type=="ouster_ros/PacketMsg":
-            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic)
+            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic, sensor_ts)
         elif topic_type=="sensor_msgs/Image":
             data, sensor_ts = process_image(msg)
         elif topic_type=="sensor_msgs/CompressedImage":
