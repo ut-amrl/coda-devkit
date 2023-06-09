@@ -8,6 +8,7 @@ import yaml
 import rospy
 import rosbag
 from visualization_msgs.msg import *
+from std_msgs.msg import String
 from sensor_msgs.msg import PointCloud2, CompressedImage, Imu, MagneticField, Image, NavSatFix
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
@@ -60,7 +61,7 @@ class BagDecoder(object):
 
         #Load sync publisher
         rospy.init_node('coda', anonymous=True)
-        self._pub_rate = rospy.Rate(2) # Publish at 10 hz
+        self._pub_rate = rospy.Rate(10) # Publish at 10 hz
         self._topic_to_type = None
 
         self._qp_counter = 0
@@ -69,9 +70,20 @@ class BagDecoder(object):
 
         self._past_sync_ts = None
 
+        # Load bag complete header signal
+        self._bagdecoder_signal = rospy.Publisher('bagdecoder_signal', String, queue_size=10)
+
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
         for subdir in DATASET_L1_DIR_LIST:
+            subdir_path = os.path.join(self._outdir, subdir)
+            
+            if not os.path.exists(subdir_path):
+                if self._verbose:
+                    print("Creating directory ", subdir_path)
+                os.makedirs(subdir_path)
+
+        for subdir in DATASET_L2_DIR_LIST:
             subdir_path = os.path.join(self._outdir, subdir)
             
             if not os.path.exists(subdir_path):
@@ -104,13 +116,13 @@ class BagDecoder(object):
         # Load bag settings
         self._sensor_topics = settings['sensor_topics']
         self._sync_topics   = settings['sync_topics']
+        self._sync_method   = settings["sync_method"] if "sync_method" in settings else None
         
         if self._verbose:
             print("Saving topics: ", self._sensor_topics)
 
         self._bags_to_process   = settings['bags_to_process']
-        self._all_bags          = [ file for file in sorted(os.listdir(self._bag_dir)) 
-            if os.path.splitext(file)[-1]==".bag"]
+        self._all_bags          = [ file for file in sorted(os.listdir(self._bag_dir)) if os.path.splitext(file)[-1]==".bag"]
         if len(self._bags_to_process)==0:
             self._bags_to_process = self._all_bags
 
@@ -148,6 +160,8 @@ class BagDecoder(object):
                 topic_class = CompressedImage
             elif self._topic_to_type[topic]=="ouster_ros/PacketMsg":
                 topic_class = PointCloud2 #Post Process PacketMsg to Pointcloud2 later
+            elif self._topic_to_type[topic]=="sensor_msgs/PointCloud2":
+                topic_class = PointCloud2
             else:
                 print("Undefined topic %s for sync filter, skipping..." % topic)
 
@@ -162,6 +176,10 @@ class BagDecoder(object):
         Decodes requested topics in bag file to individual files
         """
         for trajectory_idx, bag_file in enumerate(self._all_bags):
+            bag_date = self._bag_dir.split('/')[-1]
+            docode_signal_str = "START %s %s" % (bag_date, bag_file) 
+            self._bagdecoder_signal.publish(docode_signal_str)
+
             if bag_file not in self._bags_to_process:
                 continue
                 
@@ -175,7 +193,8 @@ class BagDecoder(object):
             print("Processing bag ", bag_fp, " as trajectory", self._trajectory)
 
             #Preprocess topics
-            rosbag_info = yaml.safe_load( rosbag.Bag(bag_fp)._get_yaml_info())
+            rosbag_info = yaml.safe_load( rosbag.Bag(bag_fp)._get_yaml_info() )
+
             self._topic_to_type = {topic_entry['topic']:topic_entry['type'] \
                 for topic_entry in rosbag_info['topics']}
             self.setup_sync_filter()
@@ -184,7 +203,7 @@ class BagDecoder(object):
             for topic in self._sensor_topics:
                 if topic in self._sync_topics:
                     continue
-                
+ 
                 topic_type = self._topic_to_type[topic]
                 topic_class = None
                 if topic_type=="sensor_msgs/CompressedImage":
@@ -201,6 +220,10 @@ class BagDecoder(object):
                     topic_class = Odometry
                 elif topic_type=="tf2_msgs/TFMessage":
                     topic_class = TFMessage
+                elif topic_type=="ouster_ros/PacketMsg":
+                    topic_class = PointCloud2
+                elif topic_type=="sensors_msgs/PointCloud2":
+                    topic_class = PointCloud2
                 else:
                     if self._verbose:
                         print("""Not publishing topic %s over ros because
@@ -230,7 +253,6 @@ class BagDecoder(object):
                 print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
 
             for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
-
                 if topic in self._sync_topics:
                     topic_type = self._topic_to_type[topic]
                     if topic_type=="ouster_ros/PacketMsg":
@@ -239,20 +261,26 @@ class BagDecoder(object):
                         self.sync_sensor(topic, msg, ts)
                         self._sync_pubs[topic].publish(msg)
                 elif topic in self._sensor_topics:
-                    #Use ts as frame for non synchronized sensors
-                    filepath = self.save_topic(msg, topic, self._trajectory, ts)
+                    topic_type = self._topic_to_type[topic]
+                    
+                    if topic_type=="ouster_ros/PacketMsg":
+                        msg = self.qpacket(topic, msg, ts, do_sync=False)
+                    else:
+                        #Use ts as frame for non synchronized sensors
+                        filepath = self.save_topic(msg, topic, self._trajectory, ts)
 
-                    # Publish non sync topics
-                    if self._viz_topics and self._async_pubs[topic]!=None:
-                        # Special case for Kinect
-                        if topic=="/camera/depth/image_raw/compressed":
-                            pub_img(self._async_pubs[topic], msg.header, filepath, -1)
-                        else:
-                            # if "vectornav" in topic: #Vnav to sensor frame
-                            #     proc_msg, _ = self.process_topic(topic, msg, msg.header.stamp)
-                            #     msg = proc_msg
-                            self._async_pubs[topic].publish(msg)
+                        # Publish non sync topics
+                        if self._viz_topics and self._async_pubs[topic]!=None:
+                            # Special case for Kinect
+                            if topic=="/camera/depth/image_raw/compressed":
+                                pub_img(self._async_pubs[topic], msg.header, filepath, -1)
+                            else:
+                                # if "vectornav" in topic: #Vnav to sensor frame
+                                #     proc_msg, _ = self.process_topic(topic, msg, msg.header.stamp)
+                                #     msg = proc_msg
+                                self._async_pubs[topic].publish(msg)
             print("Completed processing bag ", bag_fp)
+
             if self._gen_data:
                 self._frame_to_ts.close()
 
@@ -367,31 +395,38 @@ class BagDecoder(object):
         if self._past_sync_ts==None:
             self._past_sync_ts = ts
             self._past_sync_ts.secs -= 1 # Set last sync time to be less than first msg
-        
-        # print("call by topic %s with timestamp %10.6f" % (topic, ts.to_sec()))
-        #Remove all timestamps earlier than last synced timestamp
-        for topic_key in self._sync_msg_queue.keys():
-            while len(self._sync_msg_queue[topic_key]) > 0 and \
-                self._sync_msg_queue[topic_key][0].header.stamp < self._past_sync_ts:
-                self._sync_msg_queue[topic_key].pop(0)
-        
-        #Insert new message into topic queue
-        self._sync_msg_queue[topic].append(msg)
 
-        #After each queue contains at least one msg, choose earliest message among queues
-        while( not self.is_sync_queue_empty() ):
-            #If difference between earliest message is too much larger than earliest
-            # message in other queues, discard message and advance forward
-            latest_topic, latest_ts = self.get_latest_queue_msg(ts)
-            self.remove_old_topics(latest_ts)
-            
+        if self._sync_method=="FIFO":
+            # Insert new message to end of queue
+            self._sync_msg_queue[topic].append(msg)
+
             if ( not self.is_sync_queue_empty() ):
-                #If difference between earliest message and others is acceptable
-                #save all messages in queue, discard them, and continue looping
                 self._past_sync_ts = self.save_sync_topics()
-    
+        else:
+            #Remove all timestamps earlier than last synced timestamp
+            for topic_key in self._sync_msg_queue.keys():
+                while len(self._sync_msg_queue[topic_key]) > 0 and \
+                    self._sync_msg_queue[topic_key][0].header.stamp < self._past_sync_ts:
+                    self._sync_msg_queue[topic_key].pop(0)
+            
+            #Insert new message into topic queue
+            self._sync_msg_queue[topic].append(msg)
+
+            #After each queue contains at least one msg, choose earliest message among queues
+            while( not self.is_sync_queue_empty() ):
+                #If difference between earliest message is too much larger than earliest
+                # message in other queues, discard message and advance forward
+                latest_topic, latest_ts = self.get_latest_queue_msg(ts)
+                self.remove_old_topics(latest_ts)
+                
+                if ( not self.is_sync_queue_empty() ):
+                    #If difference between earliest message and others is acceptable
+                    #save all messages in queue, discard them, and continue looping
+                    self._past_sync_ts = self.save_sync_topics()
+
     def save_sync_topics(self):
         earliest_sync_timestamp = None
+
         latest_sync_timestamp = self._past_sync_ts
         frame = self._curr_frame
         for topic, msgs in self._sync_msg_queue.items():
@@ -427,7 +462,7 @@ class BagDecoder(object):
             delete_indices = []
             for idx, msg in enumerate(self._sync_msg_queue[topic]):
                 curr_ts = msg.header.stamp.to_sec()
-                if abs(curr_ts - latest_ts)>=0.5:
+                if abs(curr_ts - latest_ts)>=0.1:
                     if self._verbose:
                         print("Found difference of ", abs(curr_ts - latest_ts), " for topic ", topic)
                     delete_indices.append(idx)
@@ -456,7 +491,7 @@ class BagDecoder(object):
             are_queues_empty = are_queues_empty or len(msgs)==0
         return are_queues_empty
 
-    def qpacket(self, topic, msg, ts):
+    def qpacket(self, topic, msg, ts, do_sync=True):
         published_packet = False
         packet = get_ouster_packet_info(self._os1_info, msg.buf)
 
@@ -465,11 +500,20 @@ class BagDecoder(object):
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
                 if self._verbose:
                     print("Publishing frame %d over ros..." %self._curr_frame)
-                if self._viz_topics:
-                    pc_msg = pub_pc_to_rviz(pc, self._sync_pubs[topic], ts)
+
+                if do_sync:
+                    topic_name = self._sync_pubs[topic]
+                else:
+                    self._curr_frame += 1
+                    self.save_frame_ts(ts)
+                    topic_name = self._async_pubs[topic]
+
+                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, publish=self._viz_topics)
+                if self._viz_topics: 
                     self._pub_rate.sleep() #Limit publish rate of point clouds for LeGO-LOAM
 
-                self.sync_sensor(topic, pc_msg, ts)
+                if do_sync:
+                    self.sync_sensor(topic, pc_msg, ts)
                 published_packet = True
                 
             self._qp_counter     = 0
@@ -509,8 +553,8 @@ class BagDecoder(object):
         if self._verbose:
             print("Saving topic ", topic_type, " with timestamp ", 
                 data.header.stamp, " at frame ", frame)
-
-        if topic_type=="ouster_ros/PacketMsg":
+        
+        if topic_type=="ouster_ros/PacketMsg" or topic_type=="sensor_msgs/PointCloud2":
             #Expects PointCloud2 Object
             pc_to_bin(data, filepath)
         elif topic_type=="sensor_msgs/Image":
@@ -552,7 +596,7 @@ class BagDecoder(object):
         data        = None
         sensor_ts   = t
         if topic_type=="ouster_ros/PacketMsg":
-            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic)
+            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic, sensor_ts)
         elif topic_type=="sensor_msgs/Image":
             data, sensor_ts = process_image(msg)
         elif topic_type=="sensor_msgs/CompressedImage":

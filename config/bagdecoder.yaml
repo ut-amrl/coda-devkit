@@ -1,9 +1,10 @@
 repository_root: "/robodata/husky_logs/CODa_bags"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa"
-bag_date: "20230117"
+# repository_root: "/robodata/arthurz/Datasets/CODa_sync_bags"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_sync_fullpc"
+bag_date: "20230203"
 
 #Bag Decoder Settings
-gen_data: True   # Generates data files
+gen_data: False   # Generates data files
 viz_topics: True     # Republish sensor messages
 verbose: True    # Debugging
 
@@ -12,6 +13,8 @@ sync_topics: [
   "/stereo/left/image_raw/compressed",
   "/stereo/right/image_raw/compressed"
 ]
+
+# sync_method: "FIFO"
 
 sensor_topics: [
   #Transforms
@@ -22,8 +25,8 @@ sensor_topics: [
   "/ouster/lidar_packets", 
 
   #Kinect
-  "/camera/depth/image_raw/compressed",
-  "/camera/rgb/image_raw/compressed",
+  # "/camera/depth/image_raw/compressed",
+  # "/camera/rgb/image_raw/compressed",
 
   #FLIR
   "/stereo/left/image_raw/compressed",
@@ -36,13 +39,13 @@ sensor_topics: [
   "/vectornav/Odom",
 
   #ZED
-  "/zed/zed_node/depth/depth_registered",
-  "/zed/zed_node/left/image_rect_color/compressed",
-  "/zed/zed_node/right/image_rect_color/compressed",
+  # "/zed/zed_node/depth/depth_registered",
+  # "/zed/zed_node/left/image_rect_color/compressed",
+  # "/zed/zed_node/right/image_rect_color/compressed",
 
   #Odometry
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: [] #Leave empty to process all bags in directory
-bags_to_traj_ids: [] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1675441045.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [11] # Leave empty to assign ids in sequential order from 0
