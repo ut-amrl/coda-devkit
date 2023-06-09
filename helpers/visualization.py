@@ -14,13 +14,13 @@ import std_msgs.msg
 from sensor_msgs.msg import PointCloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import PoseStamped
-
+import matplotlib.cm as cm
 
 #Custom
 from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR, OS1_POINTCLOUD_SHAPE
 from helpers.geometry import *
 
-def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
+def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
     is_intensity    = pc.shape[-1]>=4
     is_time         = pc.shape[-1]>=5
     is_rf           = pc.shape[-1]>=6
@@ -108,7 +108,9 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
     else:
         pc_msg.data     = pc_flat.tobytes()
     pc_msg.is_dense = True
-    pc_pub.publish(pc_msg)
+
+    if publish:
+        pc_pub.publish(pc_msg)
 
     return pc_msg
 
@@ -183,6 +185,33 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
         bbox_markers.markers.append(bbox_marker)
 
     m_pub.publish(bbox_markers)
+
+def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+        )
+    valid_point_mask = in_bounds & pts_mask
+    valid_points = image_pts[valid_point_mask, :]
+
+    color_map = [(0, 0, 255)] * valid_points.shape[0]
+    if colormap=="camera":
+        os1_to_cam = load_ext_calib_to_mat(calib_ext_file)
+        bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
+        bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
+        valid_z_map = bin_homo_cam[:, 2][valid_point_mask]
+        
+        # color_map = cm.get_cmap("viridis")(np.linspace(0.2, 0.7, len(valid_z_map))) * 255 # [0,1] to [0, 255]]
+        norm_valid_z_map = valid_z_map / max(valid_z_map)
+        # import pdb; pdb.set_trace()
+        color_map = cm.get_cmap("viridis")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
+        color_map = color_map[:, :3]
+
+    for pt_idx, pt in enumerate(valid_points):
+        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=1, color=color_map[pt_idx])
+    return image_np
 
 def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)

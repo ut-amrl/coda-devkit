@@ -50,12 +50,6 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
     xyz_points  = np.dstack((xyz_points, homo_xyz))
 
     #Change from LiDAR to sensor coordinate system
-    # h, w, d = xyz_points.shape
-    # lidar_to_sens = np.array(SENSOR_TO_XYZ_FRAME[topic]).reshape(4, 4)
-
-    # xyz_points  = np.hstack( ( xyz_points.reshape(-1, 3), np.ones((h*w,1)) ) )
-    # xyz_points  = np.dot(lidar_to_sens, xyz_points.T).T
-    # xyz_points  = xyz_points[:, :3].reshape(h, w, d)
     signal      = np.expand_dims(signal, axis=-1)
     rf          = np.expand_dims(rf, axis=-1)
     ts_points   = np.expand_dims(ts_points, axis=-1)
@@ -63,11 +57,8 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
     nr          = np.expand_dims(nr, axis=-1)
     ring        = np.expand_dims(ring, axis=-1)
 
-    # TODO figure out how to add ring to publisher
     pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
-    # ranges_destaggered = client.destagger(os1_info, scan)
-    # plt.imsave("rangetest.png", ranges_destaggered, cmap='gray', resample=False)
-    # import pdb; pdb.set_trace()
+
     return pc, sensor_ts
 
 def set_filename_by_topic(topic, trajectory, frame):
@@ -85,8 +76,8 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
     sensor_filename = "%s_%s_%s_%s.%s" % (
         modality, 
         sensor_name, 
-        trajectory,
-        frame,
+        str(trajectory),
+        str(frame),
         filetype
         )
     return sensor_filename
@@ -126,22 +117,29 @@ def read_sem_label(label_path):
     return sem_tred_np
 
 def read_bin(bin_path, keep_intensity=True):
-    bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
+    num_points = OS1_POINTCLOUD_SHAPE[0]*OS1_POINTCLOUD_SHAPE[1]
+    bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(num_points, -1)
 
     if not keep_intensity:
         bin_np = bin_np[:, :3]
     return bin_np
 
-def pc_to_bin(pc, filename):
+def pc_to_bin(pc, filename, include_time=True):
     # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
 
     pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
-    pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], 4), dtype=np.float32)
+    pc_dim = 4
+    if include_time:
+        pc_dim = 5
+    pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], pc_dim), dtype=np.float32)
     pc_np[...,0] = pc_cloud['x']
     pc_np[...,1] = pc_cloud['y']
     pc_np[...,2] = pc_cloud['z']
     pc_np[...,3] = pc_cloud['intensity']
-    pc_np = pc_np.reshape(-1, 4)
+    if pc_dim==5:
+        pc_np[...,4] = pc_cloud['t']
+
+    pc_np = pc_np.reshape(-1, pc_dim)
     
     flat_pc = pc_np.reshape(-1).astype(np.float32)
     flat_pc.tofile(filename) # empty sep=bytes

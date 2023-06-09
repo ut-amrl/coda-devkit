@@ -12,19 +12,21 @@ topic_name = "/ouster/points"
 # Open the ROS bag file
 bag = rosbag.Bag(bag_file)
 
+idx=0
 # Iterate over each message in the bag
-for topic, msg, t in bag.read_messages(topics=[topic_name, '/vectornav/IMU']):
+for topic, msg, t in bag.read_messages(topics=[topic_name]):
     print("topic ", topic, " ts ", t)
 
     # Check if the message is of type PointCloud2
     if topic == topic_name:
         # Process the PointCloud2 message
+
         # Access point cloud data
         for point in point_cloud2.read_points(msg, field_names=("x", "y", "z", "t"), skip_nans=True):
             x, y, z, t = point
             # Do something with the x, y, z values
             print(f"X: {x}, Y: {y}, Z: {z}, T: {t}")
-        import pdb; pdb.set_trace()
+
 
 # Close the bag file
 bag.close()

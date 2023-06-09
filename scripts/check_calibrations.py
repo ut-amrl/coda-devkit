@@ -25,19 +25,6 @@ parser.add_argument('--traj', default=0,
                     help="trajectory to visualization calibation for (default 0)")
 parser.add_argument('--frame', default=0, help="first frame to visualization calibration for")
 parser.add_argument('--outdir', default='.', help="directory to write output calibrations to")
-
-def generate_point_calibration_img(image_np, bin_np, calib_ext_file, calib_intr_file):
-    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
-    in_bounds = np.logical_and(
-            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
-            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
-        )
-    valid_point_mask = in_bounds & pts_mask
-    valid_points = image_pts[valid_point_mask, :]
-
-    for pt in valid_points:
-        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=1, color=(0, 0, 255))
-    return image_np
     
 def dump_calibration_img(outdir, traj, frame, cam_id, pt_image_np):
     #Assumes images are rectified now
@@ -90,7 +77,7 @@ def generate_calibration_summary(args):
                 tred_bin_file = set_filename_by_prefix("3d_raw", "os1", traj, frame)
                 tred_bin_path = join(tred_path, tred_bin_file)
                 bin_np = read_bin(tred_bin_path)
-                pt_image_np = generate_point_calibration_img(image_np, bin_np, calibextr_path, calibintr_path)
+                pt_image_np = project_3dpoint_image(image_np, bin_np, calibextr_path, calibintr_path)
 
                 dump_calibration_img(cfg['outdir'], traj, frame, cam_id, pt_image_np)
 
@@ -98,6 +85,8 @@ def main(args):
     """
     indir - CODa directory (assumes 3d_labels exists)
     outdir - directory to save bbox projections to
+
+    This script can be used to project the point cloud to corresponding images. 
     """
     checker_fp = os.path.join(os.getcwd(), "config/checker.yaml")
     with open(checker_fp, 'r') as checker_file:
