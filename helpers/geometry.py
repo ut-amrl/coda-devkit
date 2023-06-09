@@ -5,6 +5,7 @@ import yaml
 import json
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
 
 # import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
@@ -23,19 +24,27 @@ def densify_poses_between_ts(pose_np, ts_np):
     return out_pose_np
 
 def find_closest_pose(pose_np, target_ts):
-    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
+    # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
+    # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
+    next_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
+    # if target_ts >= pose_np[next_ts_idx][0]:
+    #     print("this shouldnt happen")
+    curr_ts_idx=next_ts_idx-1
 
-    if curr_ts_idx>=pose_np.shape[0]:
-        curr_ts_idx = pose_np.shape[0]-1
-        print("Reached end of known poses at time %10.6f" % target_ts)
-    elif curr_ts_idx < 0:
-        curr_ts_idx = 0
+    curr_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
+    next_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
+    # if next_ts_idx>=pose_np.shape[0]:
+    #     next_ts_idx = pose_np.shape[0]-1
+    #     print("Reached end of known poses at time %10.6f" % target_ts)
+    # elif curr_ts_idx < 0:
+    #     curr_ts_idx = 0
 
-    next_ts_idx = curr_ts_idx + 1
-    if next_ts_idx>=pose_np.shape[0]:
-        next_ts_idx = pose_np.shape[0] - 1
+    # next_ts_idx = curr_ts_idx + 1
+    # if next_ts_idx>=pose_np.shape[0]:
+    #     next_ts_idx = pose_np.shape[0] - 1
 
     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
+        # pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
     else:
         pose = pose_np[curr_ts_idx]
@@ -48,8 +57,11 @@ def inter_pose(posea, poseb, sensor_ts):
     """
     tsa = posea[0]
     tsb = poseb[0]
-    if tsa==tsb:
+    if tsa==tsb or sensor_ts<=tsa:
         return posea
+    elif sensor_ts>=tsb:
+        return poseb
+
     quata = posea[4:]
     quatb = poseb[4:]
     transa  = posea[1:4]
@@ -57,17 +69,44 @@ def inter_pose(posea, poseb, sensor_ts):
 
     tparam = abs(sensor_ts - tsa) / (tsb - tsa)
     inter_trans = transa + tparam * (transb - transa)
-    theta = np.arccos(np.dot(quata, quatb))
+
+    key_times = [tsa, tsb]
+    key_rots = R.from_quat(
+        [
+            [quata[1], quata[2], quata[3], quata[0]], [quatb[1], quatb[2], quatb[3], quatb[0]]
+        ]
+    )
+    slerp = Slerp(key_times, key_rots)
+    times = [sensor_ts]
+    # try:
+    inter_quat = slerp(times).as_quat()[0]
+    # except ValueError as e:
+    #     print("interpolation time ", times)
+    #     raise ValueError
+    inter_quat = [inter_quat[3], inter_quat[0], inter_quat[1], inter_quat[2]]
+    # dotqaqb = np.clip(np.dot(quata, quatb), -1, 1) # for numerical stability
+    # theta = np.arccos(dotqaqb)
   
     # print("tsb ", tsb, " tsa ", tsa, " sensor_ts ", sensor_ts)
     # print("tparam ", tparam)
-
-    inter_quat  =   ( np.sin( (1-tparam) * theta)  / np.sin(theta) ) * quata + \
-                    ( np.sin( tparam * theta)      / np.sin(theta) ) * quatb
+    
+    # inter_quat  =   ( np.sin( (1-tparam) * theta)  / (np.sin(theta) + 1e-5) ) * quata + \
+    #                 ( np.sin( tparam * theta)      / (np.sin(theta) + 1e-5) ) * quatb
     # print("quat a ", quata, " inter_quat ", inter_quat, " quatb ", quatb)
     new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
-
+    # if np.sum(inter_quat)==0:
+    #     print("new pose ", new_pose, " theta ", theta, "dotqsqb ", dotqaqb, "pose a ", posea, " pose b ", poseb )
+    #     import pdb; pdb.set_trace()
+    assert np.sum(np.isnan(new_pose))==0, "Interpolated pose is nan exiting..."
     return new_pose
+
+def load_ext_calib_to_mat(calib_ext_file):
+    calib_ext = open(calib_ext_file, 'r')
+    calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
+    ext_homo_mat    = np.array(calib_ext['data']).reshape(
+        calib_ext['rows'], calib_ext['cols']
+    )
+    return ext_homo_mat
 
 def bbox_transform(annotation, trans):
     use_quat = False
@@ -136,6 +175,7 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
         if classidx not in NONRIGID_CLASS_IDS:
             min_x, max_x        = px - l/2.0, px + l/2.0
             min_y, max_y        = py - w/2.0, py + w/2.0
+    
             min_z, max_z        = pz - h/2.0, pz + h/2.0
 
             mask_x = (pc[:, 0] >= min_x) & (pc[:, 0] <= max_x)
@@ -149,11 +189,14 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
 
 def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None):
     #Compute ego lidar to ego camera coordinate systems (Extrinsic)
-    calib_ext = open(calib_ext_file, 'r')
-    calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
-    ext_homo_mat    = np.array(calib_ext['data']).reshape(
-        calib_ext['rows'], calib_ext['cols']
-    )
+    if isinstance(calib_ext_file, str):
+        calib_ext = open(calib_ext_file, 'r')
+        calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
+        ext_homo_mat    = np.array(calib_ext['data']).reshape(
+            calib_ext['rows'], calib_ext['cols']
+        )
+    else: # Overloaded function to also accept matrix inputs
+        ext_homo_mat = calib_ext_file
     if wcs_pose is not None:
         #Transform PC from WCS to ego lidar
         pc_np_homo = np.hstack((pc_np, np.ones(pc_np.shape[0], 1)))

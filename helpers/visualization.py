@@ -14,32 +14,50 @@ import std_msgs.msg
 from sensor_msgs.msg import PointCloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import PoseStamped
-
+import matplotlib.cm as cm
 
 #Custom
-from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR
+from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR, OS1_POINTCLOUD_SHAPE
 from helpers.geometry import *
 
-def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
+def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
     is_intensity    = pc.shape[-1]>=4
-    is_ring         = pc.shape[-1]>=5
-    if is_ring:
-        ring        = pc[:, :, 4].astype(np.uint16)
-        pc_noring   = pc[:, :, :4]
+    is_time         = pc.shape[-1]>=5
+    is_rf           = pc.shape[-1]>=6
 
-        pc_bytes        = pc_noring.reshape(-1, 1).tobytes()
-        ring_bytes      = ring.reshape(-1, 1).tobytes()
+    if is_rf:
+        rf_start_offset   = 5
+        rf_middle_offset  = rf_start_offset+1
+        rf_end_offset     = 8
 
-        pc_bytes_np = np.frombuffer(pc_bytes, dtype=np.uint8)
-        ring_bytes_np = np.frombuffer(ring_bytes, dtype=np.uint8).reshape(-1, 2)
+        pc_first    = pc[:, :, :rf_start_offset]
+        pc_time     = pc[:, :, rf_start_offset].astype(np.uint32)
+        pc_middle   = pc[:, :, rf_middle_offset:rf_end_offset].astype(np.uint16)
+        pc_end      = pc[:, :, rf_end_offset:]
 
-        pc_bytes_np = pc_bytes_np.reshape(-1, 16)
-        all_bytes_np= np.hstack((pc_bytes_np, ring_bytes_np)).reshape(-1, 1)
+        first_bytes     = pc_first.reshape(-1, 1).tobytes()
+        time_bytes      = pc_time.reshape(-1, 1).tobytes()
+        middle_bytes    = pc_middle.reshape(-1, 1).tobytes()
+        # middle_pad_bytes= np.zeros((pc.shape[0], pc.shape[1], 1), dtype=np.uint16).tobytes()
+        end_bytes       = pc_end.reshape(-1, 1).tobytes()
+        
+        first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset*4)
+        time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+        middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2*2)
+        # middle_pad_bytes_np = np.frombuffer(middle_pad_bytes, dtype=np.uint8).reshape(
+        #     -1, 2
+        # )
+        end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
+        all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, 
+            middle_bytes_np, end_bytes_np))
+
+        # Add ambient and range bytes
+        all_bytes_np = all_bytes_np.reshape(-1, 1)
 
     pc_flat = pc.reshape(-1, 1)
 
     DATATYPE= PointField.FLOAT32
-    if pc.itemsize==PointField.UINT16:
+    if pc.itemsize==4:
         DATATYPE = PointField.FLOAT32
     else:
         DATATYPE = PointField.FLOAT64
@@ -60,28 +78,40 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor"):
     fields  = [
         PointField('x', 0, DATATYPE, 1),
         PointField('y', pc.itemsize, DATATYPE, 1),
-        PointField('z', pc.itemsize*2, DATATYPE, 1)
+        PointField('z', pc.itemsize*2, DATATYPE, 1) #
     ]
 
-    if is_ring:
-        pc_msg.point_step   = pc.itemsize*4 + 2
-        fields.append(PointField('intensity', pc.itemsize*3, DATATYPE, 1))
-        fields.append(PointField('ring', pc.itemsize*4, PointField.UINT16, 1))
+    pc_item_position = 4
+    if is_time:
+        pc_msg.point_step   = pc.itemsize*7 + 6 + 2 # for actual values, 2 for padding
+        fields.append(PointField('intensity', 16, DATATYPE, 1))
+        fields.append(PointField('t', 20, PointField.UINT32, 1))
+        fields.append(PointField('reflectivity', 24, PointField.UINT16, 1))
+        fields.append(PointField('ring', 26, PointField.UINT16, 1))
+        fields.append(PointField('ambient', 28, PointField.UINT16, 1))
+        fields.append(PointField('range', 32, PointField.UINT32, 1))
+        # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
+    elif is_rf:
+        pc_msg.point_step   = pc.itemsize*5 + 2
+        fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
+        fields.append(PointField('ring', pc.itemsize*(pc_item_position+1), PointField.UINT16, 1))
     elif is_intensity:
-        pc_msg.point_step   = pc.itemsize*4
-        fields.append(PointField('intensity', pc.itemsize*3, DATATYPE, 1))
+        pc_msg.point_step   = pc.itemsize*5
+        fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
     else:
         pc_msg.point_step   = pc.itemsize*3
 
     pc_msg.row_step     = pc_msg.width * pc_msg.point_step
     pc_msg.fields   = fields
-    if is_ring:
+    if is_rf:
         pc_msg.data     = all_bytes_np.tobytes()
     else:
         pc_msg.data     = pc_flat.tobytes()
     pc_msg.is_dense = True
-    pc_pub.publish(pc_msg)
-   
+
+    if publish:
+        pc_pub.publish(pc_msg)
+
     return pc_msg
 
 def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
@@ -155,6 +185,33 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
         bbox_markers.markers.append(bbox_marker)
 
     m_pub.publish(bbox_markers)
+
+def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+        )
+    valid_point_mask = in_bounds & pts_mask
+    valid_points = image_pts[valid_point_mask, :]
+
+    color_map = [(0, 0, 255)] * valid_points.shape[0]
+    if colormap=="camera":
+        os1_to_cam = load_ext_calib_to_mat(calib_ext_file)
+        bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
+        bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
+        valid_z_map = bin_homo_cam[:, 2][valid_point_mask]
+        
+        # color_map = cm.get_cmap("viridis")(np.linspace(0.2, 0.7, len(valid_z_map))) * 255 # [0,1] to [0, 255]]
+        norm_valid_z_map = valid_z_map / max(valid_z_map)
+        # import pdb; pdb.set_trace()
+        color_map = cm.get_cmap("viridis")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
+        color_map = color_map[:, :3]
+
+    for pt_idx, pt in enumerate(valid_points):
+        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=1, color=color_map[pt_idx])
+    return image_np
 
 def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file, wcs_pose)

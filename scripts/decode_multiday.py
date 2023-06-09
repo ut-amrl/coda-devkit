@@ -23,19 +23,20 @@ def main(args):
         settings = yaml.safe_load(settings_file)
         root_repo = settings['repository_root']
 
-        subdirs_to_process = ["220230126"]
-        trajectory_curr = 6
+        subdirs_to_process = -1
+        trajectory_curr = 0
 
         if subdirs_to_process==-1: # Default to all subdirs
-            subdirs_to_process = [ subdir for subdir in os.listdir(root_repo) if os.path.isdir(os.path.join(
-                root_repo, subdir) ) ]
+            subdirs_to_process = [entry.path for entry in os.scandir(root_repo) if entry.is_dir()]
+            # [ subdir for subdir in os.listdir(root_repo) if os.path.isdir(os.path.join(
+            #     root_repo, subdir) ) ]
 
-        for subdir in subdirs_to_process:
-            dir_path = os.path.join(root_repo, subdir)
+        for dir_path in subdirs_to_process:
+            
+            bag_files = [ subdir_file.path.split('/')[-1] for subdir_file in os.scandir(dir_path) if subdir_file.path.endswith(".bag") and
+                "calibration" not in subdir_file.path]
 
-            bag_files = [ subdir_file for subdir_file in os.listdir(dir_path) if subdir_file.endswith(".bag") and
-                "calibration" not in subdir_file]
-
+            subdir = dir_path.split('/')[-1]
             # Modify bagdecoder.yaml settings with correct config
             settings['bag_date'] = subdir
             settings['bags_to_process'] = bag_files
@@ -43,12 +44,15 @@ def main(args):
             trajectory_curr += len(bag_files)
 
             bag_decoder = BagDecoder(settings, is_config_dict=True)
-            
+
+            print("Starting conversion for date ", subdir, " days ", bag_files)            
             bag_decoder.convert_bag()
+            print("Finished converting bag, sending bag complete signal...")
+
     else:
         bag_decoder = BagDecoder(args.config, is_config_dict=False)
-        bag_decoder.convert_bag()
-        # bag_decoder.densify_poses()
+        # bag_decoder.convert_bag()
+        bag_decoder.densify_poses()
         # bag_decoder.rectify_images(num_workers=24)
     
 if __name__ == "__main__":

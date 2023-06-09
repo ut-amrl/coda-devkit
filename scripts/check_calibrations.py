@@ -88,7 +88,7 @@ def generate_calibration_summary(args):
                 tred_bin_file = set_filename_by_prefix("3d_raw", "os1", traj, frame)
                 tred_bin_path = join(tred_path, tred_bin_file)
                 bin_np = read_bin(tred_bin_path)
-                pt_image_np = generate_point_calibration_img(image_np, bin_np, calibextr_path, calibintr_path)
+                pt_image_np = project_3dpoint_image(image_np, bin_np, calibextr_path, calibintr_path)
 
                 dump_calibration_img(cfg['outdir'], traj, frame, cam_id, pt_image_np)
 
@@ -137,6 +137,8 @@ def main(args):
     """
     indir - CODa directory (assumes 3d_labels exists)
     outdir - directory to save bbox projections to
+
+    This script can be used to project the point cloud to corresponding images. 
     """
     cfg_path = args.cfg_file
     viz_type = args.viz_type

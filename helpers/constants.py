@@ -37,6 +37,14 @@ DATASET_L1_DIR_LIST = [
     "poses"
 ]
 
+DATASET_L2_DIR_LIST = [
+    "poses/imu",
+    "poses/gps",
+    "poses/mag",
+    "poses/gpsodom",
+    "poses/inekfodom"
+]
+
 """
 Annotation Mappings
 """
