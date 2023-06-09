@@ -21,10 +21,21 @@ from multiprocessing import Pool
 import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--traj', default=0,
-                    help="trajectory to visualization calibation for (default 0)")
-parser.add_argument('--frame', default=0, help="first frame to visualization calibration for")
-parser.add_argument('--outdir', default='.', help="directory to write output calibrations to")
+parser.add_argument('--viz_type', default="anno", help="Visualize annotations or raw data")
+parser.add_argument('--cfg_file', default='config/checker_annotation.yaml', help="Config file to use for input files")
+
+def generate_point_calibration_img(image_np, bin_np, calib_ext_file, calib_intr_file):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+        )
+    valid_point_mask = in_bounds & pts_mask
+    valid_points = image_pts[valid_point_mask, :]
+
+    for pt in valid_points:
+        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=1, color=(0, 0, 255))
+    return image_np
     
 def dump_calibration_img(outdir, traj, frame, cam_id, pt_image_np):
     #Assumes images are rectified now
@@ -35,7 +46,7 @@ def dump_calibration_img(outdir, traj, frame, cam_id, pt_image_np):
     out_image_file = set_filename_by_prefix("2d_rect", cam_id, traj, frame)
     out_image_path = join(out_image_dir, out_image_file)
 
-    # print("Saving %s projection for traj %s frame %s..." % (cam_id, traj, frame))
+    print("Saving %s projection for traj %s frame %s at %s..." % (cam_id, traj, frame, out_image_path))
     cv2.imwrite(out_image_path, pt_image_np)
 
 def generate_calibration_summary(args):
@@ -81,6 +92,47 @@ def generate_calibration_summary(args):
 
                 dump_calibration_img(cfg['outdir'], traj, frame, cam_id, pt_image_np)
 
+def generate_annotation_visualization(args):
+    cfg, traj, frame = args
+
+    # assumes images are not rectified by default
+    TRAJ_SUB_KEY = "[TRAJECTORY]"
+    CAM_SUB_KEY = "[CAM]"
+    cam_list = ["cam0"]
+
+    traj = str(traj)
+    calibextr_path = join(  cfg['indir'], 
+        cfg['calibextr_subdir'].replace(TRAJ_SUB_KEY, traj) )
+    calibintr_path = join(  cfg['indir'], 
+        cfg['calibintr_subdir'].replace(TRAJ_SUB_KEY, traj) )
+    bbox_path = join( cfg['indir'],
+        cfg['bbox_subdir'].replace(TRAJ_SUB_KEY, traj)
+    )
+
+    twod_paths = []
+    for cam_id in cam_list:
+        twod_paths.append(join( cfg['indir'],
+            cfg['cam_subdir'].replace(CAM_SUB_KEY, cam_id).replace(TRAJ_SUB_KEY, traj)
+        ))
+
+    # Project 3D annotations to images
+    # frame_to_ts_np = np.loadtxt(ts_path)
+    # for frame, ts in enumerate(frame_to_ts_np):
+
+    for cam_list_idx, cam_id in enumerate(cam_list):
+        twod_img_file   = set_filename_by_prefix("2d_raw", cam_id, traj, frame)
+        twod_img_path = os.path.join(twod_paths[cam_list_idx], twod_img_file)
+        image_np = cv2.imread(twod_img_path)
+
+        tred_bbox_file = set_filename_by_prefix("3d_bbox", "os1", traj, frame)
+        tred_bbox_path = join(bbox_path, tred_bbox_file)
+        bbox_anno_dict = json.load(open(tred_bbox_path))
+        tred_bbox_image = project_3dbbox_image(bbox_anno_dict, calibextr_path, calibintr_path, image_np)
+
+        dump_calibration_img(cfg['outdir'], traj, frame, cam_id, tred_bbox_image)
+
+
+
 def main(args):
     """
     indir - CODa directory (assumes 3d_labels exists)
@@ -88,15 +140,26 @@ def main(args):
 
     This script can be used to project the point cloud to corresponding images. 
     """
-    checker_fp = os.path.join(os.getcwd(), "config/checker.yaml")
+    cfg_path = args.cfg_file
+    viz_type = args.viz_type
+
+    checker_fp = os.path.join(os.getcwd(), cfg_path)
     with open(checker_fp, 'r') as checker_file:
         checker_cfg = yaml.safe_load(checker_file)
-        traj_list = np.arange(0, 23)
-        checker_cfg_list = [checker_cfg for _ in range(23)]
 
-        pool = Pool(processes=checker_cfg['num_workers'])
-        for _ in tqdm.tqdm(pool.imap_unordered(generate_calibration_summary, zip(checker_cfg_list, traj_list)), total=len(traj_list)):
-            pass
+        if viz_type=="anno":
+            traj = checker_cfg["traj"]
+            start_frame = checker_cfg["start_frame"]
+
+            for frame in range(start_frame, start_frame+300, 1):
+                generate_annotation_visualization((checker_cfg, traj, frame))
+        elif viz_type=="raw":
+            traj_list = np.arange(0, 23)
+            checker_cfg_list = [checker_cfg for _ in range(23)]
+
+            pool = Pool(processes=checker_cfg['num_workers'])
+            for _ in tqdm.tqdm(pool.imap_unordered(generate_calibration_summary, zip(checker_cfg_list, traj_list)), total=len(traj_list)):
+                pass
 
     # indir   = "/robodata/arthurz/Datasets/CODa"
     # trajectory = int(args.traj)
