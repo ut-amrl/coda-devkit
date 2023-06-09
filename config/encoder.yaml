@@ -16,7 +16,7 @@ sensor_topics: [
   "/stereo/right/image_raw/compressed"
 ]
 
-downsample_rate: 20 # Frame Rate=10hz so Actual Rate = FR / ds 
+downsample_rate: 5 # Frame Rate=10hz so Actual Rate = FR / ds 
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
@@ -32,52 +32,52 @@ trajectory_frames:
   0: [
     # [400, 800],   #Outdoor
     # [4020, 4400],
-    [4020, 4120],  #semantic segmentation
+    # [4020, 4120],  #semantic segmentation
     # [4750, 5000], #Indoor
-    [4750, 4850], #semantic segmentation
+    # [4750, 4850], #semantic segmentation
     # [5600, 5800]  # Outdoor
-    [5600, 5700] #semantic segmentation
+    # [5600, 5700] #semantic segmentation
   ]
   1: [
     # [1750, 2250], #Outdoor
-    [1750, 1850], #semantic segmentation
+    # [1750, 1850], #semantic segmentation
     # [2900, 3400]  #Indoor
-    [2900, 3000] #semantic segmentation
+    # [2900, 3000] #semantic segmentation
   ]
   2: [
     [2400, 2600], #Outdoor
     # [5040, 5340], #Outdoor
     [5240, 5340], #semantic segmentation
-    [5475, 5660], #Outdoor
+    # [5475, 5660], #Outdoor
     # [6850, 7150]  #Outdoor
-    [6850, 7050] #semantic segmentation
+    # [6850, 7050] #semantic segmentation
   ]
   3: [
     # [1800, 2100], #Outdoor
-    [1800, 1900], #semantic segmentation
+    # [1800, 1900], #semantic segmentation
     # [5010, 5280], #Indoor,
     # [11950, 12150] #Outdoor
-    [12050, 12150] #semantic segmentation
+    # [12050, 12150] #semantic segmentation
   ]
   4: [
-    [1300, 1480], #Outdoor
+    # [1300, 1480], #Outdoor
     # [3950, 4140], #Indoor
     # [6630, 7030]  #Outdoor
   ]
   5: [
     [1800, 2000], #Outdoor
-    [3500, 3700]  #Indoor
+    # [3500, 3700]  #Indoor
   ]
   6: [
     # [1200, 1450], #Outdoor
     [1300, 1450], #semantic segmentation
     # [2600, 2900], #Outdoor
-    [4500, 4800], #Outdoor
+    # [4500, 4800], #Outdoor
     # [5500, 5800], #Outdoor
-    [5650, 5800], #semantic segmentation
+    # [5650, 5800], #semantic segmentation
     # [6150, 6300], #Indoor
     # [6620, 7450], #Indoor
-    [7300, 7450] #semantic segmentation
+    # [7300, 7450] #semantic segmentation
     # [8450, 9300], #Outdoor
     # [10300, 10600]  #Outdoor
   ]
@@ -87,132 +87,140 @@ trajectory_frames:
     [6615, 6915], # Outdoor
     # [8250, 8450], # Outdoor
     # [12950, 13150], #Outdoor
-    [12950, 13050], #semantic segmentation
+    # [12950, 13050], #semantic segmentation
     # [14700, 15400]  #Outdoor
   ]
   8: [
     # [550, 700],
     # [600, 700], #semantic segmentation
-    [980, 1180],
-    [1400, 1700],
+    # [980, 1180],
+    # [1400, 1700],
     # [3460, 3760],
     # [3660, 3760], #semantic segmentation
-    [4000, 4300],
+    # [4000, 4300],
     # [5800, 6000]
   ]
   9: [
     # [1450, 1650],
     # [2470, 2650],
-    [2550, 2650], #semantic segmentation
+    # [2550, 2650], #semantic segmentation
     # [5965, 6520],
-    [5965, 6165], #semantic segmentation
-    [6675, 6875],
+    # [5965, 6165], #semantic segmentation
+    # [6675, 6875],
     # [8515, 8850],
     # [9350, 9600] #Could delete
   ]
   10: [
     # [1950, 2150],
-    [5815, 6015],
+    # [5815, 6015],
     # [6450, 6550],
-    [8320, 8450],
+    # [8320, 8450],
     # [9200, 9400],
     # [11500, 11600]
   ]
   11: [
     # [1720, 2220],
-    [5150, 5250],
+    # [5150, 5250],
     # [5600, 5800]
   ]
   12: [
     # [2630, 2730],
     # [2830, 2930],
-    [10400, 10600],
-    [11480, 11750]
+    # [10400, 10600],
+    # [11480, 11750]
   ]
   13: [
     # [900, 1200],
     # [1800, 2200],
-    [1800, 1900], #semantic segmentation
+    # [1800, 1900], #semantic segmentation
     # [5550, 7100], # Outdoor 3D Bbox
     # [5550, 6550],
     [5550, 5850], #semantic segmentation
     # [7225, 7425],
     # [9000, 10100],  #Outdoor3D BBox
     # [9000, 9400],
-    [9250, 9350]
+    # [9250, 9350]
     # [10350, 11450],
     # [11900, 12400]
   ]
   14: [
+<<<<<<< HEAD
     [200, 300],
     [3330, 3430],
     [3840, 3940],
     # [6470, 6570],
     # [7100, 7240]
+=======
+    # [200, 300],
+    # [3330, 3430],
+    # [3840, 3940],
+    # [6470, 6570],
+    [7100, 7240] # semantic segmentation
+>>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
   ]
   15: [
     # [100, 300],
     # [1890, 2050],
     # [1890, 1990], #semantic segmentation
-    [2770, 3320],
-    [3470, 3870],
-    # [3470, 3670], #semantic segmentation
-    [4380, 4680],
+    # [2770, 3320],
+    # [3470, 3870],
+    [3470, 3670], #semantic segmentation
+    # [4380, 4680],
     # [4380, 4480], #semantic segmentation
-    [6200, 6400],
+    # [6200, 6400],
     # [6200, 6300], #semantic segmentation
-    [6650, 6950]
+    # [6650, 6950]
   ]
   16: [
     # [3100, 3800],
     # [4050, 4300],
     # [5800, 6090],
-    [5900, 6050], #semantic segmentation
+    # [5900, 6050], #semantic segmentation
     # [7000, 7150],
     [7250, 7500], #semantic segmentation
     # [8650, 9250],
-    [8650, 8750], #semantic segmentation
+    # [8650, 8750], #semantic segmentation
     # [10520, 11560],
-    [10700, 10850],
+    # [10700, 10850],
     # [14900, 15260],
     # [15650, 15850]
-    [15850, 15950] #semantic segmentation
+    # [15850, 15950] #semantic segmentation
   ]
   17: [
     # [2050, 2180],
-    [2050, 2150], #semantic segmentation
+    # [2050, 2150], #semantic segmentation
     # [6025, 6225],
-    [6300, 6400],
+    # [6300, 6400],
     # [7780, 7880],
-    [8190, 8390],
+    # [8190, 8390],
     # [9840, 9940],
     # [10160, 10260],
-    [10850, 11050]
+    # [10850, 11050]
   ]
   18: [
-    [1650, 1750],
+    # [1650, 1750],
     # [2030, 2130],
     # [2930, 3000],
-    [4700, 4880],
+    # [4700, 4880], # semantic segmentation
     # [6170, 6270],
     # [6500, 6700]
-    [6600, 6700] #semantic segmentation
+    # [6600, 6700] #semantic segmentation
   ]
   19: [
     # [2670, 2920],
-    [2830, 2930]
+    # [2830, 2930]#semantic segmentation 
     # [9400, 9550]
   ]
   20: [
     # [950, 1250],
     # [3050, 3550],
-    [3450, 3550], #semantic segmentation
+    # [3450, 3550], #semantic segmentation
     # [4100, 5000],
     # [5220, 5800],
     [5350, 5550], #semantic segmentation
     # [5980, 6600],
-    [6700, 6790],
-    [7390, 7550],
+    [6700, 6790], # semantic segmentation
+    # [7390, 7550],
     [8000, 8100] #semantic segmentation
     # [7630, 8850],
     # [9325, 10525],
@@ -221,14 +229,14 @@ trajectory_frames:
   ]
   21: [
     # [2930, 3130],
-    [10730, 10890],
-    [13400, 13500],
-    [15140, 15350]
+    # [10730, 10890],
+    # [13400, 13500],
+    [15140, 15350] # semantic segmentation
   ]
   22: [
     # [6700, 7000],
     [6950, 7150], #semantic segmentation
-    [7250, 7400],
+    # [7250, 7400], # semantic segmetation
     # [9350, 9450]
   ]
 

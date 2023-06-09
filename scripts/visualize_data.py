@@ -46,9 +46,11 @@ def main():
         root_dir = settings['root_dir']
         img_root_dir    = os.path.join(root_dir, "2d_raw")
         bin_root_dir    = os.path.join(root_dir, "3d_raw/os1")
+        # bin_root_dir = "/robodata/arthurz/Datasets/CODa_dino_small/3d_raw/os1"
         pose_root_dir   = os.path.join(root_dir, "poses")
         ts_root_dir     = os.path.join(root_dir, "timestamps")
         bbox3d_root_dir = os.path.join(root_dir, "3d_bbox/os1")
+        # bbox3d_root_dir = "/robodata/arthurz/Datasets/CODa_dino_small/3d_bbox/os1"
         trajectory_frames   = settings['trajectory_frames']
         ds_rate         = settings['downsample_rate']
         save_object_masks= settings['save_object_masks']
@@ -94,7 +96,7 @@ def main():
         trajectory_frames = np.array([ get_filename_info(file)[-1] for file in os.listdir(bin_dir) ])
         trajectory_frames = trajectory_frames[np.argsort([int(frame) for frame in trajectory_frames])]
         trajectory_frame_enum = enumerate(trajectory_frames)
-        
+    import pdb; pdb.set_trace()
     for (frame_idx, frame) in trajectory_frame_enum:
         # frame_time = rospy.get_rostime()
         ts  = frame_ts_np[int(frame)][0]
@@ -188,11 +190,10 @@ def main():
             #Publish bboxes
             if viz_3danno:
                 print("threed ", threed_label_file)
-                # pdb.set_trace()
                 if os.path.exists(threed_label_file):
                     pub_3dbbox_to_rviz(marker_pub, threed_label_file, frame_time, verbose=True)
                     time.sleep(0.1)
-                    # pdb.set_trace()
+                    import pdb; pdb.set_trace()
                 else:
                     print("No annotations available for frame %s, skipping..." % str(frame) )
             
