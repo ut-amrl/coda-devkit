@@ -38,7 +38,7 @@ CODa
 
 Modify the `config/bagdecoder.yaml` file before using coda to converting your rosbags.
 
-Example: *`python scripts/decode_bags.py --config config/bagdecoder.yaml`*
+Example: *`python scripts/decode_multiday.py --config config/bagdecoder.yaml`*
 
 #### Settings Description
 

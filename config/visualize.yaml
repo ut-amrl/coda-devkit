@@ -1,22 +1,39 @@
 viz_img: True
 viz_pc: True
+<<<<<<< HEAD
 viz_3dbbox: True
 viz_2dbbox: False
 viz_2dterrain: True
 viz_pose: True
+=======
+viz_3danno: True
+viz_pose: False
+viz_2danno: False
+>>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
 
 use_wcs: False
 save_object_masks: False
-object_mask_dir: "/home/arthur/AMRL/Datasets/ZixArt"
+object_mask_dir: "/robodata/arthurz/Datasets/ZixArt"
 
+<<<<<<< HEAD
 root_dir: "/home/arthur/AMRL/Datasets/CODa"
 sem3d_root_dir: "/home/arthur/AMRL/Datasets/CODa/3d_semantic/os1"
+=======
+root_dir: "/robodata/arthurz/Datasets/CODa"
+>>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
 
 trajectory_frames:
+  # [600, 700] # Visualize all frames in trajectory
+  # [8250, 8450]
   # [50, 545]
+  [1865, 1866]
   # [-1, -1]
   # [900, 1200]
+<<<<<<< HEAD
   [2760, 2809]
+=======
+  # [2760, 2809]
+>>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
   # [700, 749]
 
 downsample_rate: 1

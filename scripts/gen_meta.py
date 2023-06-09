@@ -1,14 +1,13 @@
 import os
 import sys
 import copy
-import time
 import json
 import argparse
 
 import numpy as np
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_path', default="/robodata/CODa",
+parser.add_argument('--data_path', default="/robodata/arthurz/Datasets/CODa",
                     help="CODa directory")
 
 # For imports
@@ -31,19 +30,17 @@ def main(args):
         print("Metadata directory does not exist, creating at %s..."%outdir)
         os.mkdir(outdir)
 
-    pc_subdir= os.path.join("3d_label", "os1")
+    pc_subdir= os.path.join("3d_bbox", "os1")
     pc_fulldir = os.path.join(indir, pc_subdir)
     assert os.path.isdir(pc_fulldir), '%s does not exist for pc directory' % pc_fulldir
     traj_list = [traj for traj in os.listdir(pc_fulldir) if os.path.isdir(
         os.path.join(pc_fulldir, traj) )]
     traj_list = sorted(traj_list, key=lambda x: int(x), reverse=False)
 
-
-
-    train_percent = 0.8
-    val_percent = 0.0
+    train_percent = 0.7
+    val_percent = 0.1
     test_percent = 0.2
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed=42)
     for traj in traj_list:
         print("Creating metadata file for traj %s"%traj)
         metadata_dict = copy.deepcopy(METADATA_DICT)
@@ -64,9 +61,9 @@ def main(args):
             indices[num_train+num_val:]
 
         #2
-        metadata_dict["ObjectTracking"]["train"].extend(bin_files[train].tolist())
-        metadata_dict["ObjectTracking"]["val"].extend(bin_files[val].tolist())
-        metadata_dict["ObjectTracking"]["test"].extend(bin_files[test].tolist())
+        metadata_dict["ObjectTracking"]["training"].extend(bin_files[train].tolist())
+        metadata_dict["ObjectTracking"]["validation"].extend(bin_files[val].tolist())
+        metadata_dict["ObjectTracking"]["testing"].extend(bin_files[test].tolist())
 
         metadata_dict["trajectory"] = int(traj)
 

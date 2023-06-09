@@ -23,12 +23,12 @@ METADATA_DICT = {
     "trajectory": 0,    # Path to trajectory file
     "poses": "",        # Path to poses file
     "ObjectTracking": {
-        "train": [],
-        "val": [],
-        "test": []
+        "training": [],
+        "validation": [],
+        "testing": []
     },
     "SLAM": {
-        "train": [],
-        "test": []
+        "training": [],
+        "testing": []
     }
 }

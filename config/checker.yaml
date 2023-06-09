@@ -1,0 +1,12 @@
+indir: "/robodata/arthurz/Datasets/CODa"
+outdir: "/robodata/arthurz/Datasets/CODa_summary"
+
+fr: 5
+num_workers: 16
+
+# Keep same for CODa format
+calibextr_subdir: "calibrations/[TRAJECTORY]/calib_os1_to_cam0.yaml"
+calibintr_subdir: "calibrations/[TRAJECTORY]/calib_cam0_intrinsics.yaml"
+tred_subdir: "3d_raw/os1/[TRAJECTORY]"
+cam_subdir: "2d_raw/[CAM]/[TRAJECTORY]"
+ts_subdir: "timestamps/[TRAJECTORY]_frame_to_ts.txt"

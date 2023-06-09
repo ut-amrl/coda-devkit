@@ -6,12 +6,12 @@ import json
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 import cv2
 
-from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST
+from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR
 
 def densify_poses_between_ts(pose_np, ts_np):
     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
@@ -166,7 +166,7 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None)
     K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
     d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, k3, p1, p2
 
-    image_points, _ = cv2.projectPoints(pc_np[:, :3],
+    image_points, _ = cv2.projectPoints(pc_np[:, :3].astype(np.float64), 
         ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
     image_points = np.swapaxes(image_points, 0, 1).astype(np.int32).squeeze()
     valid_points_mask = get_pointsinfov_mask(
@@ -193,7 +193,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         else:
             qx, qy, qz, qw = annotation['qx'], annotation['qy'], annotation['qz'], annotation["qw"]
             tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
-
+        
         #Compute corners in axis aligned coordinates
         x_sign = np.array([-1, -1, 1, 1])
         y_sign = np.array([1, -1, -1, 1])
@@ -246,6 +246,32 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
             )
     return all_image_points, all_points_fov_mask, all_valid_obj_idx
 
+def draw_2d_bbox(image, bbox_coords, color=(0,0,255), thickness=2):
+    # Expects nx4 array of minxy, maxxy
+    for bbox in bbox_coords:
+        if np.sum(bbox==0)==4:
+            continue
+        
+        bbox = bbox.astype(np.int)
+        tl_corner = (bbox[0], bbox[1])
+        tr_corner = (bbox[0], bbox[3])
+        bl_corner = (bbox[2], bbox[1])
+        br_corner = (bbox[2], bbox[3])
+        corners = [tl_corner, tr_corner, br_corner, bl_corner]
+        
+        for i in range(0, 4):
+            image = cv2.line(image, corners[i], corners[(i+1)%4], color, thickness)
+
+    return image
+
+def draw_2d_sem(image, valid_pts, pts_labels):
+    for pt_idx, pt in enumerate(valid_pts):
+        pt_label = pts_labels[pt_idx]
+
+        pt_color = SEM_ID_TO_COLOR[pt_label]
+        image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=pt_color)
+    return image
+
 def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
@@ -282,7 +308,9 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
                 image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
     except Exception as e:
         print(e)
-        pdb.set_trace()
+        import pdb; pdb.set_trace()
+    # print("valid points ", valid_points)
+    # import pdb; pdb.set_trace()
     #Draw
     # image = cv2.drawContours(image, np.array([contour_top]), 0, color, thickness)
     # image = cv2.drawContours(image, np.array([contour_bottom]), 0, color, thickness)
@@ -305,10 +333,10 @@ def get_pointsinfov_mask(points):
 
     return in_fov_mask
 
-def matplot_3d_points(points, title="coda 3d plot"):
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.scatter3D(points[:, 0], points[:, 1], points[:, 2], cmap='Greens')
-    ax.set_title(title)
-    plt.show()
-    return ax
+# def matplot_3d_points(points, title="coda 3d plot"):
+#     fig = plt.figure()
+#     ax = plt.axes(projection='3d')
+#     ax.scatter3D(points[:, 0], points[:, 1], points[:, 2], cmap='Greens')
+#     ax.set_title(title)
+#     plt.show()
+#     return ax

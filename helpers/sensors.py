@@ -1,13 +1,12 @@
 import os
 import pdb
+import yaml
 import shutil
 
 #Sys Tools
 from more_itertools import nth
 
 #ROS
-import sensor_msgs.point_cloud2 as pc2
-from sensor_msgs.msg import CompressedImage
 import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
 #Libraries
@@ -17,6 +16,7 @@ import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from ouster import client
+import matplotlib.pyplot as plt 
 
 from helpers.constants import *
 import sensor_msgs
@@ -44,7 +44,9 @@ def process_ouster_packet(os1_info, packet_arr, topic):
     intensity   = np.expand_dims(intensity, axis=-1)
     ring   = np.expand_dims(ring, axis=-1)
 
-    # TODO figure out how to add ring to publisher
+    # ranges_destaggered = client.destagger(os1_info, scan)
+    # plt.imsave("rangetest.png", ranges_destaggered, cmap='gray', resample=False)
+    # import pdb; pdb.set_trace()
     pc = np.dstack((xyz_points, intensity, ring)).astype(np.float32)
     return pc, sensor_ts
 
@@ -68,7 +70,7 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
         filetype
         )
     return sensor_filename
-    
+
 def get_filename_info(filename):
     # pdb.set_trace()
     filename_prefix  = filename.split('.')[0]
@@ -79,6 +81,29 @@ def get_filename_info(filename):
     trajectory      = filename_prefix[3]
     frame           = filename_prefix[4]
     return (modality, sensor_name, trajectory, frame)
+
+def get_calibration_info(filepath):
+    filename = filepath.split('/')[-1]
+    filename_prefix = filename.split('.')[0]
+    filename_split = filename_prefix.split('_')
+
+    calibration_info = None
+    src, tar = filename_split[1], filename_split[-1]
+    if len(filename_split) > 3:
+        #Sensor to Sensor transform
+        extrinsic = yaml.safe_load(open(filepath, 'r'))
+        calibration_info = extrinsic
+    else:
+        #Intrinsic transform
+        intrinsic = yaml.safe_load(open(filepath, 'r'))
+        calibration_info = intrinsic
+    
+    return calibration_info, src, tar
+
+def read_sem_label(label_path):
+    assert os.path.exists(label_path), "%s does not exist " % label_path
+    sem_tred_np = np.array(list(open(label_path, "rb").read()))
+    return sem_tred_np
 
 def read_bin(bin_path, keep_intensity=True):
     bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
@@ -105,7 +130,54 @@ def pc_to_bin(pc, filename):
     flat_pc = pc_np.reshape(-1).astype(np.float32)
     flat_pc.tofile(filename) # empty sep=bytes
 
-def img_to_png(img_np, filename):
+def imu_to_txt(imu, filename):
+    ts = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
+    imu_np = np.array([
+        ts, imu.linear_acceleration.x, imu.linear_acceleration.y, imu.linear_acceleration.z,
+        imu.angular_velocity.x, imu.angular_velocity.y, imu.angular_velocity.z,
+        imu.orientation.w, imu.orientation.x, imu.orientation.y, imu.orientation.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as imu_file:
+        np.savetxt(imu_file, imu_np, fmt='%6.8f', delimiter=" ")
+    imu_file.close()
+
+def mag_to_txt(mag, filename):
+    ts = mag.header.stamp.secs + mag.header.stamp.nsecs*1e-9
+    mag_np = np.array([
+        ts, mag.magnetic_field.x, mag.magnetic_field.y, mag.magnetic_field.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as mag_file:
+        np.savetxt(mag_file, mag_np, fmt='%6.8f', delimiter=" ")
+    mag_file.close()
+
+def gps_to_txt(gps, filename):
+    ts = gps.header.stamp.secs + gps.header.stamp.nsecs*1e-9
+    gps_np = np.array([
+        ts, gps.latitude, gps.longitude, gps.altitude
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as gps_file:
+        np.savetxt(gps_file, gps_np, fmt='%6.8f', delimiter=" ")
+    gps_file.close()
+
+def odom_to_txt(odom, filename):
+    ts = odom.header.stamp.secs + odom.header.stamp.nsecs*1e-9
+    odom_np = np.array([
+        ts, 
+        odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z,
+        odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y,
+        odom.pose.pose.orientation.z, odom.twist.twist.linear.x, odom.twist.twist.linear.y, 
+        odom.twist.twist.linear.z, odom.twist.twist.angular.x, odom.twist.twist.angular.y, 
+        odom.twist.twist.angular.z
+    ], dtype=np.float64).reshape(1, -1)
+
+    with open(filename, "a") as odom_file:
+        np.savetxt(odom_file, odom_np, fmt='%6.8f', delimiter=" ")
+    odom_file.close()
+
+def img_to_file(img_np, filename):
     cv2.imwrite(filename, img_np)
 
 def bin_to_ply(bin_np, ply_path):
@@ -128,16 +200,44 @@ def copy_image(inpath, outpath):
 def get_ouster_packet_info(os1_info, data):
     return client.LidarPacket(data, os1_info)
 
-def process_compressed_image(img_data, encoding="bgr8"):
+def process_image(img_data, encoding="passthrough"):
     sensor_ts = img_data.header.stamp
-    
-    cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding="bgr8")
+    cv_image = CvBridge().imgmsg_to_cv2(img_data, desired_encoding=encoding)
     image_np = np.array(cv_image)
 
     return image_np, sensor_ts
 
-def process_imu(imu_data, trans):
+def process_compressed_image(img_data, encoding="bgr8"):
+    sensor_ts = img_data.header.stamp
+   
+    # Decode mono16 separately due to compressed decoding bug in CvBridge()
+    if encoding=="mono16":
+        compressed_image_np = np.frombuffer(img_data.data, np.uint8)
+        image_np = cv2.imdecode(compressed_image_np, -1)
+    else:
+        cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding=encoding)
+        image_np = np.array(cv_image)
 
+    return image_np, sensor_ts
+
+def rectify_image(img_path, intrinsics):
+    img = np.array(cv2.imread(img_path))
+    w, h = intrinsics['image_width'], intrinsics['image_height']
+    #Need to be float32s to match cv type
+    K = np.float32(intrinsics['camera_matrix']['data']).reshape(3,3)
+    D = np.float32(intrinsics['distortion_coefficients']['data'])
+    
+    Kn, roi = cv2.getOptimalNewCameraMatrix(K, D, (w,h), 1, (w,h))
+    mapx, mapy = cv2.initUndistortRectifyMap(K,D, None, Kn, (w,h), 5)
+    img_rect = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
+
+    #Uncomment below to crop rectified image
+    # x,y,w,h = roi
+    # img_rect = img_rect[y:y+h, x:x+w]
+    return img_rect
+
+
+def process_imu(imu_data, trans):
     orientation = np.array([
         imu_data.orientation.x, imu_data.orientation.y, 
         imu_data.orientation.z, imu_data.orientation.w
@@ -149,15 +249,15 @@ def process_imu(imu_data, trans):
         imu_data.linear_acceleration.x, imu_data.linear_acceleration.y,
         imu_data.linear_acceleration.z, 0
     ])
-    orientation = R.from_quat(orientation).as_rotvec(degrees=True)
+    orientation = R.from_quat(orientation).as_euler('xyz', degrees=True)
     orientation = np.append(orientation, 0)
 
-    # Transform imu coordinates to LiDAR coordinate frame
+    # Transform imu coordinates to sensor coordinate frame
     o_trans     = np.dot(trans, orientation)
     a_trans     = np.dot(trans, angular_vel)
     l_trans     = np.dot(trans, linear_acc)
 
-    o_trans = R.as_quat( R.from_rotvec(o_trans[:3]) )
+    o_trans = R.as_quat( R.from_euler('xyz', o_trans[:3], degrees=True) )
     imu_data.orientation.x = o_trans[0]
     imu_data.orientation.y = o_trans[1]
     imu_data.orientation.z = o_trans[2]
@@ -169,9 +269,18 @@ def process_imu(imu_data, trans):
     imu_data.linear_acceleration.x  = l_trans[0]
     imu_data.linear_acceleration.y  = l_trans[1]
     imu_data.linear_acceleration.z  = l_trans[2]
-    return imu_data
+    return imu_data, imu_data.header.stamp
+
+# def process_vnav_odometry(odom_data, trans):
+
 
 def process_mag(mag_data):
     pass
 
+def process_gps(gps_data):
+    sensor_ts = gps_data.header.stamp
 
+    if gps_data.status==-1:
+        return None, sensor_ts
+    
+    return gps_data, sensor_ts
