@@ -20,6 +20,7 @@ OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 """
 DATASET PARAMETER CONSTANTS
 """
+TRED_RAW_DIR            = "3d_raw"
 SEMANTIC_LABEL_TYPE     = "3d_semantic"
 TRED_BBOX_LABEL_TYPE    = "3d_bbox"
 TWOD_BBOX_LABEL_TYPE    = "2d_bbox"
@@ -30,7 +31,7 @@ DATASET_L1_DIR_LIST = [
     "timestamps",
     "2d_raw",
     "2d_rect",
-    "3d_raw",
+    TRED_RAW_DIR,
     TRED_BBOX_LABEL_TYPE,
     TWOD_BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_TYPE,
@@ -391,9 +392,9 @@ Manifest file generation sensor to subdirectory mappings
 """
 SENSOR_DIRECTORY_SUBPATH = {
     #Depth
-    "/ouster/lidar_packets": "3d_raw/os1",
-    "/camera/depth/image_raw/compressed": "3d_raw/cam2",
-    "/zed/zed_node/depth/depth_registered": "3d_raw/cam3",
+    "/ouster/lidar_packets": "%s/os1"%TRED_RAW_DIR,
+    "/camera/depth/image_raw/compressed": "%s/cam2"%TRED_RAW_DIR,
+    "/zed/zed_node/depth/depth_registered": "%s/cam3"%TRED_RAW_DIR,
     #RGB
     "/stereo/left/image_raw/compressed": "2d_raw/cam0",
     "/stereo/right/image_raw/compressed": "2d_raw/cam1",
@@ -410,9 +411,9 @@ SENSOR_DIRECTORY_SUBPATH = {
 
 SENSOR_DIRECTORY_FILETYPES = {
     #Depth
-    "3d_raw/os1": "bin",
-    "3d_raw/cam2": "png",
-    "3d_raw/cam3": "png",
+    "%s/os1"%TRED_RAW_DIR: "bin",
+    "%s/cam2"%TRED_RAW_DIR: "png",
+    "%s/cam3"%TRED_RAW_DIR: "png",
     #RGB
     "2d_raw/cam0": "png",
     "2d_raw/cam1": "png",

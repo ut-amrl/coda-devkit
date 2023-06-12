@@ -23,13 +23,11 @@ def densify_poses_between_ts(pose_np, ts_np):
 
     return out_pose_np
 
-def find_closest_pose(pose_np, target_ts):
+def find_closest_pose(pose_np, target_ts, return_idx=False):
     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
-    next_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
-    # if target_ts >= pose_np[next_ts_idx][0]:
-    #     print("this shouldnt happen")
-    curr_ts_idx=next_ts_idx-1
+    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
+    next_ts_idx=curr_ts_idx+1
 
     curr_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
     next_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
@@ -47,8 +45,9 @@ def find_closest_pose(pose_np, target_ts):
         # pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
     else:
-        pose = pose_np[curr_ts_idx]
-
+        pose = pose_np[next_ts_idx]
+    if return_idx:
+        return next_ts_idx
     return pose
 
 def inter_pose(posea, poseb, sensor_ts):

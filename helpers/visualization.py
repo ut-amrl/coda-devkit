@@ -21,6 +21,8 @@ from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR, OS
 from helpers.geometry import *
 
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
+    if not isinstance(ts, rospy.Time):
+        ts = rospy.Time.from_sec(ts)
     is_intensity    = pc.shape[-1]>=4
     is_time         = pc.shape[-1]>=5
     is_rf           = pc.shape[-1]>=6
@@ -96,7 +98,7 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
         fields.append(PointField('ring', pc.itemsize*(pc_item_position+1), PointField.UINT16, 1))
     elif is_intensity:
-        pc_msg.point_step   = pc.itemsize*5
+        pc_msg.point_step   = pc.itemsize*4
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
     else:
         pc_msg.point_step   = pc.itemsize*3

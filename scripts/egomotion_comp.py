@@ -26,7 +26,11 @@ SLAM estimated position.
 """
 
 def compensate_frame(pc_path, frame_ts, s0_pose, s2_pose):
-
+    """
+    s0_pose - closest known pose before frame ts
+    s2_pose - closet known pose after frame ts
+    frame_ts - ts of when lidar collection was started
+    """
     assert osp.exists(pc_path), "Given frame path does not exist %s" % pc_path
 
     bin_np = read_bin(pc_path)
@@ -36,44 +40,45 @@ def compensate_frame(pc_path, frame_ts, s0_pose, s2_pose):
     comp_pc = np.zeros_like(bin_np)
 
     # Uncomment to transform all points to first frame
-    # A_s0_orig = pose_to_homo(s0_pose)
-    # A_orig_s0   = np.linalg.inv(A_s0_orig)
-    # sim_rel_ts = np.linspace(0, 0.1, 1024)
-    # for col_idx in range(bin_np.shape[1]):
-    #     col_rel_ts = sim_rel_ts[col_idx]
-    #     col_ts = frame_ts + col_rel_ts #*1e-9 # tuning threshold to account for camera hardware delays
-
-    #     s1_pose   = inter_pose(s0_pose, s2_pose, col_ts)
-    #     A_s1_orig = pose_to_homo(s1_pose)
-
-    #     A_s1_s0     = A_orig_s0 @ A_s1_orig
-    #     pc_col = bin_np[:, col_idx, :3]
-    #     pc_col_homo = np.hstack( (pc_col, np.ones((pc_col.shape[0], 1))) )
-    #     comp_pc_col_homo = (A_s1_s0 @ pc_col_homo.T).T
-
-    #     comp_pc[:, col_idx, :3] = comp_pc_col_homo[:, :3]
-
-    # Uncomment to transform all points to last frame
-    col_ts = frame_ts + 0.099
-    s1_pose   = inter_pose(s0_pose, s2_pose, col_ts)
-    A_s1_orig = pose_to_homo(s1_pose)
-    A_orig_s1   = np.linalg.inv(A_s1_orig)
-
+    A_s0_orig = pose_to_homo(inter_pose(s0_pose, s2_pose, frame_ts)) # lidar start pose
+    # pose_to_homo(s0_pose)
+    A_orig_s0   = np.linalg.inv(A_s0_orig)
     sim_rel_ts = np.linspace(0, 0.099, 1024)
-    # sim_rel_ts = np.roll(sim_rel_ts, 512, axis=0)
     for col_idx in range(bin_np.shape[1]):
-        col_rel_ts = sim_rel_ts[col_idx] # bin_np[0, col_idx, -1]
-        col_ts = frame_ts + col_rel_ts #*1e-9
+        col_rel_ts = sim_rel_ts[col_idx]
+        col_ts = frame_ts + col_rel_ts #*1e-9 # tuning threshold to account for camera hardware delays
 
-        s0_pose   = inter_pose(s0_pose, s2_pose, col_ts)
-        A_s0_orig = pose_to_homo(s0_pose)
+        s1_pose   = inter_pose(s0_pose, s2_pose, col_ts)
+        A_s1_orig = pose_to_homo(s1_pose)
 
-        A_s0_s1     = A_orig_s1 @ A_s0_orig
+        A_s1_s0     = A_orig_s0 @ A_s1_orig
         pc_col = bin_np[:, col_idx, :3]
         pc_col_homo = np.hstack( (pc_col, np.ones((pc_col.shape[0], 1))) )
-        comp_pc_col_homo = (A_s0_s1 @ pc_col_homo.T).T
+        comp_pc_col_homo = (A_s1_s0 @ pc_col_homo.T).T
 
         comp_pc[:, col_idx, :3] = comp_pc_col_homo[:, :3]
+
+    # Uncomment to transform all points to last frame
+    # col_ts = frame_ts + 0.099
+    # s0_pose= inter_pose(start_pose, end_pose, frame_ts)
+    # A_s1_orig = pose_to_homo(s1_pose)
+    # A_orig_s1   = np.linalg.inv(A_s1_orig)
+
+    # sim_rel_ts = np.linspace(0, 0.099, 1024)
+    # # sim_rel_ts = np.roll(sim_rel_ts, 512, axis=0)
+    # for col_idx in range(bin_np.shape[1]):
+    #     col_rel_ts = sim_rel_ts[col_idx] # bin_np[0, col_idx, -1]
+    #     col_ts = frame_ts + col_rel_ts #*1e-9
+
+    #     s0_pose   = inter_pose(s0_pose, s2_pose, col_ts)
+    #     A_s0_orig = pose_to_homo(s0_pose)
+
+    #     A_s0_s1     = A_orig_s1 @ A_s0_orig
+    #     pc_col = bin_np[:, col_idx, :3]
+    #     pc_col_homo = np.hstack( (pc_col, np.ones((pc_col.shape[0], 1))) )
+    #     comp_pc_col_homo = (A_s0_s1 @ pc_col_homo.T).T
+
+    #     comp_pc[:, col_idx, :3] = comp_pc_col_homo[:, :3]
 
     # Assumming row index is the issue
     # col_ts = frame_ts+0.05
@@ -347,6 +352,7 @@ def main(args):
 
     # compensate_all_frames(indir, outdir, trajectory, offset_frames)
 
+    # Test single frame
     pc_path = join(indir, "3d_raw", "os1", str(trajectory), "3d_raw_os1_%i_%i.bin"%(trajectory, 6950))
     compensate_single_trajectory_frame((indir, ".", str(trajectory), pc_path, 0))
 
