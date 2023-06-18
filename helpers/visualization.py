@@ -21,6 +21,8 @@ from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR, OS
 from helpers.geometry import *
 
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
+    if not isinstance(ts, rospy.Time):
+        ts = rospy.Time.from_sec(ts)
     is_intensity    = pc.shape[-1]>=4
     is_time         = pc.shape[-1]>=5
     is_rf           = pc.shape[-1]>=6
@@ -96,7 +98,7 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
         fields.append(PointField('ring', pc.itemsize*(pc_item_position+1), PointField.UINT16, 1))
     elif is_intensity:
-        pc_msg.point_step   = pc.itemsize*5
+        pc_msg.point_step   = pc.itemsize*4
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
     else:
         pc_msg.point_step   = pc.itemsize*3
@@ -202,11 +204,12 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
         bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
         valid_z_map = bin_homo_cam[:, 2][valid_point_mask]
-        
+
+        valid_z_map = np.clip(valid_z_map, 1, 40)
         # color_map = cm.get_cmap("viridis")(np.linspace(0.2, 0.7, len(valid_z_map))) * 255 # [0,1] to [0, 255]]
         norm_valid_z_map = valid_z_map / max(valid_z_map)
         # import pdb; pdb.set_trace()
-        color_map = cm.get_cmap("viridis")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
+        color_map = cm.get_cmap("turbo")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
         color_map = color_map[:, :3]
 
     for pt_idx, pt in enumerate(valid_points):
@@ -233,10 +236,10 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
     bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
     
     for obj_idx in range(0, bbox_pts.shape[0]):
-        in_bounds = np.logical_and(
-            np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
-            np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
-        )
+        # in_bounds = np.logical_and(
+        #     np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
+        #     np.logical_and(bbox_pts[obj_idx, :, 1]>=0, bbox_pts[obj_idx, :, 1]<1024)
+        # )
 
         valid_point_mask = bbox_mask[obj_idx]
         valid_points = bbox_pts[obj_idx, valid_point_mask, :]

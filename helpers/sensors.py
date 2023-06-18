@@ -82,8 +82,18 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
         )
     return sensor_filename
 
+def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=True):
+    assert (frame is None and not include_name) or (frame is not None and include_name), \
+        "Invalid frame and include name argument combination..."
+    trajectory = str(trajectory)
+
+    filepath = os.path.join(indir, modality, sensor_name, trajectory)
+    if include_name:
+        filename = set_filename_by_prefix(modality, sensor_name, trajectory, str(frame))
+        return os.path.join(filepath, filename)
+    return filepath
+
 def get_filename_info(filename):
-    # pdb.set_trace()
     filename_prefix  = filename.split('.')[0]
     filename_prefix  = filename_prefix.split('_')
     

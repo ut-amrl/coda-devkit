@@ -20,9 +20,11 @@ downsample_rate: 5 # Frame Rate=10hz so Actual Rate = FR / ds
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
-  # 2, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 20, 21, 22
-  15
-  # 2, 5, 6, 7, 13, 14, 15, 16, 20, 21, 22
+  14
+  #0, 1, 2, 3, 4, 5, 6, 
+  # 7, 8, 9, 10, 11, 12, 13, 14, 15,
+  # 16, 17, 18, 19, 20, 
+  # 21, 22
 ]
 
 # Full list for 3D Object Detection
@@ -142,11 +144,19 @@ trajectory_frames:
     # [11900, 12400]
   ]
   14: [
+<<<<<<< HEAD
+    [200, 300],
+    [3330, 3430],
+    [3840, 3940],
+    # [6470, 6570],
+    # [7100, 7240]
+=======
     # [200, 300],
     # [3330, 3430],
     # [3840, 3940],
     # [6470, 6570],
     [7100, 7240] # semantic segmentation
+>>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
   ]
   15: [
     # [100, 300],
