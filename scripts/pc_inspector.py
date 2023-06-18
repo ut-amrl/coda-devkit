@@ -33,7 +33,7 @@ def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor"):
 
     bin_np = compensate_frame(bin_path, ts, start_pose, end_pose)
     bin_to_ply(bin_np[:, :3].astype(np.float64), "./comp.pcd")
-    import pdb; pdb.set_trace()
+
     if ts is None:
         ts = rospy.Time.now()
 
