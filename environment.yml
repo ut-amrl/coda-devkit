@@ -195,7 +195,7 @@ dependencies:
   - pcre=8.45=h9c3ff4c_0
   - pexpect=4.8.0=pyhd3eb1b0_3
   - pickleshare=0.7.5=pyhd3eb1b0_1003
-  - pip=22.1.2=py38h06a4308_0
+  - pip
   - pixman=0.40.0=h36c2ea0_0
   - pkg-config=0.29.2=h36c2ea0_1008
   - pkgutil-resolve-name=1.3.10=py38h06a4308_0
@@ -488,4 +488,6 @@ dependencies:
     - pyqt5-sip==4.19.18
     - pyqtchart==5.12
     - pyqtwebengine==5.12.1
-prefix: /home/arthurz/miniconda3/envs/coda
+    - geopy
+    - folium
+prefix: /home/arthur/miniconda3/envs/coda
