@@ -88,9 +88,9 @@ class AnnotationEncoder(object):
                 os.makedirs(cam_dir)
 
     def create_json_files(self):
-        # frame_start_offsets = None
-        frame_start_offsets = {
-        }
+        frame_start_offsets = None
+        # frame_start_offsets = {
+        # }
         in_pose_files = {
             # 8: [    "/robodata/arthurz/Research/coda/8_980_1180.txt",    
             #         "/robodata/arthurz/Research/coda/8_1400_1700.txt",
@@ -102,13 +102,13 @@ class AnnotationEncoder(object):
             #         # "/robodata/arthurz/Research/coda/14_6470_6570.txt",
             #         # "/robodata/arthurz/Research/coda/14_7100_7240.txt"
             # ],
-            15: [   
-                # "/robodata/arthurz/Research/coda/15_2770_3320.txt",
-                "/robodata/arthurz/Research/coda/15_3470_3870.txt",
-                # "/robodata/arthurz/Research/coda/15_4380_4680.txt",
-                # "/robodata/arthurz/Research/coda/15_6200_6400.txt",
-                # "/robodata/arthurz/Research/coda/15_6650_6950.txt"
-            ]
+            # 15: [   
+            #     # "/robodata/arthurz/Research/coda/15_2770_3320.txt",
+            #     "/robodata/arthurz/Research/coda/15_3470_3870.txt",
+            #     # "/robodata/arthurz/Research/coda/15_4380_4680.txt",
+            #     # "/robodata/arthurz/Research/coda/15_6200_6400.txt",
+            #     # "/robodata/arthurz/Research/coda/15_6650_6950.txt"
+            # ]
         }
         for traj, files in in_pose_files.items():
             frame_start_offsets[traj] = []
@@ -170,8 +170,8 @@ class AnnotationEncoder(object):
                     json_file.close()
 
                     # Copy .bin files
-                    subdir = os.path.join("3d_raw", "os1")
-                    bin_name= set_filename_by_prefix("3d_raw", "os1", traj, frame)
+                    subdir = os.path.join(TRED_COMP_DIR, "os1")
+                    bin_name= set_filename_by_prefix(TRED_COMP_DIR, "os1", traj, frame)
                     self.copy_file_dir(self._indir, self._outdir, subdir, str(traj), bin_name)
 
                     # Copy matched images
@@ -194,8 +194,8 @@ class AnnotationEncoder(object):
             zip_path = os.path.join(zip_dir, zip_name)
             
             json_subdir= os.path.join("3d_formatted", str(traj))
-            cam0_subdir= os.path.join("2d_raw", "cam0", str(traj))
-            cam1_subdir= os.path.join("2d_raw", "cam1", str(traj))
+            cam0_subdir= os.path.join(TWOD_RAW_DIR, "cam0", str(traj))
+            cam1_subdir= os.path.join(TWOD_RAW_DIR, "cam1", str(traj))
             json_indir = os.path.join(self._outdir, json_subdir)
             cam0_indir  = os.path.join(self._outdir, cam0_subdir)
             cam1_indir = os.path.join(self._outdir, cam1_subdir)
@@ -207,18 +207,18 @@ class AnnotationEncoder(object):
                     json_abspath   = os.path.join(json_indir, "%06d.json"%frame)
                     json_relpath   = "%06d.json"%frame #write json files to root
                     
-                    cam0_filename   = set_filename_by_prefix("2d_raw", "cam0", str(traj), str(frame))
+                    cam0_filename   = set_filename_by_prefix(TWOD_RAW_DIR, "cam0", str(traj), str(frame))
                     cam0_abspath    = os.path.join(cam0_indir, cam0_filename)
                     cam0_relpath    = os.path.join(cam0_subdir, cam0_filename)
 
-                    cam1_filename   = set_filename_by_prefix("2d_raw", "cam1", str(traj), str(frame))
+                    cam1_filename   = set_filename_by_prefix(TWOD_RAW_DIR, "cam1", str(traj), str(frame))
                     cam1_abspath    = os.path.join(cam1_indir, cam1_filename)
                     cam1_relpath    = os.path.join(cam1_subdir, cam1_filename)
 
                     zip_file.write(json_abspath, json_relpath)
                     zip_file.write(cam0_abspath, cam0_relpath)
                     zip_file.write(cam1_abspath, cam1_relpath)
-                    print("Zipping frame %i..."% frame)
+                    print("Zipping frame %i and to %s..."% (frame, zip_path))
             print("Finished zipping trajectory %i frames %i to %i..." % (traj, start, end))
                         
 
@@ -233,7 +233,7 @@ class AnnotationEncoder(object):
         copy_image(img_in_path, img_out_path)
 
     def create_json_points_str(self, traj, frame, pose):
-        modality, sensor_name = "3d_raw", "os1"
+        modality, sensor_name = TRED_COMP_DIR, "os1"
         bin_filename    = set_filename_by_prefix(modality, sensor_name, traj, frame)
         bin_path        = os.path.join(self._indir, modality, sensor_name, str(traj), bin_filename)
 
@@ -296,7 +296,7 @@ class AnnotationEncoder(object):
         cam0pose    = wcs_pose @ np.linalg.inv(os1tocam0)
         cam1pose    = cam0pose @ np.linalg.inv(cam0tocam1)
 
-        modality, sensor_name = "2d_raw", "cam0"
+        modality, sensor_name = TWOD_RAW_DIR, "cam0"
         cam0_filename   = set_filename_by_prefix(modality, sensor_name, traj, frame)
         cam0_dict  = self.create_image_dict(cam0_filename, ts, cam0pose, cam0_intr)
 

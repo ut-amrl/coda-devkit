@@ -5,7 +5,7 @@ import numpy as np
 
 def convert_xyz_to_latlon(x, y, z):
     # Define the origin coordinates (latitude, longitude) and altitude
-    origin = (30.28805556, -97.7375, 0)  # Ut Austin Start Coordinates
+    # origin = (30.28805556, -97.7375, 0)  # Ut Austin Start Coordinates
     origin = (30.288114, -97.737699, 0)
 
     trans = np.array([[-1, 0], [0, -1]])

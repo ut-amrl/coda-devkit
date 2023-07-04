@@ -1,7 +1,7 @@
 repository_root: "/robodata/husky_logs/CODa_bags"
 # repository_root: "/robodata/arthurz/Datasets/CODa_sync_bags"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa_dev"
-bag_date: "20230116"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_sync_fullpc"
+bag_date: "20230203"
 
 #Bag Decoder Settings
 gen_data: False   # Generates data files
@@ -33,10 +33,10 @@ sensor_topics: [
   "/stereo/right/image_raw/compressed",
 
   #Vectornav
-  "/vectornav/GPS",
+  # "/vectornav/GPS",
   "/vectornav/IMU",
-  "/vectornav/Mag",
-  "/vectornav/Odom",
+  # "/vectornav/Mag",
+  # "/vectornav/Odom",
 
   #ZED
   # "/zed/zed_node/depth/depth_registered",
@@ -47,5 +47,5 @@ sensor_topics: [
   "/husky_velocity_controller/odom"
 ]
 
-bags_to_process: ["1673884184.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [0] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1675441045.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [11] # Leave empty to assign ids in sequential order from 0

@@ -1,8 +1,9 @@
 annotations_input_root: "/robodata/arthurz/Datasets/CODa_annotations_raw"
-annotations_output_root: "/robodata/arthurz/Datasets/CODa"
+# annotations_output_root: "/robodata/arthurz/Datasets/CODa"
+annotations_output_root: "/robodata/arthurz/Datasets/CODa_dev"
 
 annotation_type: "deepen"
 
 verbose: False
-gen_data: False
+gen_data: True
 use_wcs: True

@@ -215,17 +215,145 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None)
     K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
     d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, k3, p1, p2
 
-    image_points, _ = cv2.projectPoints(pc_np[:, :3].astype(np.float64), 
-        ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
-    image_points = np.swapaxes(image_points, 0, 1).astype(np.int32).squeeze()
+    image_points = projectPointsWithDist(pc_np[:, :3].astype(np.float64), ext_homo_mat[:3, :3], 
+        ext_homo_mat[:3, 3], K, d, use_dist=False)
+
+    # bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
+    #     bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
+
     valid_points_mask = get_pointsinfov_mask(
         (ext_homo_mat[:3, :3]@pc_np[:, :3].T).T+ext_homo_mat[:3, 3])
 
     return image_points, valid_points_mask
 
+def get_safe_projs(rmat, tvec, distCoeffs, obj_pts):
+    """
+    Vectorize this for more efficiency (Slow on large point clouds)
+    """
+    # Define a list of booleans to denote if a variable is safe
+    obj_pts_safe = np.array([True] * len(obj_pts))
+    
+    # First step is to get the location of the points relative to the camera.
+    obj_pts_rel_cam = np.squeeze([[np.matmul(rmat, pt) + tvec] for pt in obj_pts], axis=1)
+
+    # Define the homogenous coordiantes
+    x_homo_vals = (obj_pts_rel_cam[:, 0] / obj_pts_rel_cam[:, 2]).astype(np.complex)
+    y_homo_vals = (obj_pts_rel_cam[:, 1] / obj_pts_rel_cam[:, 2]).astype(np.complex)
+
+    # Define the distortion terms, and vectorize calculating of powers of x_homo_vals
+    #   and y_homo_vals
+    k1, k2, p1, p2, k3 = distCoeffs[0]
+    x_homo_vals_2 = np.power(x_homo_vals, 2)
+    y_homo_vals_2 = np.power(y_homo_vals, 2)
+    x_homo_vals_4 = np.power(x_homo_vals, 4)
+    y_homo_vals_4 = np.power(y_homo_vals, 4)
+    x_homo_vals_6 = np.power(x_homo_vals, 6)
+    y_homo_vals_6 = np.power(y_homo_vals, 6)
+
+    # Find the bounds on the x_homo coordinate to ensure it is closer than the
+    #   inflection point of x_proj as a function of x_homo
+    x_homo_min = np.full(x_homo_vals.shape, np.inf)
+    x_homo_max = np.full(x_homo_vals.shape, -np.inf)
+    for i in range(len(y_homo_vals)):
+        # Expanded projection function polynomial coefficients
+        x_proj_coeffs = np.array([k3,
+                                  0,
+                                  k2 + 3*k3*y_homo_vals_2[i],
+                                  0,
+                                  k1 + 2*k2*y_homo_vals_2[i] + 3*k3*y_homo_vals_4[i],
+                                  3*p2,
+                                  1 + k1 * y_homo_vals_2[i] + k2 * y_homo_vals_4[i] + k3*y_homo_vals_6[i] + 2*p1*y_homo_vals[i],
+                                  p2*y_homo_vals_2[i]])
+
+        # Projection function derivative polynomial coefficients
+        x_proj_der_coeffs = np.polyder(x_proj_coeffs)    
+        
+        # Find the root of the derivative
+        roots = np.roots(x_proj_der_coeffs)
+        
+        # Get the real roots
+        # Approximation of real[np.where(np.isreal(roots))]
+        real_roots = np.real(roots[np.where(np.abs(np.imag(roots)) < 1e-10)])
+        
+        for real_root in real_roots:
+            x_homo_min[i] = np.minimum(x_homo_min[i], real_root)
+            x_homo_max[i] = np.maximum(x_homo_max[i], real_root)
+        
+    # Check that the x_homo values are within the bounds
+    obj_pts_safe *= np.where(x_homo_vals > x_homo_min, True, False)
+    obj_pts_safe *= np.where(x_homo_vals < x_homo_max, True, False)
+
+    # Find the bounds on the y_homo coordinate to ensure it is closer than the
+    #   inflection point of y_proj as a function of y_homo
+    y_homo_min = np.full(y_homo_vals.shape, np.inf)
+    y_homo_max = np.full(y_homo_vals.shape, -np.inf)
+    for i in range(len(x_homo_vals)):
+        # Expanded projection function polynomial coefficients
+        y_proj_coeffs = np.array([k3,
+                                  0,
+                                  k2 + 3*k3*x_homo_vals_2[i],
+                                  0,
+                                  k1 + 2*k2*x_homo_vals_2[i] + 3*k3*x_homo_vals_4[i],
+                                  3*p1,
+                                  1 + k1 * x_homo_vals_2[i] + k2 * x_homo_vals_4[i] + k3*x_homo_vals_6[i] + 2*p2*x_homo_vals[i],
+                                  p1*x_homo_vals_2[i]])
+
+        # Projection function derivative polynomial coefficients
+        y_proj_der_coeffs = np.polyder(y_proj_coeffs)    
+        
+        # Find the root of the derivative
+        roots = np.roots(y_proj_der_coeffs)
+        
+        # Get the real roots
+        # Approximation of real[np.where(np.isreal(roots))]
+        real_roots = np.real(roots[np.where(np.abs(np.imag(roots)) < 1e-10)])
+
+        for real_root in real_roots:
+            y_homo_min[i] = np.minimum(y_homo_min[i], real_root)
+            y_homo_max[i] = np.maximum(y_homo_max[i], real_root)
+        
+    # Check that the x_homo values are within the bounds
+    obj_pts_safe *= np.where(y_homo_vals > y_homo_min, True, False)
+    obj_pts_safe *= np.where(y_homo_vals < y_homo_max, True, False)
+    # import pdb; pdb.set_trace()
+    # Return the indices where obj_pts is safe to project
+    return np.where(obj_pts_safe == True)[0]
+
+def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
+    """
+    Custom point projection function to fix OpenCV distortion issue for out of bound points:
+    https://github.com/opencv/opencv/issues/17768
+    """
+    assert points_3d.shape[1]==3, "Error points_3d input is not dimension 3, it is %i"%points_3d.shape[1]
+    points_3d = points_3d[:, :3]
+    d = np.array(d).reshape(1, -1)
+    image_points, _ = cv2.projectPoints(points_3d, R, T, K, d)
+    image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
+    
+    if use_dist:
+        image_points_nodist, _ = cv2.projectPoints(points_3d, R, T, K, np.zeros((5,)))
+        image_points_nodist     = np.swapaxes(image_points_nodist, 0, 1).astype(np.int32)
+        _, num_points, _ = image_points_nodist.shape
+
+        points_3d = points_3d[np.all(points_3d!=0, axis=-1)]
+        safe_image_points_mask = get_safe_projs(R, T, d, points_3d)
+        
+        safe_image_points = np.zeros((1, num_points, 2)) 
+        safe_image_points[0, safe_image_points_mask, :] = image_points[0, safe_image_points_mask, :]
+        unsafe_image_points_mask = np.delete(np.arange(0, num_points), safe_image_points_mask)
+        safe_image_points[0, unsafe_image_points_mask, :] = image_points_nodist[0, unsafe_image_points_mask, :]
+        image_points = safe_image_points.astype(np.int32)
+    else:
+        image_points, _ = cv2.projectPoints(points_3d, R, T, K, np.zeros((5,)))
+        image_points     = np.swapaxes(image_points, 0, 1).squeeze().astype(np.int32)
+
+    return image_points
+
 def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     """
     wcs_mat - 4x4 homogeneous matrix
+
+    Return point projected to 2d image plane and mask for points in camera field of view
     """
 
     all_image_points = np.empty((0,8,2), dtype=np.int32)
@@ -258,9 +386,16 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
                 z_offset *= -1
             tred_corners[cnum] = np.array([
                 x_offset, y_offset, z_offset])
+        Tbox = np.eye(4)
+        Tbox[:3, :3] =  tred_orien_transform
+        Tbox[:3, 3] = np.array([cX, cY, cZ])
 
-        tred_corners = (tred_orien_transform@tred_corners.T).T
-        tred_corners += np.array([cX, cY, cZ])
+        tred_corners_homo = np.hstack((tred_corners, np.ones((tred_corners.shape[0], 1) )))
+        tred_corners = (Tbox @ tred_corners_homo.T).T
+        tred_corners = tred_corners[:, :3]
+        # import pdb; pdb.set_trace()
+        # tred_corners = (tred_orien_transform@tred_corners.T).T
+        # tred_corners += np.array([cX, cY, cZ])
 
         #Compute ego lidar to ego camera coordinate systems (Extrinsic)
         calib_ext = open(calib_ext_file, 'r')
@@ -273,16 +408,25 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         intr_ext    = open(calib_intr_file, 'r')
         intr_ext    = yaml.safe_load(intr_ext)
 
+        img_w = intr_ext['image_width']
+        img_h = intr_ext['image_height']
         K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
         d   = np.array(intr_ext['distortion_coefficients']['data'])
         P   = np.array(intr_ext['projection_matrix']['data']).reshape(3, 4)
         Re  = np.array(intr_ext['rectification_matrix']['data']).reshape(3, 3)
 
-        image_points, _ = cv2.projectPoints(tred_corners[:, :3],
-            ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
-        image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
-        valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
+        # if annotation["instanceId"]!="Service Vehicle:3":
+        #     continue
 
+        image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
+
+        # valid_points_mask = np.logical_and(
+        #     np.logical_and(image_points[:, :, 0] >= 0, image_points[:, :, 0] < img_w), 
+        #     np.logical_and(image_points[:, :, 1] >= 0, image_points[:, :, 1] < img_h)
+        # )
+        valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
+        valid_points_mask = valid_points_mask.reshape(1, -1)
+        # import pdb; pdb.set_trace()
         if annotation["classId"] in BBOX_CLASS_VIZ_LIST:
             all_image_points = np.vstack(
                 (all_image_points, image_points)
@@ -295,7 +439,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
             )
     return all_image_points, all_points_fov_mask, all_valid_obj_idx
 
-def draw_2d_bbox(image, bbox_coords, color=(0,0,255), thickness=2):
+def draw_2d_bbox(image, bbox_coords, color=(0,0,255), thickness=-1):
     # Expects nx4 array of minxy, maxxy
     for bbox in bbox_coords:
         if np.sum(bbox==0)==4:
@@ -321,40 +465,58 @@ def draw_2d_sem(image, valid_pts, pts_labels):
         image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=pt_color)
     return image
 
-def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2):
+def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2, img_w=1223, img_h=1023):
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
-    old_to_new_index_map = np.zeros((8,), dtype=np.int32) 
+    # available_points = np.arange(8, dtype=np.int32)
+    old_to_new_index_map = np.zeros((8,), dtype=np.int32)
     old_to_new_index_map[available_points] = np.arange(0, available_points.shape[0])
-
+    # import pdb; pdb.set_trace()
     try:
         #Vert Beams
         for i in range(0, 4):
             if i in available_points and i+4 in available_points:
                 si = old_to_new_index_map[i]
                 ei = old_to_new_index_map[i+4]
-                image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
+
+                p1 = tuple(bbox_2d_pts[si])
+                p2 = tuple(bbox_2d_pts[ei])
+                _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
+    
+                image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
 
         # Horizontal Beams
         for i in range(0, 8, 2):
             if i in available_points and i+1 in available_points:
                 si = old_to_new_index_map[i]
                 ei = old_to_new_index_map[i+1]
-                image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
+
+                p1 = tuple(bbox_2d_pts[si])
+                p2 = tuple(bbox_2d_pts[ei])
+                _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
+                image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
 
         # misc beams
         for i in range(0, 8, 4):
             if i in available_points and i+3 in available_points:
                 si = old_to_new_index_map[i]
                 ei = old_to_new_index_map[i+3]
-                image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
+
+                p1 = tuple(bbox_2d_pts[si])
+                p2 = tuple(bbox_2d_pts[ei])
+                _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
+                image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
 
         # misc beams
         for i in range(1, 8, 4):
             if i in available_points and i+1 in available_points:
                 si = old_to_new_index_map[i]
                 ei = old_to_new_index_map[i+1]
-                image = cv2.line(image, tuple(bbox_2d_pts[si]), tuple(bbox_2d_pts[ei]), color, thickness)
+
+                p1 = tuple(bbox_2d_pts[si])
+                p2 = tuple(bbox_2d_pts[ei])
+                _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
+                image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
     except Exception as e:
         print(e)
         import pdb; pdb.set_trace()
@@ -378,7 +540,7 @@ def get_pointsinfov_mask(points):
 
     angles_vec  = np.arccos( np.dot(points, forward_vec) / (norm_f*norm_p) )
 
-    in_fov_mask = np.abs(angles_vec[:,0]) <= 0.785398
+    in_fov_mask = np.abs(angles_vec[:,0]) <= 1.57 #0.785398
 
     return in_fov_mask
 

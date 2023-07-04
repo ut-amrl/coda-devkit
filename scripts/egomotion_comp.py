@@ -106,7 +106,7 @@ def compensate_frame(pc_path, frame_ts, s0_pose, s2_pose):
     return comp_pc.reshape(bin_np_shape)
 
 def compensate_single_trajectory_frame(args):
-    indir, outdir, trajectory, pc_path, offset, camid = args
+    indir, outdir, trajectory, pc_path, offset, camid, modality = args
 
     ts_path = join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
     pose_path = join(indir, "poses", "%s.txt"%trajectory)
@@ -129,22 +129,32 @@ def compensate_single_trajectory_frame(args):
     end_pose    = find_closest_pose(pose_np, frame_ts + 0.1)
     comp_pc = compensate_frame(pc_path, frame_ts, start_pose, end_pose)
 
-    img_frame = frame + offset
-    img_filename = set_filename_by_prefix("2d_raw", camid, trajectory, img_frame)
-    img_path = join(indir, "2d_raw", camid, trajectory, img_filename)
 
-    comp_pc = comp_pc[:, :3].astype(np.float64)
-    img_np = cv2.imread(img_path)
-    comp_img_np = project_3dpoint_image(img_np, comp_pc, calibextr_path, calibintr_path, colormap="camera")
+    if modality=="3d":
+        compc_path = set_filename_dir(outdir, TRED_COMP_DIR, "os1", trajectory, str(frame))
+        flat_pc = comp_pc.reshape(-1, comp_pc.shape[-1])
+        flat_pc = flat_pc.reshape(-1)
+        print("Writing compensated point cloud to %s " % compc_path)
+        flat_pc.tofile(compc_path)
+    elif modality=="2d":
+        img_frame = frame + offset
+        img_filename = set_filename_by_prefix("2d_raw", camid, trajectory, img_frame)
+        img_path = join(indir, "2d_raw", camid, trajectory, img_filename)
 
-    print("Writing compensated frame %i to %s" % (frame, join(outdir, "%i.jpg"%frame)))
-    cv2.imwrite(join(outdir, "%i.jpg"%frame), comp_img_np)
+        comp_pc = comp_pc[:, :3].astype(np.float64)
+        img_np = cv2.imread(img_path)
+        comp_img_np = project_3dpoint_image(img_np, comp_pc, calibextr_path, calibintr_path, colormap="camera")
+
+        print("Writing compensated frame %i to %s" % (frame, join(outdir, "%i.jpg"%frame)))
+        cv2.imwrite(join(outdir, "%i.jpg"%frame), comp_img_np)
+    else:
+        print("Specified undefined modality %s, nothing saved" % modality)
 
 def compensate_trajectory_frames(args):
-    indir, outdir, trajectory, frames, offset_frames_list, camid = args
+    indir, outdir, trajectory, frames, offset_frames_list, camid, save_modality = args
     trajectory = str(trajectory)
 
-    pc_dir  = join(indir, "3d_raw", "os1",trajectory)
+    pc_dir  = join(indir, "3d_raw", "os1", trajectory)
 
     pc_paths = [f.path for f in os.scandir(pc_dir) if f.is_file()]
     pc_paths.sort(
@@ -161,6 +171,19 @@ def compensate_trajectory_frames(args):
     # import pdb; pdb.set_trace()
     
     indir_list, outdir_list, trajectory_list, pc_path_list, offset_list, cam_list = [], [], [], [], [], []
+    save_mod_list = []
+
+    if save_modality=="3d":
+        savedir = set_filename_dir(outdir, TRED_COMP_DIR, "os1", trajectory, include_name=False)
+        if not osp.exists(savedir):
+            print("Making output directory %s for trajectory %s" % (savedir, trajectory))
+            os.makedirs(savedir)
+    else:
+        savedir = set_filename_dir(outdir, TWOD_PROJ_DIR, camid, trajectory)
+        if not osp.exists(savedir):
+            print("Making output directory %s for trajectory" % (savedir, trajectory))
+            os.makedirs(savedir)
+
     # Compensate all point clouds in frame list. If empty do all
     for pc_path in pc_paths:
         pc_filename = pc_path.split("/")[-1]
@@ -185,10 +208,11 @@ def compensate_trajectory_frames(args):
         pc_path_list.append(pc_path)
         offset_list.append(offset)
         cam_list.append(camid)
+        save_mod_list.append(save_modality)
 
     pool = Pool(processes=96)
     for _ in tqdm.tqdm(pool.imap_unordered(compensate_single_trajectory_frame, zip(indir_list, outdir_list, \
-        trajectory_list, pc_path_list, offset_list, cam_list)), total=len(pc_paths)):
+        trajectory_list, pc_path_list, offset_list, cam_list, save_mod_list)), total=len(pc_paths)):
         pass
         
         # start_pose  = find_closest_pose(pose_np, frame_ts)
@@ -227,17 +251,18 @@ def compensate_trajectory_frames(args):
         # print("Writing compensated frame %i" % frame)
         # cv2.imwrite(join(outdir, "%i.jpg"%frame), comp_img_np)
 
-def compensate_all_frames(indir, outdir, trajectory, offset_frames, skip_amount=1, camid="cam0"):
+def compensate_all_frames(indir, outdir, trajectory, offset_frames, skip_amount=1, camid="cam0", save_modality="2d"):
     ts_path = join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
     frame_ts_np = np.fromfile(ts_path, sep=' ').reshape(-1, 1)
 
     total_frames = frame_ts_np.shape[0]
     trajectory_frame_list = np.arange(0, total_frames, skip_amount)
     
-    trajoutdir = join(outdir, str(trajectory))
-    if not osp.exists(trajoutdir):
-        os.makedirs(trajoutdir)
-    compensate_trajectory_frames((indir, trajoutdir, trajectory, trajectory_frame_list, offset_frames, camid))
+    # trajoutdir = join(outdir, str(trajectory))
+    # if not osp.exists(trajoutdir):
+    #     os.makedirs(trajoutdir)
+
+    compensate_trajectory_frames((indir, outdir, trajectory, trajectory_frame_list, offset_frames, camid, save_modality))
 
 # def save_single_trajectory_frame(args):
 #     indir, outdir, trajectory, pc_path = args
@@ -277,9 +302,12 @@ def compensate_all_frames(indir, outdir, trajectory, offset_frames, skip_amount=
 
 def main(args):
     indir  = "/robodata/arthurz/Datasets/CODa"
-    outdir = "/robodata/arthurz/Datasets/CODa_egocomp_full"
+    # outdir = "/robodata/arthurz/Datasets/CODa_egocomp_full"
+    outdir = "."
+    # outdir = "/robodata/arthurz/Datasets/CODa" # for writing point clouds
     camid="cam0"
     skip_amount = 1
+    save_modality="2d"
 
     dummy_trajectory = {
         "trajectory": 0,
@@ -290,32 +318,33 @@ def main(args):
             }
         ]
     }
-    trajectory_list = []
-    for i in range(22):
-        curr_traj_dict = copy.deepcopy(dummy_trajectory)
-        curr_traj_dict["trajectory"] = i
-        trajectory_list.append(curr_traj_dict)
+    # trajectory_list = []
+    # for i in range(22):
+    #     curr_traj_dict = copy.deepcopy(dummy_trajectory)
+    #     curr_traj_dict["trajectory"] = i
+    #     trajectory_list.append(curr_traj_dict)
 
-    for trajectory_dict in trajectory_list:
-        print("Compensating trajectory %i" % trajectory_dict["trajectory"])
-        compensate_all_frames(indir, outdir, trajectory_dict["trajectory"], trajectory_dict["offset_frames"], skip_amount=skip_amount)
+    # for trajectory_dict in trajectory_list:
+    #     print("Compensating trajectory %i" % trajectory_dict["trajectory"])
+    #     compensate_all_frames(indir, outdir, trajectory_dict["trajectory"], trajectory_dict["offset_frames"], skip_amount=skip_amount, save_modality=save_modality)
 
     ### Uncomment Below for testing
 
-    # trajectory = 3
-    # frame = 6950
-    # offset_frames = [
-    #     {
-    #         "bounds": [10, 6750],
-    #         "offset": 0
-    #     }
-    # ]
-
-    # compensate_all_frames(indir, outdir, trajectory, offset_frames, skip_amount=skip_amount)
+    trajectory = 11
+    frame = 13981
+    offset_frames = [
+        {
+            "bounds": [10, 6750],
+            "offset": 0
+        }
+    ]
 
     # Test single frame
-    # pc_path = join(indir, "3d_raw", "os1", str(trajectory), "3d_raw_os1_%i_%i.bin"%(trajectory, frame))
-    # compensate_single_trajectory_frame((indir, ".", str(trajectory), pc_path, offset_frames[0]["offset"], camid))
+    pc_path = join(indir, "3d_raw", "os1", str(trajectory), "3d_raw_os1_%i_%i.bin"%(trajectory, frame))
+    outdir = join(".", "3d_comp", "os1", str(trajectory))
+    if not osp.exists(outdir):
+        os.makedirs(outdir)
+    compensate_single_trajectory_frame((indir, ".", str(trajectory), pc_path, offset_frames[0]["offset"], camid, "2d"))
 
     # compensate_trajectory_frames((indir, ".", trajectory, [6590], offset_frames)) #, 7485, 7800, 8850]))
 

@@ -78,8 +78,8 @@ class AnnotationDecoder(object):
         Decodes all bbox frames contained in a single file
         """
         traj_dir, annotation_file = args
-        
-        trajectoryx, _, _ = annotation_file.split('.')[0].split('_')
+        annotation_file_list = annotation_file.split('.')[0].split('_')
+        trajectoryx = annotation_file_list[0]
         traj = trajectoryx.replace("trajectory", "")
         annotation_path = join(traj_dir, annotation_file)
 
@@ -96,7 +96,8 @@ class AnnotationDecoder(object):
         traj_dir, annotation_file = args
 
         if annotation_file.endswith(".dpn"):
-            trajectoryx, start_frame, _ = annotation_file.split('.')[0].split('_')
+            annotation_file_list = annotation_file.split('.')[0].split('_')
+            trajectoryx, start_frame = annotation_file_list[0], annotation_file_list[1]
             traj = trajectoryx.replace("trajectory", "")
             annotation_path = join(traj_dir, annotation_file)
 
@@ -121,7 +122,7 @@ class AnnotationDecoder(object):
                 traj_dir_multi.extend(traj_dir_packed)
                 
                 self.deepen_decode_single_bbox_file((traj_dir_packed[0], annotation_files[0]))
-
+            
             pool = Pool(processes=num_workers)
             for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_bbox_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
                 pass
@@ -136,6 +137,7 @@ class AnnotationDecoder(object):
                 traj_dir = join(semantic_subdir, traj_subdir)
 
                 annotation_files   = next(os.walk(traj_dir))[2]
+                annotation_files    = [dpn_file for dpn_file in annotation_files if dpn_file.endswith(".dpn")]
                 traj_dir_packed     = [traj_dir] * len(annotation_files)
                 annotation_files_multi.extend(annotation_files)
                 traj_dir_multi.extend(traj_dir_packed)
@@ -257,7 +259,7 @@ class AnnotationDecoder(object):
         pc_size = np.prod(OS1_POINTCLOUD_SHAPE[:2])
         sem_np = np.frombuffer(sem_file, dtype=np.uint8).reshape(-1, pc_size)
 
-        outdir = join(self._outdir, SEMANTIC_LABEL_TYPE, "os1", traj)
+        outdir = join(self._outdir, SEMANTIC_LABEL_DIR, "os1", traj)
         num_frames = sem_np.shape[0]
 
         if self._gen_data and not os.path.exists(outdir):
@@ -266,7 +268,7 @@ class AnnotationDecoder(object):
         
         start_frame = int(start_frame)
         for annotation_idx, frame in enumerate(range(start_frame, start_frame+num_frames)):
-            filename = set_filename_by_prefix(SEMANTIC_LABEL_TYPE, "os1", traj, str(frame))
+            filename = set_filename_by_prefix(SEMANTIC_LABEL_DIR, "os1", traj, str(frame))
             frame_path = join(outdir, filename)
  
             frame_label_np = sem_np[annotation_idx].reshape(-1, 1)
@@ -405,7 +407,7 @@ class AnnotationDecoder(object):
         frame_dict_file.close()
 
     def save_anno_json(self, anno_dict):
-        subdir  = anno_dict["subdir"].replace("3d_raw", TRED_BBOX_LABEL_TYPE)
+        subdir  = anno_dict["subdir"].replace("3d_raw", TRED_BBOX_LABEL_DIR)
         modality, sensor_name   = subdir.split('/')[0], subdir.split('/')[1]
         traj    = anno_dict["trajectory"]
         anno_dir = join(self._outdir, subdir, traj)

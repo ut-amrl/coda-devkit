@@ -7,13 +7,75 @@ import argparse
 import numpy as np
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_path', default="/robodata/arthurz/Datasets/CODa",
+parser.add_argument('--data_path', default="/robodata/arthurz/Datasets/CODa_dev",
                     help="CODa directory")
 
 # For imports
 sys.path.append(os.getcwd())
 
 from helpers.metadata import *
+from helpers.constants import *
+
+rng = np.random.default_rng(seed=42)
+
+def get_label_list(indir, label_dir, traj):
+    traj = str(traj)
+    pc_subdir= os.path.join(label_dir, "os1")
+    traj_subdir = os.path.join(pc_subdir, traj)
+    traj_fulldir= os.path.join(indir, traj_subdir)
+    filetype = SENSOR_DIRECTORY_FILETYPES[pc_subdir]
+    bin_files = np.array([os.path.join(traj_subdir, bin_file) for bin_file in os.listdir(traj_fulldir) if bin_file.endswith(filetype)])
+    return bin_files
+
+def gen_dataset_split(label_file_list, train_percent=0.7, val_percent=0.15):
+    assert (train_percent+val_percent<1), "Train and validation percent should not be entire dataset..." 
+    num_bin_files   = len(label_file_list)
+    num_train       = int(num_bin_files * train_percent)
+    num_val         = int(num_bin_files * val_percent)
+
+    #1
+    indices = np.arange(0, len(label_file_list), 1)
+    rng.shuffle(indices)
+
+    train, val, test    = indices[:num_train], indices[num_train:num_train+num_val], \
+        indices[num_train+num_val:]
+
+    return label_file_list[train], label_file_list[val], label_file_list[test]
+
+def gen_metadata_file(indir, outdir, bbox_traj_list=[], sem_traj_list=[]):
+    if len(bbox_traj_list)==0 and len(sem_traj_list)==0:
+        print("No trajectories to process, returning...")
+        return
+    
+    traj_list = sorted(list(set(bbox_traj_list+sem_traj_list)))
+    for traj in traj_list:
+        print("Creating metadata file for traj %d"%traj)
+        metadata_dict = copy.deepcopy(METADATA_DICT)
+        bbox_traj_fulldir, sem_traj_fulldir = None, None
+
+        tasks = {}
+        if traj in bbox_traj_list:
+            pc_subdir= os.path.join(TRED_BBOX_LABEL_DIR, "os1")
+            task = SENSOR_DIRECTORY_TO_TASK[pc_subdir]
+            tasks[task] = TRED_BBOX_LABEL_DIR
+        if traj in sem_traj_list:
+            pc_subdir= os.path.join(SEMANTIC_LABEL_DIR, "os1")
+            task = SENSOR_DIRECTORY_TO_TASK[pc_subdir]
+            tasks[task] = SEMANTIC_LABEL_DIR
+
+        for task, task_dir in tasks.items():
+            label_files = get_label_list(indir, task_dir, traj)
+            train_files, val_files, test_files = gen_dataset_split(label_files)
+
+            metadata_dict[task]["training"].extend(train_files.tolist())
+            metadata_dict[task]["validation"].extend(val_files.tolist())
+            metadata_dict[task]["testing"].extend(test_files.tolist())
+
+        metadata_dict["trajectory"] = int(traj)
+        metadata_path = os.path.join(outdir, "%d.json"%traj)
+        metadata_file = open(metadata_path, "w+")
+
+        json.dump(metadata_dict, metadata_file, indent=4)
 
 def main(args):
     indir = args.data_path
@@ -30,46 +92,56 @@ def main(args):
         print("Metadata directory does not exist, creating at %s..."%outdir)
         os.mkdir(outdir)
 
-    pc_subdir= os.path.join("3d_bbox", "os1")
+    pc_subdir= os.path.join(TRED_BBOX_LABEL_DIR, "os1")
     pc_fulldir = os.path.join(indir, pc_subdir)
-    assert os.path.isdir(pc_fulldir), '%s does not exist for pc directory' % pc_fulldir
-    traj_list = [traj for traj in os.listdir(pc_fulldir) if os.path.isdir(
+    pc_sem_subdir = os.path.join(SEMANTIC_LABEL_DIR, "os1")
+    pc_sem_fulldir = os.path.join(indir, pc_sem_subdir)
+    if not os.path.exists(pc_fulldir):
+        print('%s does not exist for pc directory' % pc_fulldir)
+        os.makedirs(pc_fulldir)
+    if not os.path.exists(pc_sem_fulldir):
+        print('%s does not exist for pc semantic directory' % pc_sem_fulldir)
+        os.makedirs(pc_sem_fulldir)
+    bbox_traj_list = [int(traj) for traj in os.listdir(pc_fulldir) if os.path.isdir(
         os.path.join(pc_fulldir, traj) )]
-    traj_list = sorted(traj_list, key=lambda x: int(x), reverse=False)
+    bbox_traj_list = sorted(bbox_traj_list, key=lambda x: int(x), reverse=False)
 
-    train_percent = 0.7
-    val_percent = 0.1
-    test_percent = 0.2
-    rng = np.random.default_rng(seed=42)
-    for traj in traj_list:
-        print("Creating metadata file for traj %s"%traj)
-        metadata_dict = copy.deepcopy(METADATA_DICT)
+    sem_traj_list = [int(traj) for traj in os.listdir(pc_sem_fulldir) if os.path.isdir(
+        os.path.join(pc_sem_fulldir, traj) )]
+    sem_traj_list = sorted(sem_traj_list, key=lambda x: int(x), reverse=False)
 
-        traj_subdir = os.path.join(pc_subdir, traj)
-        traj_fulldir= os.path.join(indir, traj_subdir)
+    # Generation bbox annotation split
+    gen_metadata_file(indir, outdir, bbox_traj_list, sem_traj_list)
 
-        bin_files = np.array([os.path.join(traj_subdir, bin_file) for bin_file in os.listdir(traj_fulldir) if bin_file.endswith(".json")])
-        num_bin_files   = len(bin_files)
-        num_train       = int(num_bin_files * train_percent)
-        num_val         = int(num_bin_files * val_percent)
+    # for traj in traj_list:
+    #     print("Creating metadata file for traj %s"%traj)
+    #     metadata_dict = copy.deepcopy(METADATA_DICT)
 
-        #1
-        indices = np.arange(0, len(bin_files), 1)
-        rng.shuffle(indices)
+    #     traj_subdir = os.path.join(pc_subdir, traj)
+    #     traj_fulldir= os.path.join(indir, traj_subdir)
 
-        train, val, test    = indices[:num_train], indices[num_train:num_train+num_val], \
-            indices[num_train+num_val:]
+    #     bin_files = np.array([os.path.join(traj_subdir, bin_file) for bin_file in os.listdir(traj_fulldir) if bin_file.endswith(".json")])
+    #     num_bin_files   = len(bin_files)
+    #     num_train       = int(num_bin_files * train_percent)
+    #     num_val         = int(num_bin_files * val_percent)
 
-        #2
-        metadata_dict["ObjectTracking"]["training"].extend(bin_files[train].tolist())
-        metadata_dict["ObjectTracking"]["validation"].extend(bin_files[val].tolist())
-        metadata_dict["ObjectTracking"]["testing"].extend(bin_files[test].tolist())
+    #     #1
+    #     indices = np.arange(0, len(bin_files), 1)
+    #     rng.shuffle(indices)
 
-        metadata_dict["trajectory"] = int(traj)
+    #     train, val, test    = indices[:num_train], indices[num_train:num_train+num_val], \
+    #         indices[num_train+num_val:]
 
-        metadata_path = os.path.join(outdir, "%s.json"%traj)
-        metadata_file = open(metadata_path, "w+")
-        json.dump(metadata_dict, metadata_file, indent=4)
+    #     #2
+    #     metadata_dict["ObjectTracking"]["training"].extend(bin_files[train].tolist())
+    #     metadata_dict["ObjectTracking"]["validation"].extend(bin_files[val].tolist())
+    #     metadata_dict["ObjectTracking"]["testing"].extend(bin_files[test].tolist())
+
+    #     metadata_dict["trajectory"] = int(traj)
+
+    #     metadata_path = os.path.join(outdir, "%s.json"%traj)
+    #     metadata_file = open(metadata_path, "w+")
+    #     json.dump(metadata_dict, metadata_file, indent=4)
 
 
 

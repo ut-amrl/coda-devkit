@@ -1,7 +1,10 @@
 """
 Metadata File
 """
+import json
 from enum import Enum
+
+from helpers.constants import TRED_BBOX_LABEL_DIR, SEMANTIC_LABEL_DIR
 
 class METALighting(str, Enum):
     DARK='dark'
@@ -27,8 +30,41 @@ METADATA_DICT = {
         "validation": [],
         "testing": []
     },
+    "SemanticSegmentation": {
+        "training": [],
+        "validation": [],
+        "testing": []
+    },
     "SLAM": {
         "training": [],
         "testing": []
     }
 }
+
+SENSOR_DIRECTORY_TO_TASK = {
+    "%s/os1"%TRED_BBOX_LABEL_DIR: "ObjectTracking",
+    "%s/os1"%SEMANTIC_LABEL_DIR: "SemanticSegmentation",
+}
+
+MODALITY_TO_TASK = {
+    "3d_bbox": "ObjectTracking",
+    "3d_semantic": "SemanticSegmentation"
+}
+
+def read_metadata_anno(metadata_path, modality="3d_bbox", split="all"):
+    metafile = open(metadata_path, "r")
+    metajson = json.load(metafile)
+
+    assert modality in MODALITY_TO_TASK.keys(), "Modality %s is not defined... " % modality
+    task = MODALITY_TO_TASK[modality]
+
+    task_dict = metajson[task]
+    task_filepaths = []
+    if split=="all":
+        for split, splitpaths in task_dict.items():
+            task_filepaths.extend(splitpaths)
+    else:
+        assert split in task_dict.keys(), "Split %s not in task splits"%split
+        task_filepaths.extend(task_dict[split])
+
+    return task_filepaths
