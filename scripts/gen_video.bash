@@ -14,9 +14,14 @@ for dir in "${base_dir}"/*; do
         output_video="${out_dir}/pp/${dir_name}.mp4"
         echo "Current image directory ${dir}"
         # # Use ffmpeg to generate the video from images
-        ffmpeg -framerate 20 -i "${dir}/%d.jpg" -c:v libx264 -pix_fmt yuv420p "${output_video}"
+        # ffmpeg -framerate 20 -i "${dir}/%d.jpg" -c:v libx264 -pix_fmt yuv420p "${output_video}"
+        # echo "Video generated: ${output_video}"
 
-        echo "Video generated: ${output_video}"
+        # Compress generated video
+        compressed_output_video="${out_dir}/pp/comp${dir_name}.mp4"
+        ffmpeg -i "${output_video}" -vcodec libx264 -crf 28 "${compressed_output_video}"
+
+        echo "Video generated: ${compressed_output_video}"
     fi
 done
 

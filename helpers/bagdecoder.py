@@ -310,7 +310,7 @@ class BagDecoder(object):
 
         if not os.path.exists(poses_dense_dir):
             print("Creating dense poses directory %s" % poses_dense_dir)
-            os.mkdir(poses_dense_dir)
+            os.makedirs(poses_dense_dir)
         
         pose_files = [pose_file for pose_file in os.listdir(poses_dir) if pose_file.endswith(".txt")]
         pose_files = sorted(pose_files, key=lambda x: int(x.split(".")[0]) )
@@ -322,7 +322,6 @@ class BagDecoder(object):
             ts_to_poses_path = os.path.join(poses_dir, pose_file)
             frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
             frame_to_ts_np = np.loadtxt(ts_to_frame_path)
-
             dense_poses = densify_poses_between_ts(frame_to_poses_np, frame_to_ts_np)
 
             #Save dense poses

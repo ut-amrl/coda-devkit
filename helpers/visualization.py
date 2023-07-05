@@ -17,7 +17,8 @@ from geometry_msgs.msg import PoseStamped
 import matplotlib.cm as cm
 
 #Custom
-from helpers.constants import PointField, BBOX_CLASS_TO_ID, BBOX_ID_TO_COLOR, OS1_POINTCLOUD_SHAPE
+from helpers.constants import *
+from helpers.sensors import read_sem_label
 from helpers.geometry import *
 
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
@@ -188,6 +189,15 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
 
     m_pub.publish(bbox_markers)
 
+def apply_semantic_cmap(image_pts, valid_point_mask, semantic_anno_path):
+    sem_labels = read_sem_label(semantic_anno_path).astype(np.int32)
+    dt=np.dtype('int,int,int')
+    sem_id_to_color_np = np.array(SEM_ID_TO_COLOR,dtype=dt)
+    color_map = sem_id_to_color_np[sem_labels] 
+    valid_color_map = color_map[valid_point_mask]
+
+    return valid_color_map
+
 def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
 
@@ -195,11 +205,12 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
             np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
             np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
         )
+
     valid_point_mask = in_bounds & pts_mask
     valid_points = image_pts[valid_point_mask, :]
 
     color_map = [(0, 0, 255)] * valid_points.shape[0]
-    if colormap=="camera":
+    if colormap=="camera" or colormap==None:
         os1_to_cam = load_ext_calib_to_mat(calib_ext_file)
         bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
         bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
@@ -211,9 +222,12 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         # import pdb; pdb.set_trace()
         color_map = cm.get_cmap("turbo")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
         color_map = color_map[:, :3]
+    else:
+        color_map = apply_semantic_cmap(image_pts, valid_point_mask, colormap)
 
     for pt_idx, pt in enumerate(valid_points):
-        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=1, color=color_map[pt_idx])
+        # import pdb; pdb.set_trace()
+        image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=SEM_POINT_SIZE, color=color_map[pt_idx].tolist(), thickness=-1)
     return image_np
 
 def project_3dsem_image(bin_np, calib_ext_file, calib_intr_file, wcs_pose):
@@ -242,16 +256,16 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
         # )
 
         valid_point_mask = bbox_mask[obj_idx]
-        valid_points = bbox_pts[obj_idx, valid_point_mask, :]
         if np.sum(valid_point_mask)==0:
             continue
-
-        valid_points[:, 0] = valid_points[:, 0].clip(min=0, max=1223)
-        valid_points[:, 1] = valid_points[:, 1].clip(min=0, max=1023)
+        
+        # valid_points = bbox_pts[obj_idx, np.arange(8), :]
+        valid_points = bbox_pts[obj_idx, valid_point_mask, :]
 
         bbox_idx = bbox_idxs[obj_idx][0]
-        # if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
-        #     continue
+        if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
+            continue
+
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
 

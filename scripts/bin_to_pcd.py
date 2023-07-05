@@ -11,9 +11,9 @@ from helpers.sensors import *
 
 
 def main():
-    bin_dir = "/robodata/arthurz/Datasets/CODa/3d_raw/os1/0"
-    bin_file    = "3d_raw_os1_0_0.bin"
-    outdir  = "/robodata/arthurz/Benchmarks/test/CODa_pcd"
+    bin_dir = "/robodata/arthurz/Research/coda/3d_comp/os1/3"
+    bin_file    = "3d_comp_os1_3_6950.bin"
+    outdir  = "/robodata/arthurz/Research/coda/3d_comp/os1/3"
     # bin_dir = "/home/arthur/AMRL/Benchmarks/OpenPCDet/data/kitti/training/velodyne"
     # bin_file    = "002286.bin"
     # outdir  = "/home/arthur/AMRL/Benchmarks/test/KITTI_pcd"

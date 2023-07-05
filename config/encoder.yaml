@@ -16,11 +16,11 @@ sensor_topics: [
   "/stereo/right/image_raw/compressed"
 ]
 
-downsample_rate: 5 # Frame Rate=10hz so Actual Rate = FR / ds 
+downsample_rate: 1 # Frame Rate=10hz so Actual Rate = FR / ds 
 
 # Set what trajectories and each trajectories' frames to process
 trajectories: [
-  14
+  10, 13
   #0, 1, 2, 3, 4, 5, 6, 
   # 7, 8, 9, 10, 11, 12, 13, 14, 15,
   # 16, 17, 18, 19, 20, 
@@ -70,9 +70,9 @@ trajectory_frames:
   ]
   6: [
     # [1200, 1450], #Outdoor
-    [1300, 1450], #semantic segmentation
+    # [1300, 1450], #semantic segmentation
     # [2600, 2900], #Outdoor
-    # [4500, 4800], #Outdoor
+    [4500, 4800], #Outdoor
     # [5500, 5800], #Outdoor
     # [5650, 5800], #semantic segmentation
     # [6150, 6300], #Indoor
@@ -106,13 +106,13 @@ trajectory_frames:
     # [2550, 2650], #semantic segmentation
     # [5965, 6520],
     # [5965, 6165], #semantic segmentation
-    # [6675, 6875],
+    [6675, 6875],
     # [8515, 8850],
     # [9350, 9600] #Could delete
   ]
   10: [
     # [1950, 2150],
-    # [5815, 6015],
+    [5815, 6015],
     # [6450, 6550],
     # [8320, 8450],
     # [9200, 9400],
@@ -135,28 +135,21 @@ trajectory_frames:
     # [1800, 1900], #semantic segmentation
     # [5550, 7100], # Outdoor 3D Bbox
     # [5550, 6550],
-    [5550, 5850], #semantic segmentation
+    # [5550, 5850], #semantic segmentation
+    # [6067, 6326]
     # [7225, 7425],
     # [9000, 10100],  #Outdoor3D BBox
     # [9000, 9400],
-    # [9250, 9350]
+    [9250, 9350]
     # [10350, 11450],
     # [11900, 12400]
   ]
   14: [
-<<<<<<< HEAD
-    [200, 300],
-    [3330, 3430],
-    [3840, 3940],
-    # [6470, 6570],
-    # [7100, 7240]
-=======
     # [200, 300],
     # [3330, 3430],
     # [3840, 3940],
     # [6470, 6570],
     [7100, 7240] # semantic segmentation
->>>>>>> ee34db575cb735c8fd59200e69aa3580a0771a8d
   ]
   15: [
     # [100, 300],
