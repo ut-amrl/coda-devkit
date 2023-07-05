@@ -4,8 +4,8 @@ indir: "/robodata/arthurz/Datasets/CODa_dev"
 outdir: "/robodata/arthurz/Datasets/CODa_sem_full"
 # outdir: "/robodata/arthurz/Datasets/CODa_sem_nocomp_full"
 
-traj: 9
-start_frame: 6865
+traj: 0
+start_frame: 5645
 num_workers: 96
 
 # Keep same for CODa format
