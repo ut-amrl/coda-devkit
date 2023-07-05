@@ -4,7 +4,6 @@ from os.path import join
 import sys
 import argparse
 import numpy as np
-import math
 import time
 
 from scipy.spatial.transform import Rotation as R
@@ -14,16 +13,15 @@ from multiprocessing import Pool
 import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--traj', default="/robodata/arthurz/Datasets/CODa",
-                    help="CODa directory")
+parser.add_argument('--traj', default="0",
+                    help="number of trajectory, e.g. 1")
+parser.add_argument('--option', default="hitl",
+                    help="hitl for hitl SLAM and vis for visualization ")
 
 def read_bin(bin_path, keep_intensity=True):
     OS1_POINTCLOUD_SHAPE = [1024, 128, 3]
     num_points = OS1_POINTCLOUD_SHAPE[0]*OS1_POINTCLOUD_SHAPE[1]
     bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(num_points, -1)
-
-    # # write a single row to a open3d viewer
-    # bin_np = bin_np.reshape(1028, 128, -1) # check if this 
 
     if not keep_intensity:
         bin_np = bin_np[:, :3]
@@ -34,17 +32,15 @@ def calc_yaw(qw, qx, qy, qz):
     yaw = np.arctan2(2.0*(qy*qz + qw*qx), qw*qw - qx*qx - qy*qy + qz*qz)
     return yaw
 
-# def get_pose(pose_of_frame, n_of_val_scans):
-#     _, x, y, z, qw, qx, qy, qz = pose_of_frame
-#     yaw = calc_yaw(qw, qx, qy, qz)
-#     np_tmp = np.array([x, y, yaw]).reshape(-1, 3)
-#     return np.repeat(np_tmp, repeats=n_of_val_scans, axis=0)
-
-def get_pose(pose_np, np_n_of_val_scans):
+def get_pose(pose_np, np_n_of_val_scans, vis = False):
     _, x, y, z, qw, qx, qy, qz = pose_np.transpose()
-    yaw = calc_yaw(qw, qx, qy, qz)
-    np_tmp = np.concatenate([x.reshape(-1,1), y.reshape(-1,1), yaw.reshape(-1,1)], axis=1).reshape(-1, 3)
-    return np.repeat(np_tmp, repeats=np_n_of_val_scans, axis=0)
+    if vis:
+        np_tmp = np.concatenate([x.reshape(-1,1), y.reshape(-1,1), z.reshape(-1,1)], axis=1).reshape(-1, 3)
+        return np.repeat(np_tmp, repeats=np_n_of_val_scans, axis=0)
+    else:
+        yaw = calc_yaw(qw, qx, qy, qz)
+        np_tmp = np.concatenate([x.reshape(-1,1), y.reshape(-1,1), yaw.reshape(-1,1)], axis=1).reshape(-1, 3)
+        return np.repeat(np_tmp, repeats=np_n_of_val_scans, axis=0)
 
 def pose_to_homo_mat(pose):
     trans = pose[1:4]
@@ -53,29 +49,21 @@ def pose_to_homo_mat(pose):
     homo_mat = np.eye(4, dtype=np.float64)
     homo_mat[:3, :3] = rot_mat
     homo_mat[:3, 3] = trans
-    return homo_mat # (4, 4)
+    return homo_mat
 
 def correct_obs(homo_mat, obs):
-    '''
-    correct observation x & y with homo matrix
-    '''
+    # correct observation x & y with homo matrix
     obs = np.concatenate( (obs, np.ones((len(obs), 1))), axis=-1 ).transpose()
     corrected_obs = np.matmul(homo_mat, obs)[:3, :].transpose()
     return corrected_obs # (# of scans, 3)
 
 def get_normal(closest_points):
-    
     """ test data 
         a = [-1, 1, 2, -4, 2, 2, -2, 1, 5, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 1, 2, -4, 2, 2, -2, 1, 5]
         closest_points = np.array(a, dtype='f').reshape(3, 3, 3)
-        result: (3, 9, 1)
-    """
-    p0 = closest_points[:, 0, :]
-    p1 = closest_points[:, 1, :]
-    p2 = closest_points[:, 2, :]
-    v01 = np.subtract(p0, p1)
-    v02 = np.subtract(p0, p2)
-    nv  = np.cross(v01, v02)
+        result: (3, 9, 1) """
+    p0,p1,p2 = [closest_points[:,i,:] for i in range(3)]
+    nv = np.cross(p0-p1, p0-p2)
     return nv[:, :2]
 
 def cov_gen(n_of_bin, np_n_of_val_scans, xxyy_sigma=0.0007, thth_sigma=0.000117, xyth_sigma=0.002, xyyx_sigma=0.000008):
@@ -128,52 +116,59 @@ def process_pc(args):
     np.save(n_of_val_path, n_of_val_scans)
     
     if ( n_of_val_scans != 0 ): # skips to write if no valid pc in the frame
-        # 3) find two nearest points
-        _, ind = tree.query(pc_np_min, k=3)
+        if (option == "vis"):
+            np_bin_single = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)
+        else:
+            # 3) find two nearest points
+            _, ind = tree.query(pc_np_min, k=3)
+            closest_points = pc_np_flattened[ind]
 
-        # closest_points = pc_np_flattened[ind[np.arange(1024), :]]
-        closest_points = pc_np_flattened[ind]
-
-        # 4) find the normal vector to the plane
-        norm_xy = get_normal(closest_points)  # (n_of_val_scans, 2)
-
-        # obs = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)[:, :2]
-        obs = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)
-        norms = norm_xy
-        np_bin_single = np.hstack((obs[:, :2], norms, obs[:, 2].reshape(-1, 1)))
+            # 4) find the normal vector to the plane
+            norm_xy = get_normal(closest_points)
+            
+            obs_xy  = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)[:, :2]
+            np_bin_single = np.hstack((obs_xy, norm_xy))
 
         # Dump frame to npy file
         np_bin_path = join(outdir, "np_bin_%i.npy"%frame)
         np.save(np_bin_path, np_bin_single)
-        
+    
     print("Processed frame %s" % str(frame))
 
 def main(args):
-    
-    trajectory = args.traj
+    global option
+    trajectory, option = args.traj, args.option
     pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/dense/{trajectory}.txt"
     bin_dir   = f"/robodata/arthurz/Datasets/CODa/3d_comp/os1/{trajectory}/"
-    outdir = f"./cloud_to_laser/%s" % args.traj
+    outdir    = f"./cloud_to_laser/%s" % args.traj
+    save_dir  = os.path.join("./", "HitL")
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     pose_np = np.loadtxt(pose_path).reshape(-1, 8)
+    
     # number of lidar frames
-    n_of_bin_files = 4000
-    # n_of_bin_files = len([entry for entry in os.listdir(bin_dir) if os.path.isfile(os.path.join(bin_dir, entry))])
-    print("\n\n" + "---"*15)
+    # n_of_bin_files = 1000
+    n_of_bin_files = len([entry for entry in os.listdir(bin_dir) if os.path.isfile(os.path.join(bin_dir, entry))])
+    print("\n" + "---"*15)
     print(f"\nNumber of lidar frames: {len(pose_np)}\n")
 
     np_n_of_val_scans = np.zeros(len(pose_np), dtype=int)
-    np_bin = np.zeros((len(pose_np)*1024, 18)) # with obs_z at the end
+
+    if (option == "vis"):
+        np_bin = np.zeros((len(pose_np)*1024, 6))
+    else:
+        np_bin = np.zeros((len(pose_np)*1024, 16))
     
-    # for frame in range(len(pose_np)):
     pose_of_frame_list, frame_list, bin_path_list, outdir_list = [], [], [], []
     for frame in range(n_of_bin_files):
         pose_of_frame_list.append(pose_np[frame, :])
-        bin_file  = f"3d_comp_os1_{trajectory}_{frame}.bin"
-        bin_path  = os.path.join(bin_dir, bin_file)
+        bin_file = f"3d_comp_os1_{trajectory}_{frame}.bin"
+        bin_path = os.path.join(bin_dir, bin_file)
         bin_path_list.append(bin_path)
         frame_list.append(frame)
         outdir_list.append(outdir)
@@ -182,8 +177,7 @@ def main(args):
     pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list), chunksize=32)
 
     # Load in pcs for each frame
-    start = 0
-    end = 0
+    start, end = 0, 0
     for frame in range(n_of_bin_files):
         np_bin_path = join(outdir, "np_bin_%i.npy"%frame)
         n_of_val_path = join(outdir, "n_of_val_%i.npy"%frame)
@@ -194,20 +188,16 @@ def main(args):
         np_bin_single = np.load(np_bin_path)
         np_n_of_val_scans[frame] = np.load(n_of_val_path)
         end = start + np_n_of_val_scans[frame]
-        # end   = np.sum(np_n_of_val_scans)
-        # start = end - np_n_of_val_scans[frame]
-        np_bin[start:end, 3:7] = np_bin_single[:, :4]
-        np_bin[start:end, -1] = np_bin_single[:, 4]
+        if (option == "vis"):
+            np_bin[start:end, 3:6] = np_bin_single[:, :3]
+        else:
+            np_bin[start:end, 3:7] = np_bin_single
 
         # update start for next iteration
         start = end
 
     # Truncate unused zeros and fill pose and covariance
     np_bin = np_bin[:end]    
-    np_bin[:, :3] = get_pose(pose_np, np_n_of_val_scans) # add pose
-    np_bin[:, :3] = get_pose(pose_np, np_n_of_val_scans) # add pose
-    np_bin[:, -2] = np.repeat(pose_np[:, 3], repeats=np_n_of_val_scans, axis=0)
-    np_bin[:, 7:-2] = cov_gen(n_of_bin=len(pose_np), np_n_of_val_scans=np_n_of_val_scans)
 
     # Remove all points too close to any of our global poses
     """
@@ -217,17 +207,28 @@ def main(args):
     3. Merge the point indices list into a mask
     4. Mask the poses
     # """
+    
+    if (option == "vis"):
+        '''3d pose and 3d obs'''
+        np_bin[:,  :3] = get_pose(pose_np, np_n_of_val_scans, True) # add pose
+        fpath_out = os.path.join(save_dir, trajectory + "_vis" + ".bin")
+    else:
+        np_bin[:, :3] = get_pose(pose_np, np_n_of_val_scans, False)
+        np_bin[:, 7:] = cov_gen(n_of_bin=len(pose_np), np_n_of_val_scans=np_n_of_val_scans)
+        fpath_out = os.path.join(save_dir, trajectory + ".bin")
 
     # save as bin file
-    HitL_np_flattened = np_bin.reshape(-1, )
-    # import pdb; pdb.set_trace()
-    save_dir  = os.path.join("./", "HitL")
-    fpath_out = os.path.join(save_dir, trajectory + ".bin")
-    HitL_np_flattened.tofile(fpath_out)
+    np_bin_flattended = np_bin.reshape(-1,)
+    np_bin_flattended.tofile(fpath_out)
 
 if __name__ == "__main__":
-    import time
     start_time = time.time()
     args = parser.parse_args()
     main(args)
     print("--- Final: %s seconds ---" % (time.time() - start_time))
+    
+    if (args.option == "vis"):
+        os.system(f"scripts/debug_visualize.py --traj {args.traj}")
+
+# python -W ignore scripts/3d_legoloam_to_2d_hitl.py --traj 0 --option hitl
+# python -W ignore scripts/3d_legoloam_to_2d_hitl.py --traj 0 --option vis
