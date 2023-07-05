@@ -349,6 +349,47 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
 
     return image_points
 
+def get_3dbbox_corners(bbox_dict):
+    """
+    Converts 3d bbox annotation from CODa format to 3d corners
+    """
+    tred_corners = np.zeros((8, 3), dtype=np.float32)
+    cX, cY, cZ, l, w, h = bbox_dict['cX'], bbox_dict['cY'], bbox_dict['cZ'],\
+                bbox_dict['l'], bbox_dict['w'], bbox_dict['h']
+    if "r" in bbox_dict.keys():
+        r, p, y = bbox_dict['r'], bbox_dict['p'], bbox_dict['y']
+        tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
+    else:
+        qx, qy, qz, qw = bbox_dict['qx'], bbox_dict['qy'], bbox_dict['qz'], bbox_dict["qw"]
+        tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
+
+    #Compute corners in axis aligned coordinates
+    x_sign = np.array([-1, -1, 1, 1])
+    y_sign = np.array([1, -1, -1, 1])
+    z_sign = np.array([-1, -1, -1, -1])
+
+    for cnum in np.arange(0, 8, 1):
+        sign_idx = cnum % 4
+        x_offset = x_sign[sign_idx] * l/2
+        y_offset = y_sign[sign_idx] * w/2
+        z_offset = z_sign[sign_idx] * h/2
+
+        if cnum >=4:
+            z_offset *= -1
+        tred_corners[cnum] = np.array([
+            x_offset, y_offset, z_offset])
+    
+    Tbox = np.eye(4)
+    Tbox[:3, :3] =  tred_orien_transform
+    Tbox[:3, 3] = np.array([cX, cY, cZ])
+
+    tred_corners_homo = np.hstack((tred_corners, np.ones((tred_corners.shape[0], 1) )))
+    tred_corners = (Tbox @ tred_corners_homo.T).T
+    tred_corners = tred_corners[:, :3]
+
+    return tred_corners
+    
+
 def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     """
     wcs_mat - 4x4 homogeneous matrix
@@ -360,42 +401,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     all_points_fov_mask = np.empty( (0, 8), dtype=np.bool)
     all_valid_obj_idx   = np.empty( (0, 1), dtype=np.int32)
     for annotation_idx, annotation in enumerate(tred_annotation["3dbbox"]):
-        tred_corners = np.zeros((8, 3), dtype=np.float32)
-
-        cX, cY, cZ, l, w, h = annotation['cX'], annotation['cY'], annotation['cZ'],\
-                annotation['l'], annotation['w'], annotation['h']
-        if "r" in annotation.keys():
-            r, p, y = annotation['r'], annotation['p'], annotation['y']
-            tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
-        else:
-            qx, qy, qz, qw = annotation['qx'], annotation['qy'], annotation['qz'], annotation["qw"]
-            tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
-        
-        #Compute corners in axis aligned coordinates
-        x_sign = np.array([-1, -1, 1, 1])
-        y_sign = np.array([1, -1, -1, 1])
-        z_sign = np.array([-1, -1, -1, -1])
-
-        for cnum in np.arange(0, 8, 1):
-            sign_idx = cnum % 4
-            x_offset = x_sign[sign_idx] * l/2
-            y_offset = y_sign[sign_idx] * w/2
-            z_offset = z_sign[sign_idx] * h/2
-
-            if cnum >=4:
-                z_offset *= -1
-            tred_corners[cnum] = np.array([
-                x_offset, y_offset, z_offset])
-        Tbox = np.eye(4)
-        Tbox[:3, :3] =  tred_orien_transform
-        Tbox[:3, 3] = np.array([cX, cY, cZ])
-
-        tred_corners_homo = np.hstack((tred_corners, np.ones((tred_corners.shape[0], 1) )))
-        tred_corners = (Tbox @ tred_corners_homo.T).T
-        tred_corners = tred_corners[:, :3]
-        # import pdb; pdb.set_trace()
-        # tred_corners = (tred_orien_transform@tred_corners.T).T
-        # tred_corners += np.array([cX, cY, cZ])
+        tred_corners = get_3dbbox_corners(annotation)
 
         #Compute ego lidar to ego camera coordinate systems (Extrinsic)
         calib_ext = open(calib_ext_file, 'r')

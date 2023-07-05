@@ -189,14 +189,15 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
 
     m_pub.publish(bbox_markers)
 
-def apply_semantic_cmap(image_pts, valid_point_mask, semantic_anno_path):
+def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
     sem_labels = read_sem_label(semantic_anno_path).astype(np.int32)
-    dt=np.dtype('int,int,int')
-    sem_id_to_color_np = np.array(SEM_ID_TO_COLOR,dtype=dt)
-    color_map = sem_id_to_color_np[sem_labels] 
-    valid_color_map = color_map[valid_point_mask]
+    # dt=np.dtype('int,int,int')
+    sem_id_to_color_np = np.array(SEM_ID_TO_COLOR,dtype=np.int32)
+    color_map = sem_id_to_color_np[sem_labels]
+    if valid_point_mask is not None:
+        color_map = color_map[valid_point_mask]
 
-    return valid_color_map
+    return color_map
 
 def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
@@ -223,7 +224,7 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         color_map = cm.get_cmap("turbo")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
         color_map = color_map[:, :3]
     else:
-        color_map = apply_semantic_cmap(image_pts, valid_point_mask, colormap)
+        color_map = apply_semantic_cmap(colormap, valid_point_mask)
 
     for pt_idx, pt in enumerate(valid_points):
         # import pdb; pdb.set_trace()

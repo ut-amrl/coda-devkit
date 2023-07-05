@@ -376,33 +376,61 @@ SEM_CLASS_TO_ID = {
 }
 
 SEM_ID_TO_COLOR = [
-    # (B, G, R) - Object Name
-    (0, 0, 0),                   # 0 Unknown
-    (148, 60, 56),               # 1 Concrete
-    (185, 104, 114),              # 2 Grass
-    (64, 90, 138),              # 3 Rocks
-    (63, 159, 213),              # 4 Speedway Bricks
-    (179, 73, 137),             # 5 Red Bricks
-    (144, 146, 214),             # 6 Pebble Pavement
-    (210, 170, 206),              # 7 Light Marble Tiling
-    (117, 17, 17),               # 8 Dark Marble Tiling
-    (108, 26, 103),             # 9 Dirt Paths
-    (56, 60, 148),               # 10 Road Pavement
-    (178, 130, 221),             # 11 Short Vegetation
-    (171, 237, 180),              # 12 Porcelain Tile
-    (217, 59, 206),               # 13 Metal Grates
-    (241, 220, 197),             # 14 Blond Marble Tiling
-    (132, 164, 196),              # 15 Wood Panel
-    (161, 220, 226),              # 16 Patterned Tile
-    (121, 120, 56),              # 17 Carpet
-    (111, 110, 51),             # 18 Crosswalk
-    (212, 195, 210),              # 19 Dome Mat
-    (243, 253, 244),             # 20 Stairs
-    (221, 220, 106),             # 21 Door Mat
-    (60, 226, 93),              # 22 Threshold
-    (108, 17, 17),             # 23 Metal Floor
-    (0, 0, 0)                    # 24 Unlabeled
+    [0, 0, 0],
+    [148, 60, 56],
+    [185, 104, 114],
+    [64, 90, 138],
+    [63, 159, 213],
+    [179, 73, 137],
+    [144, 146, 214],
+    [210, 170, 206],
+    [117, 17, 17],
+    [108, 26, 103],
+    [56, 60, 148],
+    [178, 130, 221],
+    [171, 237, 180],
+    [217, 59, 206],
+    [241, 220, 197],
+    [132, 164, 196],
+    [161, 220, 226],
+    [121, 120, 56],
+    [111, 110, 51],
+    [212, 195, 210],
+    [243, 253, 244],
+    [221, 220, 106],
+    [60, 226, 93],
+    [108, 17, 17],
+    [0, 0, 0]
 ]
+
+# [
+#     # (B, G, R) - Object Name
+#     (0, 0, 0),                   # 0 Unknown
+#     (148, 60, 56),               # 1 Concrete
+#     (185, 104, 114),              # 2 Grass
+#     (64, 90, 138),              # 3 Rocks
+#     (63, 159, 213),              # 4 Speedway Bricks
+#     (179, 73, 137),             # 5 Red Bricks
+#     (144, 146, 214),             # 6 Pebble Pavement
+#     (210, 170, 206),              # 7 Light Marble Tiling
+#     (117, 17, 17),               # 8 Dark Marble Tiling
+#     (108, 26, 103),             # 9 Dirt Paths
+#     (56, 60, 148),               # 10 Road Pavement
+#     (178, 130, 221),             # 11 Short Vegetation
+#     (171, 237, 180),              # 12 Porcelain Tile
+#     (217, 59, 206),               # 13 Metal Grates
+#     (241, 220, 197),             # 14 Blond Marble Tiling
+#     (132, 164, 196),              # 15 Wood Panel
+#     (161, 220, 226),              # 16 Patterned Tile
+#     (121, 120, 56),              # 17 Carpet
+#     (111, 110, 51),             # 18 Crosswalk
+#     (212, 195, 210),              # 19 Dome Mat
+#     (243, 253, 244),             # 20 Stairs
+#     (221, 220, 106),             # 21 Door Mat
+#     (60, 226, 93),              # 22 Threshold
+#     (108, 17, 17),             # 23 Metal Floor
+#     (0, 0, 0)                    # 24 Unlabeled
+# ]
 
 """
 Manifest file generation sensor to subdirectory mappings
