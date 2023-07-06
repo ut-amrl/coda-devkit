@@ -387,60 +387,60 @@ SEM_CLASS_TO_ID = {
 }
 
 SEM_ID_TO_COLOR = [
-    [0, 0, 0],
-    [148, 60, 56],
-    [185, 104, 114],
-    [64, 90, 138],
-    [63, 159, 213],
-    [179, 73, 137],
-    [144, 146, 214],
-    [210, 170, 206],
-    [117, 17, 17],
-    [108, 26, 103],
-    [56, 60, 148],
-    [178, 130, 221],
-    [171, 237, 180],
-    [217, 59, 206],
-    [241, 220, 197],
-    [132, 164, 196],
-    [161, 220, 226],
-    [121, 120, 56],
-    [111, 110, 51],
-    [212, 195, 210],
-    [243, 253, 244],
-    [221, 220, 106],
-    [60, 226, 93],
-    [108, 17, 17],
-    [0, 0, 0]
+    [0, 0, 0],              # 0 Unknown
+    [47, 171, 97],          # 1 Concrete
+    [200, 77, 159],        # 2 Grass
+    [126, 49, 141],          # 3 Rocks
+    [55, 128, 235],         # 4 Speedway Bricks
+    [8, 149, 174],         # 5 Red Bricks
+    [141, 3, 98],        # 6 Pebble Pavement
+    [203, 110, 74],        # 7 Light Marble Tiling
+    [49, 240, 115],          # 8 Dark Marble Tiling
+    [78, 57, 127],         # 9 Dirt Paths
+    [60, 143, 142],          # 10 Road Pavement
+    [187, 187, 17],        # 11 Short Vegetation
+    [137, 247, 165],        # 12 Porcelain Tile
+    [89, 183, 27],         # 13 Metal Grates
+    [134, 29, 80],        # 14 Blond Marble Tiling
+    [150, 81, 244],        # 15 Wood Panel
+    [163, 77, 159],        # 16 Patterned Tile
+    [60, 100, 116],         # 17 Carpet
+    [156, 207, 153],         # 18 Crosswalk
+    [135, 138, 159],        # 19 Dome Mat
+    [44, 217, 131],        # 20 Stairs
+    [123, 97, 131],        # 21 Door Mat
+    [115, 226, 101],          # 22 Threshold
+    [156, 43, 40],          # 23 Metal Floor
+    [0, 0, 0]               # 24 Unlabeled
 ]
 
 # [
 #     # (B, G, R) - Object Name
-#     (0, 0, 0),                   # 0 Unknown
-#     (148, 60, 56),               # 1 Concrete
+#     (0, 0, 0),                    # 0 Unknown
+#     (148, 60, 56),                # 1 Concrete
 #     (185, 104, 114),              # 2 Grass
-#     (64, 90, 138),              # 3 Rocks
-#     (63, 159, 213),              # 4 Speedway Bricks
-#     (179, 73, 137),             # 5 Red Bricks
-#     (144, 146, 214),             # 6 Pebble Pavement
+#     (64, 90, 138),                # 3 Rocks
+#     (63, 159, 213),               # 4 Speedway Bricks
+#     (179, 73, 137),               # 5 Red Bricks
+#     (144, 146, 214),              # 6 Pebble Pavement
 #     (210, 170, 206),              # 7 Light Marble Tiling
-#     (117, 17, 17),               # 8 Dark Marble Tiling
-#     (108, 26, 103),             # 9 Dirt Paths
-#     (56, 60, 148),               # 10 Road Pavement
-#     (178, 130, 221),             # 11 Short Vegetation
+#     (117, 17, 17),                # 8 Dark Marble Tiling
+#     (108, 26, 103),               # 9 Dirt Paths
+#     (56, 60, 148),                # 10 Road Pavement
+#     (178, 130, 221),              # 11 Short Vegetation
 #     (171, 237, 180),              # 12 Porcelain Tile
 #     (217, 59, 206),               # 13 Metal Grates
-#     (241, 220, 197),             # 14 Blond Marble Tiling
+#     (241, 220, 197),              # 14 Blond Marble Tiling
 #     (132, 164, 196),              # 15 Wood Panel
 #     (161, 220, 226),              # 16 Patterned Tile
-#     (121, 120, 56),              # 17 Carpet
-#     (111, 110, 51),             # 18 Crosswalk
+#     (121, 120, 56),               # 17 Carpet
+#     (111, 110, 51),               # 18 Crosswalk
 #     (212, 195, 210),              # 19 Dome Mat
-#     (243, 253, 244),             # 20 Stairs
-#     (221, 220, 106),             # 21 Door Mat
-#     (60, 226, 93),              # 22 Threshold
-#     (108, 17, 17),             # 23 Metal Floor
-#     (0, 0, 0)                    # 24 Unlabeled
+#     (243, 253, 244),              # 20 Stairs
+#     (221, 220, 106),              # 21 Door Mat
+#     (60, 226, 93),                # 22 Threshold
+#     (108, 17, 17),                # 23 Metal Floor
+#     (0, 0, 0)                     # 24 Unlabeled
 # ]
 
 """
