@@ -26,9 +26,6 @@ def absoluteFilePaths(directory):
         for f in filenames:
             yield os.path.abspath(os.path.join(dirpath, f))
 
-
-
-
 #Update the dictionary of labels every time a label is found.
 def count_labels(labels_list, labels_dictionary, annotated_data):
     classes, counts = np.unique(annotated_data, return_counts=True)
@@ -71,10 +68,12 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
 
     #Sort dictionary in descending order
     sorted_labels_descending = sorted(labels_dictionary.items(), key=lambda x:x[1], reverse=True)
-
+    sorted_labels_counts_descending = sorted(labels_counts_dictionary.items(), key=lambda x:x[1], reverse=True)
     #Clean and get labels and counts 
     labels_dictionary = dict(sorted_labels_descending)
+    labels_counts_dictionary = dict(sorted_labels_counts_descending)
     del labels_dictionary["Unlabeled"]
+    del labels_counts_dictionary["Unlabeled"]
     keys = list(labels_dictionary.keys())
     values = [labels_dictionary[k] for k in keys]
 
@@ -86,40 +85,49 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
     colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
     sns.set_style("darkgrid")
     # sns.set_palette(SEM_ID_TO_COLOR)
-    sns.set(font_scale=2)
+    sns.set(font_scale=4)
 
     #Create dataframe with each label names, group, and counts.
     df = pd.DataFrame({'Labels': keys,
         'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Hybrid Floor'],
-        'Proportion': values})
+        'Proportion': values,
+        'Counts': labels_counts_dictionary.values()})
     df = df.sort_values(by=['Type','Proportion'], ascending=False)
 
-    # for pidx, prop in enumerate(df['Proportion']):
-    #     import pdb; pdb.set_trace()
-
-    #     print(prop)
     #Plot and set fields.
     print("Plotting")
     cats = ['Outdoor Floor', 'Indoor Floor', 'Hybrid Floor']
 
-    ax = sns.barplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, width=1)
+    # Set the figure size
+    # ax = sns.barplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, width=1)
+    ax = sns.barplot(x='Labels', y='Proportion', data=df, palette=colors, width=1)
 
-    ax.legend(loc='upper right', fontsize=18)
+    # # Create legend handles
+    import matplotlib.patches as mpatches
+    legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(colors, df['Labels'])]
+
+    # Remove x-ticks
+    plt.xticks([])
+    # plt.legend(labels=df['Labels'])
+    plt.legend(handles=legend_handles, title='Semantic Class', ncol=2, fontsize=32)
+    # ax.legend(loc='upper right', fontsize=36, ncol=2)
     ax.set(xlabel=None)
     ax.set(ylabel="Proportion %")
 
-    for i in ax.patches:
+    for idx, i in enumerate(ax.patches):
         p = i.get_height()
         p_text = f'{p:.3f}'
         x = i.get_x() + i.get_width()/2
         y = i.get_y() + p + 0.001
-        plt.text(x, y, p_text, ha='center', va='bottom', size=20, rotation=90)
+
+        plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=30, rotation=90)
 
     # plt.title('UT CODA Terrain Segmentation Class Breakdown')
 
     print(labels_dictionary)
-
+    sns.despine()
     #Save locally
+    import pdb; pdb.set_trace()
     plt.savefig("GEN_semlabelhist.png", format='png', dpi=300)
 
 def main():
