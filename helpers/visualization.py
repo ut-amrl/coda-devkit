@@ -249,7 +249,6 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
     Projects 3D Bbox to 2d image
     """
     bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
-    
     for obj_idx in range(0, bbox_pts.shape[0]):
         # in_bounds = np.logical_and(
         #     np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
@@ -264,8 +263,8 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
         valid_points = bbox_pts[obj_idx, valid_point_mask, :]
 
         bbox_idx = bbox_idxs[obj_idx][0]
-        if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
-            continue
+        # if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
+        #     continue
 
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
@@ -287,7 +286,7 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
         # valid_points = bbox_pts[obj_idx, valid_point_mask, :]
         # if valid_points.shape[0]==0:
         #     continue
-        
+
         valid_points = bbox_pts[obj_idx, bbox_mask[obj_idx], :]
         if valid_points.shape[0]==0:
             continue
