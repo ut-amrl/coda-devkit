@@ -297,7 +297,8 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
         bbox_idx = bbox_idxs[obj_idx][0]
         max_xy = np.max(valid_points, axis=0)
         min_xy = np.min(valid_points, axis=0)
-        bbox_coords[bbox_idx] = np.concatenate((min_xy, max_xy), axis=0)
+        # using obj_idx instead of bbox_idx because not gauranteed to be continuous
+        bbox_coords[obj_idx] = np.concatenate((min_xy, max_xy), axis=0)
 
     return bbox_coords
 

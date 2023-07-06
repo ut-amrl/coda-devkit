@@ -56,9 +56,12 @@ def draw_open3d_pc(vis, bin_path, sem_path=None):
 def main():
 
     # Read annotation file
-    bbox_path = "/media/arthur/ExtremePro/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
-    sem_path = "/media/arthur/ExtremePro/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
-    bin_path  = "/media/arthur/ExtremePro/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
+    # bbox_path = "/media/arthur/ExtremePro/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
+    # sem_path = "/media/arthur/ExtremePro/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
+    # bin_path  = "/media/arthur/ExtremePro/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
+    bbox_path = "/robodata/arthurz/Datasets/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
+    sem_path = "/robodata/arthurz/Datasets/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
+    bin_path  = "/robodata/arthurz/Datasets/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()

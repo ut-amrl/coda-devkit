@@ -58,6 +58,7 @@ def gen_metadata_file(indir, outdir, bbox_traj_list=[], sem_traj_list=[]):
             pc_subdir= os.path.join(TRED_BBOX_LABEL_DIR, "os1")
             task = SENSOR_DIRECTORY_TO_TASK[pc_subdir]
             tasks[task] = TRED_BBOX_LABEL_DIR
+
         if traj in sem_traj_list:
             pc_subdir= os.path.join(SEMANTIC_LABEL_DIR, "os1")
             task = SENSOR_DIRECTORY_TO_TASK[pc_subdir]

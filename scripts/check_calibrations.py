@@ -180,11 +180,13 @@ def main(args):
             for trajectory in np.arange(23):
                 # Read all 3d bbox files from coda metadata
                 metadata_path = join(indir, METADATA_DIR, "%i.json"%trajectory)
+
                 if not os.path.exists(metadata_path):
                     print("Trajectory %i does not contain metadata file %s" % (trajectory, metadata_path))
                     continue
                 anno_subpaths = read_metadata_anno(metadata_path, modality=modality)
                 num_annos = len(anno_subpaths)
+
                 if num_annos==0:
                     continue
                 
@@ -204,20 +206,18 @@ def main(args):
                     if not os.path.exists(output_img_dir):
                         print("Output image dir for %s does not exist, creating..."%output_img_dir)
                         os.makedirs(output_img_dir)
-
-                    #Uncomment below for testing
-                    # if not (trajectory==21 and int(frame) == 13429):
-                    #     continue
+                    # #Uncomment below for testing
+                    if not (trajectory==0 and int(frame) == 4965):
+                        continue
                     frame_list.append(frame)
 
                     #Uncomment below for testing
-                    # generate_single_anno_file((indir, ".", modality, sensor_name, trajectory, frame, [cam_id]))
-                    # import pdb; pdb.set_trace()
+                    generate_single_anno_file((indir, ".", modality, sensor_name, trajectory, frame, [cam_id]))
 
-                pool = Pool(processes=checker_cfg['num_workers'])
-                for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
-                    zip(indir_list, outdir_list, modality_list, sensor_list, traj_list, frame_list, cam_list)), total=num_annos):
-                    pass
+                # pool = Pool(processes=checker_cfg['num_workers'])
+                # for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
+                #     zip(indir_list, outdir_list, modality_list, sensor_list, traj_list, frame_list, cam_list)), total=num_annos):
+                #     pass
     
     # indir   = "/robodata/arthurz/Datasets/CODa"
     # trajectory = int(args.traj)

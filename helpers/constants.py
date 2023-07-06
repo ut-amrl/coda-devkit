@@ -145,7 +145,10 @@ BBOX_CLASS_VIZ_LIST = [
     "Door Switch"           ,
     "Emergency Phone"       ,
     "Dumpster"              ,
-    "Vacuum Cleaner"        
+    "Vacuum Cleaner"        ,
+    "Segway"                ,
+    "Bus"                   ,
+    "Skateboard"
 ]
 
 BBOX_CLASS_REMAP = {
@@ -156,6 +159,9 @@ BBOX_CLASS_REMAP = {
     "Golf Cart":            "Vehicle",
     "Truck":                "Vehicle",
     "Pedestrian":            "Pedestrian",
+    "Segway":               "WheeledBoard",
+    "Bus":                  "Vehicle",
+    "Skateboard":           "WheeledBoard",
     # Static Classes     
     "Tree":                 "Tree",
     "Traffic Sign":         "Sign",
@@ -266,9 +272,10 @@ BBOX_CLASS_TO_ID = {
     "Emergency Phone"       : 52,
     "Dumpster"              : 53,
     "Vacuum Cleaner"        : 54,
-    # "Segway":               : 55
-    # "Bus":                  : 56,
-    # "Skateboard"            : 57,
+    "Segway"                : 55,
+    "Bus"                   : 56,
+    "Skateboard"            : 57,
+    "Water Fountain"       : 58
 }
 
 OCCLUSION_TO_ID ={
@@ -339,7 +346,11 @@ BBOX_ID_TO_COLOR = [
     (0, 153, 76),      #51 Door Switch (Dark Green)
     (32, 32, 32),      #52 Emergency Phone (Light Black)
     (255, 255, 255),   #53 Dumpster (White)
-    (200, 200, 200)    #54 Vacuum Cleaner (Dark Gray)
+    (200, 200, 200),   #54 Vacuum Cleaner (Dark Gray)
+    (223, 32, 32),     #55 Segway
+    (255, 200, 255),   #56 Bus
+    (200, 200, 105),    #57 Scooter,
+    (100, 200, 90)      #58 WAter Fountain 
     #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
 ]
 
