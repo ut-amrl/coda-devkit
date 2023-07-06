@@ -25,4 +25,8 @@ Then activate the environment as follows. Further library usage instructions are
 
 After installing this package, you can refer to the [GETTING STARTED](./docs/GETTING_STARTED.md) for more information on using the tools that are provided.
 
+To run either class_percentage_bar_plot or class_percentage_bar_plot_sorted, make sure to execute the following command:
+      export DISPLAY=:0.0. 
+This is necessary to create the graphs.
+
 
