@@ -34,6 +34,83 @@ class_weather_count = {"Pedestrian": [0,0,0,0], "Horse": [0,0,0,0], "Car": [0,0,
 
 outdir="/robodata/arthurz/Research/coda"
 
+def sum_labels(list_files):
+    for filename in list_files:
+        #strip the name from the full path passed in
+        # print(filename)
+        traj_num = filename.split("/")[2]
+        filename = filename.split("/")[3]
+        frame_num = (filename.split("_")[4]).split(".")[0]
+        # print(frame_num)
+        
+        os.chdir("/robodata/arthurz/Datasets/CODa/3d_bbox/os1/%s/" % traj_num)
+        labels = labeling.labeling(filename, traj_num, frame_num, class_weather_count)
+        all_labels.update(labels)
+        labels = labels[filename]
+        # if(labels['weatherCondition'] == 'sunny'):
+        #     weather_total[0] += 1
+        #     list_weather_vec.append([1, 0, 0, 0])
+        # elif (labels['weatherCondition'] == 'cloudy'):
+        #     weather_total[1] += 1
+        #     list_weather_vec.append([0, 1, 0, 0])
+        # elif (labels['weatherCondition'] == 'rainy'):
+        #     weather_total[2] += 1
+        #     list_weather_vec.append([0, 0, 1, 0])
+        # else:
+        #     weather_total[3] += 1
+        #     list_weather_vec.append([0, 0, 0, 1])
+        
+        #list_distance_vec : [[0,0,0],[1,1,1],[2,2,2]]
+
+        distance_total[0] += len(labels["distance5m"])
+        distance_total[1] += len(labels["distance15m"])
+        distance_total[2] += len(labels["distance30m"])
+
+        per_frame_dist = [len(labels["distance5m"]), len(labels["distance15m"]), len(labels["distance30m"])]
+        list_distance_vec.append(per_frame_dist)
+
+        per_frame_theta = [0, 0, 0, 0]
+        for obj in labels["theta"].keys():
+            if (labels["theta"][obj] >= 0 and labels["theta"][obj] <= 90):
+                theta_total[0] += 1
+                per_frame_theta[0] += 1
+            elif (labels["theta"][obj] <= 180 and labels["theta"][obj] > 90):
+                theta_total[1] += 1
+                per_frame_theta[1] += 1
+            elif (labels["theta"][obj] <= -90 and labels["theta"][obj] >= -180):
+                theta_total[2] += 1
+                per_frame_theta[2] += 1
+            else:
+                theta_total[3] += 1
+                per_frame_theta[3] += 1
+        list_theta_vec.append(per_frame_theta)
+
+        per_frame_obj = [0, 0, 0, 0, 0, 0, 0]
+        for obj in labels["objCount"]:
+            if(obj == "Tree"):
+                class_total[0] += labels["objCount"][obj]
+                per_frame_obj[0] += labels["objCount"][obj]
+            elif (obj == "Pole"):
+                class_total[1] += labels["objCount"][obj]
+                per_frame_obj[1] += labels["objCount"][obj]
+            elif (obj == "Person"):
+                class_total[2] += labels["objCount"][obj]
+                per_frame_obj[2] += labels["objCount"][obj]
+            elif (obj == "Car"):
+                class_total[3] += labels["objCount"][obj]
+                per_frame_obj[3] += labels["objCount"][obj]
+            elif (obj == "Bike"):
+                class_total[4] += labels["objCount"][obj]
+                per_frame_obj[4] += labels["objCount"][obj]
+            elif (obj == "Chair"):
+                class_total[5] += labels["objCount"][obj]
+                per_frame_obj[5] += labels["objCount"][obj]
+            elif (obj == "Table"):
+                class_total[6] += labels["objCount"][obj]
+                per_frame_obj[6] += labels["objCount"][obj]
+        list_class_vec.append(per_frame_obj)
+    return
+
 def main():
     #when reading from metadata file, split filename (find trajectory# and chdir)
     #reading in user input (json)
