@@ -82,26 +82,23 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
 
     sns.set(rc={'figure.figsize':(25,25)})
 
-    colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
+    # colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
+    colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(SEM_ID_TO_COLOR) if i!=0]
     sns.set_style("darkgrid")
-    # sns.set_palette(SEM_ID_TO_COLOR)
-    sns.set(font_scale=4)
+    sns.set_palette(colors)
 
     #Create dataframe with each label names, group, and counts.
     df = pd.DataFrame({'Labels': keys,
-<<<<<<< HEAD
         'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Hybrid Floor'],
         'Proportion': values,
         'Counts': labels_counts_dictionary.values()})
-=======
-    'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Indoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor'],
-    'Proportion': values})
->>>>>>> 404cf5941b57f57948da84fbfc019c53596c886c
     df = df.sort_values(by=['Type','Proportion'], ascending=False)
 
     #Plot and set fields.
     print("Plotting")
     cats = ['Outdoor Floor', 'Indoor Floor', 'Hybrid Floor']
+    # sns.set_theme(style='white')
+    sns.set(style='white', font_scale=4)
 
     # Set the figure size
     # ax = sns.barplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, width=1)
@@ -117,7 +114,7 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
     plt.legend(handles=legend_handles, title='Semantic Class', ncol=2, fontsize=32)
     # ax.legend(loc='upper right', fontsize=36, ncol=2)
     ax.set(xlabel=None)
-    ax.set(ylabel="Proportion %")
+    ax.set(ylabel="% Total Annotations")
 
     for idx, i in enumerate(ax.patches):
         p = i.get_height()
@@ -132,7 +129,6 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
     print(labels_dictionary)
     sns.despine()
     #Save locally
-    import pdb; pdb.set_trace()
     plt.savefig("GEN_semlabelhist.png", format='png', dpi=300)
 
 def main():

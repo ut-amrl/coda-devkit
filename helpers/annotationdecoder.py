@@ -143,6 +143,11 @@ class AnnotationDecoder(object):
                 annotation_files_multi.extend(annotation_files)
                 traj_dir_multi.extend(traj_dir_packed)
 
+                # if traj_subdir != '9' and "6757" not in annotation_files:
+                #     continue
+
+                # self.deepen_decode_single_sem_file((traj_dir_packed[0], annotation_files[0]))
+
             pool = Pool(processes=num_workers)
             for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_sem_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
                 pass
@@ -274,9 +279,20 @@ class AnnotationDecoder(object):
         assert set(meta_file['paint_categories']).issubset(set(SEM_CLASS_TO_ID.keys())), \
             "metadata classes inconsistent with constants"
 
+        deepen_paint_classes = np.array(meta_file['paint_categories'])
+        deepen_to_coda_map = {paint_idx+1: SEM_CLASS_TO_ID[paint_class] for paint_idx, paint_class in enumerate(deepen_paint_classes) }
+        deepen_to_coda_map[0] = 0 # 0th index is always unlabeled
+        deepen_to_coda_map = sorted(deepen_to_coda_map.items(), key=lambda item: item[0])
+
+        deepen_to_coda_map = {key: value for key, value in deepen_to_coda_map }
+
         sem_file = open(sem_path, "rb").read()
         pc_size = np.prod(OS1_POINTCLOUD_SHAPE[:2])
         sem_np = np.frombuffer(sem_file, dtype=np.uint8).reshape(-1, pc_size)
+
+        # remap deepen semantic indices to ours
+        deepen_to_coda_map = np.array(list(deepen_to_coda_map.values()))
+        sem_np = deepen_to_coda_map[sem_np]
 
         outdir = join(self._outdir, SEMANTIC_LABEL_DIR, "os1", traj)
         num_frames = sem_np.shape[0]

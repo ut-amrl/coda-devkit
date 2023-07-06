@@ -369,7 +369,7 @@ SEM_CLASS_TO_ID = {
     "Light Marble Tiling":  7,
     "Dark Marble Tiling":   8,
     "Dirt Paths":           9,
-    "Road Pavement":        19,
+    "Road Pavement":        10,
     "Short Vegetation":     11,
     "Porcelain Tile":       12,
     "Metal Grates":         13,
