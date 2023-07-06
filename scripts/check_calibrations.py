@@ -207,17 +207,17 @@ def main(args):
                         print("Output image dir for %s does not exist, creating..."%output_img_dir)
                         os.makedirs(output_img_dir)
                     # #Uncomment below for testing
-                    if not (trajectory==0 and int(frame) == 4965):
-                        continue
+                    # if not (trajectory==0 and int(frame) == 4965):
+                    #     continue
                     frame_list.append(frame)
 
                     #Uncomment below for testing
-                    generate_single_anno_file((indir, ".", modality, sensor_name, trajectory, frame, [cam_id]))
+                    # generate_single_anno_file((indir, ".", modality, sensor_name, trajectory, frame, [cam_id]))
 
-                # pool = Pool(processes=checker_cfg['num_workers'])
-                # for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
-                #     zip(indir_list, outdir_list, modality_list, sensor_list, traj_list, frame_list, cam_list)), total=num_annos):
-                #     pass
+                pool = Pool(processes=checker_cfg['num_workers'])
+                for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
+                    zip(indir_list, outdir_list, modality_list, sensor_list, traj_list, frame_list, cam_list)), total=num_annos):
+                    pass
     
     # indir   = "/robodata/arthurz/Datasets/CODa"
     # trajectory = int(args.traj)
