@@ -59,9 +59,12 @@ def main():
     # bbox_path = "/media/arthur/ExtremePro/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
     # sem_path = "/media/arthur/ExtremePro/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
     # bin_path  = "/media/arthur/ExtremePro/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
-    bbox_path = "/robodata/arthurz/Datasets/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
-    sem_path = "/robodata/arthurz/Datasets/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
-    bin_path  = "/robodata/arthurz/Datasets/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
+    indir="/home/arthur/Downloads/CODa"
+    traj=2
+    frame=6880
+    bbox_path = "%s/3d_bbox_os1_%i_%i.json"%(indir, traj, frame)
+    sem_path = "%s/3d_semantic_os1_%i_%i.bin"%(indir, traj, frame)
+    bin_path  = "%s/3d_raw_os1_%i_%i.bin" % (indir, traj, frame)
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
