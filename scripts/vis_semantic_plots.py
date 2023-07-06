@@ -89,9 +89,14 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
 
     #Create dataframe with each label names, group, and counts.
     df = pd.DataFrame({'Labels': keys,
+<<<<<<< HEAD
         'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Hybrid Floor'],
         'Proportion': values,
         'Counts': labels_counts_dictionary.values()})
+=======
+    'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Indoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor'],
+    'Proportion': values})
+>>>>>>> 404cf5941b57f57948da84fbfc019c53596c886c
     df = df.sort_values(by=['Type','Proportion'], ascending=False)
 
     #Plot and set fields.
