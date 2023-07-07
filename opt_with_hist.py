@@ -36,7 +36,7 @@ user_num_frames = 10
 #[sunny, rainy, cloudy, dark]
 class_weather_count = {"Pedestrian": [0,0,0,0], "Horse": [0,0,0,0], "Car": [0,0,0,0], "Pickup Truck": [0,0,0,0], "Delivery Truck": [0,0,0,0], "Service Vehicle": [0,0,0,0], "Utility Vehicle": [0,0,0,0], "Bike": [0,0,0,0], "Scooter": [0,0,0,0], "Motorcycle": [0,0,0,0], "Fire Hydrant": [0,0,0,0], "Fire Alarm": [0,0,0,0], "Parking Kiosk": [0,0,0,0], "Mailbox": [0,0,0,0], "Newspaper Dispenser": [0,0,0,0], "Sanitizer Dispenser": [0,0,0,0], "Condiment Dispenser": [0,0,0,0], "ATM": [0,0,0,0], "Vending Machine": [0,0,0,0], "Door Switch": [0,0,0,0], "Emergency Aid Kit": [0,0,0,0], "Fire Extinguisher": [0,0,0,0], "Emergency Phone": [0,0,0,0], "Computer": [0,0,0,0], "Television": [0,0,0,0], "Dumpster": [0,0,0,0], "Trash Can": [0,0,0,0], "Vacuum Cleaner": [0,0,0,0], "Cart": [0,0,0,0], "Chair": [0,0,0,0], "Couch": [0,0,0,0], "Bench": [0,0,0,0], "Table": [0,0,0,0], "Bollard": [0,0,0,0], "Construction Barrier": [0,0,0,0], "Fence": [0,0,0,0], "Railing": [0,0,0,0], "Cone": [0,0,0,0], "Stanchion": [0,0,0,0], "Traffic Light": [0,0,0,0], "Traffic Sign": [0,0,0,0], "Traffic Arm": [0,0,0,0], "Canopy": [0,0,0,0], "Bike Rack": [0,0,0,0], "Pole": [0,0,0,0], "Informational Sign": [0,0,0,0], "Wall Sign": [0,0,0,0], "Door": [0,0,0,0], "Floor Sign": [0,0,0,0], "Room Label": [0,0,0,0], "Freestanding Plant": [0,0,0,0], "Tree": [0,0,0,0], "Other": [0,0,0,0]}
 
-outdir = "/robodata/arthurz/Research/coda"
+outdir = "/robodata/arthurz/Research/coda_package/src/coda-devkit/plots"
 def main():
     #when reading from metadata file, split filename (find trajectory# and chdir)
     #reading in user input (json)
@@ -60,7 +60,7 @@ def main():
     print(list_metadata_files)
     for metadata_file in list_metadata_files:
         # if (metadata_file != "6.json"):
-        if metadata_file=="13.json":
+        if metadata_file!="13.json":
             print(metadata_file)
             counter += 1
             # print(metadata_file)
@@ -108,13 +108,41 @@ def main():
     print("-----------------")
     # print(class_weather_count)
     object_type="dynamic"
-    kdeplot_set(training_files, split="training", object_type=object_type)
-    kdeplot_set(validation_files, split="validation", object_type=object_type)
-    kdeplot_set(testing_files, split="testing", object_type=object_type)
-    # validation_set(validation_files)
-    # testing_set(testing_files)
-    # class_and_weather()
-    # combine_images()
+    file_list = [training_files, validation_files, testing_files]
+    object_type_list = ["static", "dynamic", "combined"]
+    split_type_list = ["training", "validation", "testing"]
+    for object_type in ["static", "dynamic", "combined"]:
+        for i in range(len(split_type_list)):
+            kdeplot_set(file_list[i], split=split_type_list[i], object_type=object_type)
+    combine_kdeplots(object_type_list, split_type_list)
+
+    # Uncomment to generate histograms
+    # num_images = class_and_weather()
+    # combine_images(num_images)
+
+def combine_kdeplots(object_type_list, split_type_list):
+    img_list = []
+
+    combined_img = None
+    for row_idx, object_type in enumerate(object_type_list):
+
+        horizontal_img = None
+        for col_idx, split_type in enumerate(split_type_list):
+            img_np = cv2.imread("%s/%s_%s_all.png"%(outdir, object_type, split_type))
+            img_list.append(img_np)
+
+            if horizontal_img is None:
+                horizontal_img = img_list[row_idx*col_idx+col_idx]
+            else:
+                horizontal_img = np.hstack((horizontal_img, img_list[row_idx*col_idx+col_idx]))
+        
+        if combined_img is None:
+            combined_img = horizontal_img
+        else:
+            combined_img = np.vstack((combined_img, horizontal_img))
+
+    cv2.imwrite("%s/final_kdeplot.png"%outdir, combined_img)
+    
 
 def class_and_weather():
     class_weather_count = {'Pedestrian': [21908, 14521, 14511, 9862], 'Chair': [8563, 0, 25076, 559], 'Table': [2356, 0, 8503, 148], 'Railing': [6103, 447, 8035, 3094], 'Pole': [9089, 2675, 13489, 6552], 'Tree': [7966, 2942, 9947, 3889], 'Horse': [0, 0, 470, 0], 'Car': [1542, 91, 2550, 390], 'Pickup Truck': [0, 0, 156, 0], 'Delivery Truck': [459, 0, 138, 0], 'Service Vehicle': [0, 0, 1549, 0], 'Utility Vehicle': [0, 112, 1019, 33], 'Bike': [5020, 2151, 2720, 555], 'Scooter': [838, 576, 555, 0], 'Motorcycle': [90, 0, 0, 0], 'Fire Hydrant': [0, 199, 192, 377], 'Fire Alarm': [93, 0, 186, 0], 'Parking Kiosk': [0, 0, 0, 200], 'Mailbox': [0, 0, 0, 0], 'Newspaper Dispenser': [0, 479, 0, 0], 'Sanitizer Dispenser': [162, 0, 276, 0], 'Condiment Dispenser': [0, 0, 0, 0], 'ATM': [61, 0, 0, 0], 'Vending Machine': [0, 0, 0, 0], 'Door Switch': [0, 0, 371, 0], 'Emergency Aid Kit': [0, 0, 146, 0], 'Fire Extinguisher': [0, 0, 345, 0], 'Emergency Phone': [220, 0, 426, 231], 'Computer': [275, 0, 0, 0], 'Television': [0, 0, 0, 0], 'Dumpster': [255, 0, 0, 0], 'Trash Can': [1495, 320, 2430, 3062], 'Vacuum Cleaner': [0, 0, 0, 0], 'Cart': [0, 0, 39, 0], 'Couch': [816, 0, 324, 0], 'Bench': [378, 148, 457, 1339], 'Bollard': [521, 600, 551, 374], 'Construction Barrier': [0, 0, 0, 0], 'Fence': [150, 0, 199, 0], 'Cone': [200, 0, 0, 0], 'Stanchion': [0, 0, 0, 0], 'Traffic Light': [20, 0, 101, 0], 'Traffic Sign': [1584, 0, 2463, 1668], 'Traffic Arm': [180, 0, 207, 0], 'Canopy': [0, 0, 1788, 0], 'Bike Rack': [1895, 563, 1625, 644], 'Informational Sign': [271, 237, 0, 394], 'Wall Sign': [0, 0, 219, 0], 'Door': [0, 0, 2921, 0], 'Floor Sign': [278, 0, 1569, 400], 'Room Label': [0, 0, 313, 0], 'Freestanding Plant': [674, 0, 2256, 0], 'Other': [672, 626, 1225, 666]}
@@ -149,56 +177,112 @@ def class_and_weather():
 
     # fig, axs = plt.subplots(3, 1)
 
+    # Presort objects by frequency
+    combined_list = np.array(sunny_list) + np.array(rainy_list) + np.array(cloudy_list) + np.array(dark_list)
+    combined_list_sorted_indices = np.argsort(-combined_list)
+
+    sunny_list = np.array(sunny_list)[combined_list_sorted_indices].tolist()
+    rainy_list = np.array(rainy_list)[combined_list_sorted_indices].tolist()
+    cloudy_list = np.array(cloudy_list)[combined_list_sorted_indices].tolist()
+    dark_list = np.array(dark_list)[combined_list_sorted_indices].tolist()
+    obj_name = np.array(obj_name)[combined_list_sorted_indices].tolist()
+
+    total_num_classes = len(obj_name)
+    num_images = 2
+    num_objects_per_plot = total_num_classes // num_images
     first = 0
-    last = 7
+    last = num_objects_per_plot
     counter = 1
-    for num in range(8):
+    for num in range(2):
         fig = plt.figure()
         # for x_index in range(3):
             # if (last < 54):
-        multiline_obj_name = [obj.replace(" ", "\n") for obj in obj_name[first:last] ]
-        df = pd.DataFrame({'object_name': multiline_obj_name, 'sunny': sunny_list[first:last], 'rainy': rainy_list[first:last], 'cloudy' : cloudy_list[first:last], 'dark' : dark_list[first:last]})
-        plot = df.plot(x="object_name", y=['sunny', 'rainy', 'cloudy', 'dark'], kind="bar")
-        plt.xticks([i for i in range(1, len(multiline_obj_name))], multiline_obj_name, ha='center')
-        plot.set_xlabel('')
-        first += 7
-        if (last + 7) > 53:
+        labels = np.array([['sunny', 'rainy'],['cloudy', 'dark']])
+        labels = np.repeat(labels, (last-first))
+
+        obj_name_two_line = [name.replace(' ', '\n', 1) for name in obj_name[first:last]]
+        full_obj_list = np.tile(obj_name_two_line, 4)
+
+        df = pd.DataFrame({
+            'Type': full_obj_list,
+            'Proportion': sunny_list[first:last]+rainy_list[first:last]+cloudy_list[first:last]+dark_list[first:last],
+            'Labels': labels.tolist()
+        })
+        
+        # df = pd.DataFrame({
+        #     'Labels': ['sunny', 'rainy', 'cloudy', 'dark']
+        #     'object_name': obj_name[first:last], 
+        #     'sunny': sunny_list[first:last], 
+        #     'rainy': rainy_list[first:last], 
+        #     'cloudy' : cloudy_list[first:last], 
+        #     'dark' : dark_list[first:last]})
+        # plot = df.plot(x="object_name", y=['sunny', 'rainy', 'cloudy', 'dark'], kind="bar")
+        
+        sns.set(style='white', font_scale=2.5)
+        print(num==1)
+        ax = sns.catplot(x='Type', y='Proportion', hue='Labels', data=df, 
+            kind='bar',
+            height=10,
+            aspect=3.5,
+            width=0.75,
+            legend_out=False,
+            legend=num==1
+        )
+        ax.set(yscale="log")
+        ax.set(xlabel=None)
+        ax.set(ylabel="Counts")
+        plt.legend(loc='upper right')
+        ax.set_xticklabels(rotation=90)
+
+        name = "combined" + str(counter)
+        plt.subplots_adjust(bottom=0.3)
+        plt.savefig("%s/%s.png"%(outdir, name), format='png', dpi=300)
+        first = last
+        if (last + num_objects_per_plot) > 53:
             last = 53
         else:
-            last += 7
+            last += num_objects_per_plot
 
-        # axs[0].bar(obj_name[0:10], sunny_list[0:10], label="sunny")
-        # axs[0].bar(obj_name[0:10], rainy_list[0:10], label="rainy")
-        # axs[0].bar(obj_name[0:10], cloudy_list[0:10], label="cloudy")
-        # axs[0].bar(obj_name[0:10], dark_list[0:10], label="dark")
-        # axs[0].set_title('Chart 1')
-        # axs[0].legend()
+        # # axs[0].bar(obj_name[0:10], sunny_list[0:10], label="sunny")
+        # # axs[0].bar(obj_name[0:10], rainy_list[0:10], label="rainy")
+        # # axs[0].bar(obj_name[0:10], cloudy_list[0:10], label="cloudy")
+        # # axs[0].bar(obj_name[0:10], dark_list[0:10], label="dark")
+        # # axs[0].set_title('Chart 1')
+        # # axs[0].legend()
+        
 
-        # fig.set_figheight(5)
-        # print(obj_name[:9])
-        fig = plot.get_figure()
-        name = "combined" + str(counter)
-        fig.savefig("%s/%s.png"%(outdir, name), format='png', bbox_inches='tight')
+        # # fig.set_figheight(5)
+        # # print(obj_name[:9])
+        # fig = plot.get_figure()
+        # name = "combined" + str(counter)
+        # fig.savefig("%s/%s.png"%(outdir, name), format='png', bbox_inches='tight')
         counter += 1
         #53   53-6 = 47 
         #Pedestrian, Chair, Table, Railing, Pole, Tree 
     
-    return
+    return num_images
 
-def combine_images():
+def combine_images(num_images, num_rows=2):
     # os.chdir("/home/christinaz/paper_barcharts/")
     img_list = []
-    for i in range(1, 9):
-        img_list.append(cv2.imread("%s/combined%i.png"%(outdir, i)))
+    total_width, total_height = 0, 0
+    for i in range(1, num_images+1):
+        img_np = cv2.imread("%s/combined%i.png"%(outdir, i))
+        total_width += img_np.shape[0]
+        total_height += img_np.shape[1]
+
+        img_list.append(img_np)
     # img_list = [img1, img2, img3, img4, img5, img6, img7, img8]
-    new_list = []
-    for img in img_list:
-        img = cv2.resize(img, (1000, 1000))
-        new_list.append(img)
+    # import pdb; pdb.set_trace()
+    # new_list = []
+    # for img in img_list:
+    #     img = cv2.resize(img, (800, 300))
+    #     new_list.append(img)
     
-    img12 = np.hstack((new_list[0], new_list[1], new_list[2], new_list[3]))
-    img34 = np.hstack((new_list[4], new_list[5], new_list[6], new_list[7]))
-    result = np.vstack((img12, img34))
+
+    # img12 = np.hstack((new_list[0], new_list[1], new_list[2], new_list[3]))
+    # img34 = np.hstack((new_list[4], new_list[5], new_list[6], new_list[7]))
+    result = np.vstack((img_list[0], img_list[1]))
     cv2.imwrite("%s/final_image.png"%outdir, result)
     return
 
@@ -209,8 +293,14 @@ def kdeplot_set(training_files, split="training", object_type="dynamic"):
         file = file.split("/")[3]
         file_labels = all_labels[file]
     
-        x_coord.extend(file_labels["%s_x"%object_type])
-        y_coord.extend(file_labels["%s_y"%object_type])
+        if object_type=="combined":
+            object_type_list = ["static", "dynamic"]
+        else:
+            object_type_list = [object_type]
+
+        for object_type_single in object_type_list:
+            x_coord.extend(file_labels["%s_x"%object_type_single])
+            y_coord.extend(file_labels["%s_y"%object_type_single])
     
     fig = plt.figure(figsize=(8, 8))
     grid_ratio = 5
@@ -234,6 +324,11 @@ def kdeplot_set(training_files, split="training", object_type="dynamic"):
     ax_polar.set_facecolor('none')  # make transparent
     ax_polar.set_position(pos=ax_joint.get_position())
     ax_polar.set_rlim(0, max(xrange, yrange))
+    font_size = 30
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+    plt.subplots_adjust(left=0.08, right=0.92, bottom=0.08, top=0.92)
+
     name = "%s_%s_all" % (object_type, split)
     plt.savefig("%s/%s.png"%(outdir, name), format='png')
 
@@ -341,20 +436,6 @@ def sum_labels(list_files):
         labels = labeling.labeling_with_hist(filename, traj_num, frame_num, class_weather_count)
         all_labels.update(labels)
         labels = labels[filename]
-        # if(labels['weatherCondition'] == 'sunny'):
-        #     weather_total[0] += 1
-        #     list_weather_vec.append([1, 0, 0, 0])
-        # elif (labels['weatherCondition'] == 'cloudy'):
-        #     weather_total[1] += 1
-        #     list_weather_vec.append([0, 1, 0, 0])
-        # elif (labels['weatherCondition'] == 'rainy'):
-        #     weather_total[2] += 1
-        #     list_weather_vec.append([0, 0, 1, 0])
-        # else:
-        #     weather_total[3] += 1
-        #     list_weather_vec.append([0, 0, 0, 1])
-        
-        #list_distance_vec : [[0,0,0],[1,1,1],[2,2,2]]
 
         distance_total[0] += len(labels["distance5m"])
         distance_total[1] += len(labels["distance15m"])

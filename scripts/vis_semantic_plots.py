@@ -1,4 +1,5 @@
 import os
+from os.path import join
 import seaborn as sns
 import sys
 import matplotlib
@@ -15,8 +16,15 @@ import copy
 
 sys.path.append(os.getcwd())
 
-from helpers.constants import SEM_CLASS_TO_ID, SEM_ID_TO_COLOR
+from helpers.constants import *
 from helpers.sensors import read_sem_label
+from helpers.plotting_utils import sum_labels, kdeplot_set
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--plot_type', default="semantichist",
+                    help="Select a histogram type to show: semantichit,  ")
 
 #Done with help of Chaitanya
 
@@ -35,10 +43,12 @@ def count_labels(labels_list, labels_dictionary, annotated_data):
         labels_dictionary[cls_name] += counts[cls_index]
     return labels_dictionary
 
-def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
-    files = (absoluteFilePaths(indir))
+def plot_counts(indir, outdir):
+    semantic_dir = join(indir, SEMANTIC_LABEL_DIR, "os1")
+    files = (absoluteFilePaths(semantic_dir))
     labels_list = np.array(list(SEM_CLASS_TO_ID.keys()))
 
+    cached_path = join(outdir, "GEN_semlabeldict.json")
     if not os.path.exists(cached_path):
         print("Cached label dictionary counts not found %s, generating..." % cached_path)
         labels_dictionary = {name: 0 for name in SEM_CLASS_TO_ID.keys() }
@@ -129,16 +139,91 @@ def plot_counts(indir, cached_path="./GEN_semlabeldict.json"):
     print(labels_dictionary)
     sns.despine()
     #Save locally
-    plt.savefig("GEN_semlabelhist.png", format='png', dpi=300)
+    plt.savefig(os.path.join(outdir,"GEN_semlabelhist.png"), format='png', dpi=300)
 
-def main():
+def plot_object_heatmap(indir, outdir):
+    metadata_dir = join(indir, METADATA_DIR)
+    list_metadata_files = next(os.walk(metadata_dir))[2]
+    all_files = []
+    traj_to_frame = {}
+
+    training_files = []
+    validation_files = []
+    testing_files = []
+    counter = 0
+    print(list_metadata_files)
+    num_weather = 4
+    class_weather_count = {objcls: [0]*num_weather for objcls in BBOX_CLASS_TO_ID.keys()}
+
+    input_dict = {
+        "distance_total": [0, 0, 0], 
+        "all_labels": {}, 
+        "list_distance_vec": [],
+        "list_theta_vec": [],
+        "list_weather_vec": [],
+        "theta_total": [0, 0, 0, 0],
+        "class_total": [0] * len(BBOX_CLASS_TO_ID),
+        "list_class_vec": [] 
+    }
+
+    for metadata_file in list_metadata_files:
+        metadata_path = join(metadata_dir, metadata_file)
+        print(metadata_path)
+        counter += 1
+        # print(metadata_file)
+        # if (metadata_file == "14.json"):
+        f = open(metadata_path, 'r')
+        metadata = json.load(f)
+        # trajectory = metadata["trajectory"]
+        # for json_file in metadata["ObjectTracking"]["training"]:
+        trajectory_files = metadata["ObjectTracking"]["training"]
+        # print(trajectory_files)
+        temp = metadata["ObjectTracking"]["training"]
+        # training_files.extend(temp.split("/")[3])
+        training_files.extend(temp)
+        
+
+        trajectory_files.extend(metadata["ObjectTracking"]["validation"])
+        # print(trajectory_files)
+        temp = metadata["ObjectTracking"]["validation"]
+        # validation_files.extend(temp.split("/")[3])
+        validation_files.extend(temp)
+
+        trajectory_files.extend(metadata["ObjectTracking"]["testing"])
+        temp = metadata["ObjectTracking"]["testing"]
+        # testing_files.extend(temp.split("/")[3])
+        testing_files.extend(temp)
+
+        all_files.extend(trajectory_files)
+        traj_to_frame[metadata["trajectory"]] = len(trajectory_files)
+        input_dict = sum_labels(indir, input_dict, trajectory_files, class_weather_count)
+
+    print("-----------------")
+    # print(class_weather_count)
+    for object_type in ["static", "dynamic", "combined"]:
+        kdeplot_set(training_files, outdir, input_dict['all_labels'], split="training", object_type=object_type)
+        kdeplot_set(validation_files, outdir, split="validation", object_type=object_type)
+        kdeplot_set(testing_files, outdir, split="testing", object_type=object_type)
+    class_and_weather()
+    combine_images()
+
+def main(args):
     #Get file paths and loop throught to sum each label
-    indir = "/robodata/arthurz/Datasets/CODa_dev/3d_semantic/os1"
-    #List of labels to use to get label name from index, Dictionary to keep track of total for each label
-    plot_counts(indir)
+    indir = "/robodata/arthurz/Datasets/CODa_dev"
+    outdir = "%s/plots" % os.getcwd()
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    if args.plot_type=="semantichist":
+        #List of labels to use to get label name from index, Dictionary to keep track of total for each label
+        plot_counts(indir, outdir)
+    elif args.plot_type=="objheatmap":
+        plot_object_heatmap(indir, outdir)
+
 
 if __name__ == "__main__":
-    main()
+    args = parser.parse_args()
+    main(args)
 
 """"""
     # cats = ['Outdoor Floor', 'Indoor Floor', 'Hybrid Floor']
