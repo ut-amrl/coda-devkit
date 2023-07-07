@@ -76,6 +76,9 @@ def plot_counts(indir, outdir):
         key_sum = labels_dictionary[key]
         labels_dictionary[key] = key_sum/proportion
 
+    for key in labels_dictionary:
+        labels_dictionary[key] *=100 # conert to percentage
+
     #Sort dictionary in descending order
     sorted_labels_descending = sorted(labels_dictionary.items(), key=lambda x:x[1], reverse=True)
     sorted_labels_counts_descending = sorted(labels_counts_dictionary.items(), key=lambda x:x[1], reverse=True)
