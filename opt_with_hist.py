@@ -36,7 +36,7 @@ user_num_frames = 10
 #[sunny, rainy, cloudy, dark]
 class_weather_count = {"Pedestrian": [0,0,0,0], "Horse": [0,0,0,0], "Car": [0,0,0,0], "Pickup Truck": [0,0,0,0], "Delivery Truck": [0,0,0,0], "Service Vehicle": [0,0,0,0], "Utility Vehicle": [0,0,0,0], "Bike": [0,0,0,0], "Scooter": [0,0,0,0], "Motorcycle": [0,0,0,0], "Fire Hydrant": [0,0,0,0], "Fire Alarm": [0,0,0,0], "Parking Kiosk": [0,0,0,0], "Mailbox": [0,0,0,0], "Newspaper Dispenser": [0,0,0,0], "Sanitizer Dispenser": [0,0,0,0], "Condiment Dispenser": [0,0,0,0], "ATM": [0,0,0,0], "Vending Machine": [0,0,0,0], "Door Switch": [0,0,0,0], "Emergency Aid Kit": [0,0,0,0], "Fire Extinguisher": [0,0,0,0], "Emergency Phone": [0,0,0,0], "Computer": [0,0,0,0], "Television": [0,0,0,0], "Dumpster": [0,0,0,0], "Trash Can": [0,0,0,0], "Vacuum Cleaner": [0,0,0,0], "Cart": [0,0,0,0], "Chair": [0,0,0,0], "Couch": [0,0,0,0], "Bench": [0,0,0,0], "Table": [0,0,0,0], "Bollard": [0,0,0,0], "Construction Barrier": [0,0,0,0], "Fence": [0,0,0,0], "Railing": [0,0,0,0], "Cone": [0,0,0,0], "Stanchion": [0,0,0,0], "Traffic Light": [0,0,0,0], "Traffic Sign": [0,0,0,0], "Traffic Arm": [0,0,0,0], "Canopy": [0,0,0,0], "Bike Rack": [0,0,0,0], "Pole": [0,0,0,0], "Informational Sign": [0,0,0,0], "Wall Sign": [0,0,0,0], "Door": [0,0,0,0], "Floor Sign": [0,0,0,0], "Room Label": [0,0,0,0], "Freestanding Plant": [0,0,0,0], "Tree": [0,0,0,0], "Other": [0,0,0,0]}
 
-outdir = "/robodata/arthurz/Research/coda"
+outdir = "/robodata/arthurz/Research/coda_package/src/coda-devkit/plots"
 def main():
     #when reading from metadata file, split filename (find trajectory# and chdir)
     #reading in user input (json)
@@ -47,8 +47,8 @@ def main():
     # input_file = json.load(f)
     
 
-    os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
-    list_metadata_files = os.listdir("/robodata/arthurz/Datasets/CODa/metadata/")
+    os.chdir("/robodata/arthurz/Datasets/CODa_dev/metadata/")
+    list_metadata_files = os.listdir("/robodata/arthurz/Datasets/CODa_dev/metadata/")
     all_files = []
     traj_to_frame = {}
 
@@ -60,7 +60,7 @@ def main():
     print(list_metadata_files)
     for metadata_file in list_metadata_files:
         # if (metadata_file != "6.json"):
-        if metadata_file=="13.json":
+        if metadata_file=="6.json":
             print(metadata_file)
             counter += 1
             # print(metadata_file)
@@ -90,7 +90,7 @@ def main():
             all_files.extend(trajectory_files)
             traj_to_frame[metadata["trajectory"]] = len(trajectory_files)
             sum_labels(trajectory_files)
-            os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
+            os.chdir("/robodata/arthurz/Datasets/CODa_dev/metadata/")
             # if (counter == 13): break
         
     # cost(all_files)
@@ -109,8 +109,8 @@ def main():
     # print(class_weather_count)
     object_type="dynamic"
     kdeplot_set(training_files, split="training", object_type=object_type)
-    kdeplot_set(validation_files, split="validation", object_type=object_type)
-    kdeplot_set(testing_files, split="testing", object_type=object_type)
+    # kdeplot_set(validation_files, split="validation", object_type=object_type)
+    # kdeplot_set(testing_files, split="testing", object_type=object_type)
     # validation_set(validation_files)
     # testing_set(testing_files)
     # class_and_weather()
@@ -337,7 +337,7 @@ def sum_labels(list_files):
         frame_num = (filename.split("_")[4]).split(".")[0]
         # print(frame_num)
         
-        os.chdir("/robodata/arthurz/Datasets/CODa/3d_bbox/os1/%s/" % traj_num)
+        os.chdir("/robodata/arthurz/Datasets/CODa_dev/3d_bbox/os1/%s/" % traj_num)
         labels = labeling.labeling_with_hist(filename, traj_num, frame_num, class_weather_count)
         all_labels.update(labels)
         labels = labels[filename]

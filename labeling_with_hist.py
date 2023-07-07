@@ -32,7 +32,7 @@ user_num_frames = 10
 #[sunny, rainy, cloudy, dark]
 class_weather_count = {"Pedestrian": [0,0,0,0], "Horse": [0,0,0,0], "Car": [0,0,0,0], "Pickup Truck": [0,0,0,0], "Delivery Truck": [0,0,0,0], "Service Vehicle": [0,0,0,0], "Utility Vehicle": [0,0,0,0], "Bike": [0,0,0,0], "Scooter": [0,0,0,0], "Motorcycle": [0,0,0,0], "Fire Hydrant": [0,0,0,0], "Fire Alarm": [0,0,0,0], "Parking Kiosk": [0,0,0,0], "Mailbox": [0,0,0,0], "Newspaper Dispenser": [0,0,0,0], "Sanitizer Dispenser": [0,0,0,0], "Condiment Dispenser": [0,0,0,0], "ATM": [0,0,0,0], "Vending Machine": [0,0,0,0], "Door Switch": [0,0,0,0], "Emergency Aid Kit": [0,0,0,0], "Fire Extinguisher": [0,0,0,0], "Emergency Phone": [0,0,0,0], "Computer": [0,0,0,0], "Television": [0,0,0,0], "Dumpster": [0,0,0,0], "Trash Can": [0,0,0,0], "Vacuum Cleaner": [0,0,0,0], "Cart": [0,0,0,0], "Chair": [0,0,0,0], "Couch": [0,0,0,0], "Bench": [0,0,0,0], "Table": [0,0,0,0], "Bollard": [0,0,0,0], "Construction Barrier": [0,0,0,0], "Fence": [0,0,0,0], "Railing": [0,0,0,0], "Cone": [0,0,0,0], "Stanchion": [0,0,0,0], "Traffic Light": [0,0,0,0], "Traffic Sign": [0,0,0,0], "Traffic Arm": [0,0,0,0], "Canopy": [0,0,0,0], "Bike Rack": [0,0,0,0], "Pole": [0,0,0,0], "Informational Sign": [0,0,0,0], "Wall Sign": [0,0,0,0], "Door": [0,0,0,0], "Floor Sign": [0,0,0,0], "Room Label": [0,0,0,0], "Freestanding Plant": [0,0,0,0], "Tree": [0,0,0,0], "Other": [0,0,0,0]}
 
-outdir="/robodata/arthurz/Research/coda"
+outdir="/robodata/arthurz/Research/coda_package/src/coda-devkit/plots"
 
 def sum_labels(list_files):
     for filename in list_files:
@@ -44,7 +44,7 @@ def sum_labels(list_files):
         # print(frame_num)
         
         os.chdir("/robodata/arthurz/Datasets/CODa/3d_bbox/os1/%s/" % traj_num)
-        labels = labeling.labeling(filename, traj_num, frame_num, class_weather_count)
+        labels = labeling(filename, traj_num, frame_num, class_weather_count)
         all_labels.update(labels)
         labels = labels[filename]
         # if(labels['weatherCondition'] == 'sunny'):
@@ -133,7 +133,8 @@ def main():
     counter = 0
     print(list_metadata_files)
     for metadata_file in list_metadata_files:
-        if (metadata_file != "6.json"):
+        # if (metadata_file != "13.json"):
+        if metadata_file != "13.json":
             print(metadata_file)
             counter += 1
             # print(metadata_file)
@@ -165,25 +166,21 @@ def main():
             sum_labels(trajectory_files)
             os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
             # if (counter == 13): break
-        
-    # cost(all_files)
 
-    # print(opt_set(file_to_cost))
-    # weather_distribution(traj_to_frame)
-    # print(all_files[50:60])
-    # temp_files = ['3d_bbox_os1_11_2183.json', '3d_bbox_os1_11_2041.json', '3d_bbox_os1_11_2047.json', '3d_bbox_os1_11_2033.json', '3d_bbox_os1_11_2029.json', '3d_bbox_os1_11_1841.json', '3d_bbox_os1_11_1802.json', '3d_bbox_os1_11_1811.json', '3d_bbox_os1_11_2181.json', '3d_bbox_os1_11_1989.json']
-
-    # check_dist(temp_files, all_labels)
-
-    # training_set(training_files)
-    # validation_set(validation_files)
-    # testing_set(testing_files)
     print("-----------------")
     # print(class_weather_count)
-    training_set(training_files)
-    validation_set(validation_files)
-    testing_set(testing_files)
 
+    # Generates all kdeplots
+    # object_types = ["static"]
+    # splits = ["training"]
+    object_types = ["static", "dynamic", "combined"]
+    splits = ["training", "validation", "testing"]
+    input_files = [training_files, validation_files, testing_files]
+    for object_type in object_types:
+        for split_idx, split in enumerate(splits):
+            kdeplot_set(input_files[split_idx], object_type, split)
+
+    combine_kdeplots(object_types, splits)
 
 def class_and_weather():
     class_weather_count = {'Pedestrian': [21908, 14521, 14511, 9862], 'Chair': [8563, 0, 25076, 559], 'Table': [2356, 0, 8503, 148], 'Railing': [6103, 447, 8035, 3094], 'Pole': [9089, 2675, 13489, 6552], 'Tree': [7966, 2942, 9947, 3889], 'Horse': [0, 0, 470, 0], 'Car': [1542, 91, 2550, 390], 'Pickup Truck': [0, 0, 156, 0], 'Delivery Truck': [459, 0, 138, 0], 'Service Vehicle': [0, 0, 1549, 0], 'Utility Vehicle': [0, 112, 1019, 33], 'Bike': [5020, 2151, 2720, 555], 'Scooter': [838, 576, 555, 0], 'Motorcycle': [90, 0, 0, 0], 'Fire Hydrant': [0, 199, 192, 377], 'Fire Alarm': [93, 0, 186, 0], 'Parking Kiosk': [0, 0, 0, 200], 'Mailbox': [0, 0, 0, 0], 'Newspaper Dispenser': [0, 479, 0, 0], 'Sanitizer Dispenser': [162, 0, 276, 0], 'Condiment Dispenser': [0, 0, 0, 0], 'ATM': [61, 0, 0, 0], 'Vending Machine': [0, 0, 0, 0], 'Door Switch': [0, 0, 371, 0], 'Emergency Aid Kit': [0, 0, 146, 0], 'Fire Extinguisher': [0, 0, 345, 0], 'Emergency Phone': [220, 0, 426, 231], 'Computer': [275, 0, 0, 0], 'Television': [0, 0, 0, 0], 'Dumpster': [255, 0, 0, 0], 'Trash Can': [1495, 320, 2430, 3062], 'Vacuum Cleaner': [0, 0, 0, 0], 'Cart': [0, 0, 39, 0], 'Couch': [816, 0, 324, 0], 'Bench': [378, 148, 457, 1339], 'Bollard': [521, 600, 551, 374], 'Construction Barrier': [0, 0, 0, 0], 'Fence': [150, 0, 199, 0], 'Cone': [200, 0, 0, 0], 'Stanchion': [0, 0, 0, 0], 'Traffic Light': [20, 0, 101, 0], 'Traffic Sign': [1584, 0, 2463, 1668], 'Traffic Arm': [180, 0, 207, 0], 'Canopy': [0, 0, 1788, 0], 'Bike Rack': [1895, 563, 1625, 644], 'Informational Sign': [271, 237, 0, 394], 'Wall Sign': [0, 0, 219, 0], 'Door': [0, 0, 2921, 0], 'Floor Sign': [278, 0, 1569, 400], 'Room Label': [0, 0, 313, 0], 'Freestanding Plant': [674, 0, 2256, 0], 'Other': [672, 626, 1225, 666]}
@@ -256,6 +253,41 @@ def class_and_weather():
     
     return
 
+def crop_kdeplot(img, scale=1.0):
+    center_x, center_y = img.shape[1] / 2, img.shape[0] / 2
+    width_scaled, height_scaled = img.shape[1] * scale, img.shape[0] * scale
+    left_x, right_x = center_x - width_scaled / 2, center_x + width_scaled / 2
+    top_y, bottom_y = center_y - height_scaled / 2, center_y + height_scaled / 2
+    img_cropped = img[int(top_y)+100:int(bottom_y)+5, int(left_x)-15:int(right_x)-100]
+    
+    return img_cropped
+
+def combine_kdeplots(object_type_list, split_type_list):
+    img_list = []
+
+    combined_img = None
+    for row_idx, object_type in enumerate(object_type_list):
+
+        horizontal_img = None
+        for col_idx, split_type in enumerate(split_type_list):
+            img_np = cv2.imread("%s/%s_%s_all.png"%(outdir, object_type, split_type))
+
+            # Crop image margins
+            img_np = crop_kdeplot(img_np, 0.9)
+            # img_list.append(img_np)
+
+            if horizontal_img is None:
+                horizontal_img = img_np
+            else:
+                horizontal_img = np.hstack((horizontal_img, img_np))
+        
+        if combined_img is None:
+            combined_img = horizontal_img
+        else:
+            combined_img = np.vstack((combined_img, horizontal_img))
+
+    cv2.imwrite("%s/final_kdeplot.png"%outdir, combined_img)
+
 def combine_images():
     os.chdir("/home/christinaz/paper_barcharts/")
     img1 = cv2.imread("combined1.png")
@@ -278,7 +310,7 @@ def combine_images():
     cv2.imwrite("final_image.png", result)
     return
 
-def training_set(training_files):
+def kdeplot_set(training_files, object_type, split):
     x_coord = []
     y_coord = []
     for file in training_files:
@@ -289,11 +321,18 @@ def training_set(training_files):
         # x_coord.extend(file_labels["specified_objs_x"])
         # y_coord.extend(file_labels["specified_objs_y"])
 
+        object_type_list = [object_type]
+        if object_type=="combined":
+            object_type_list = ["static", "dynamic"]
+        for object_type_single in object_type_list:
+            x_coord.extend(file_labels["%s_x"%object_type_single])
+            y_coord.extend(file_labels["%s_y"%object_type_single])
+
         # x_coord.extend(file_labels["dynamic_x"])
         # y_coord.extend(file_labels["dynamic_y"])
     
-        x_coord.extend(file_labels["static_x"])
-        y_coord.extend(file_labels["static_y"])
+        # x_coord.extend(file_labels["static_x"])
+        # y_coord.extend(file_labels["static_y"])
 
     # r_list, theta_list = cart2pol(x_coord, y_coord)
     # N = len(r_list)
@@ -336,14 +375,22 @@ def training_set(training_files):
     ax_joint = fig.add_subplot(gs[1:, :-1])
 
     # sns.kdeplot(data=df, x='x', y='y', bw_adjust=0.7, linewidths=1, ax=ax_joint)
-    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.5)
 
+    ax = sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.5, clip=[-25, 25])
+    # plt.subplots_adjust(left=0.08, right=0.92, bottom=0.08, top=0.92)
+    
     ax_joint.set_aspect('equal', adjustable='box')  # equal aspect ratio is needed for a polar plot
     ax_joint.axis('off')
-    xmin, xmax = ax_joint.get_xlim()
+    
+    # radius_ticks = [5, 10, 15, 20, 25]
+    # radius_tick_labels = ['5', '10', '15', '20', '25m']
+    # ax.set_yticks(radius_ticks)
+    # ax.set_yticklabels(radius_tick_labels)
+
+    xmin, xmax = [-25, 25]# ax_joint.get_xlim()
     xrange = max(-xmin, xmax)
     ax_joint.set_xlim(-xrange, xrange)  # force 0 at center
-    ymin, ymax = ax_joint.get_ylim()
+    ymin, ymax =[-25, 25]# ax_joint.get_ylim()
     yrange = max(-ymin, ymax)
     ax_joint.set_ylim(-yrange, yrange)  # force 0 at center
 
@@ -351,10 +398,17 @@ def training_set(training_files):
     ax_polar.set_facecolor('none')  # make transparent
     ax_polar.set_position(pos=ax_joint.get_position())
     ax_polar.set_rlim(0, max(xrange, yrange))
-    name = "static_training_all"
+    # fig.set_size_inches(6, 6)
+
+    # Adjust plot font sizes and margins
+    font_size = 30
+    plt.xticks(fontsize=font_size)
+    plt.yticks(fontsize=font_size)
+
+    name = "%s_%s_all"%(object_type,split)
     plt.savefig("%s/%s.png"%(outdir, name), format='png')
 
-
+    # import pdb; pdb.set_trace()
 
     return
 def cart2pol(x, y):
@@ -603,5 +657,4 @@ def labeling(filename, traj_num, frame_num, class_weather_count):
 
 if __name__ == '__main__':
     main()
-
 
