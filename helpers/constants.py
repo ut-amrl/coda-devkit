@@ -33,6 +33,8 @@ METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
 TWOD_PROJ_DIR           = "2d_proj"
+POSES_DIR               = "poses"
+DENSE_POSES_DIR         = "dense"
 
 DATASET_L1_DIR_LIST = [
     METADATA_DIR,
@@ -46,15 +48,16 @@ DATASET_L1_DIR_LIST = [
     TWOD_BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_DIR,
     TWOD_PROJ_DIR,
-    "poses"
+    POSES_DIR
 ]
 
 DATASET_L2_DIR_LIST = [
-    "poses/imu",
-    "poses/gps",
-    "poses/mag",
-    "poses/gpsodom",
-    "poses/inekfodom"
+    "%s/imu" % POSES_DIR,
+    "%s/gps" % POSES_DIR,
+    "%s/mag" % POSES_DIR,
+    "%s/gpsodom" % POSES_DIR,
+    "%s/inekfodom" % POSES_DIR,
+    "%s/%s" % (POSES_DIR, DENSE_POSES_DIR)
 ]
 
 """
@@ -145,7 +148,10 @@ BBOX_CLASS_VIZ_LIST = [
     "Door Switch"           ,
     "Emergency Phone"       ,
     "Dumpster"              ,
-    "Vacuum Cleaner"        
+    "Vacuum Cleaner"        ,
+    "Segway"                ,
+    "Bus"                   ,
+    "Skateboard"
 ]
 
 BBOX_CLASS_REMAP = {
@@ -156,6 +162,9 @@ BBOX_CLASS_REMAP = {
     "Golf Cart":            "Vehicle",
     "Truck":                "Vehicle",
     "Pedestrian":            "Pedestrian",
+    "Segway":               "WheeledBoard",
+    "Bus":                  "Vehicle",
+    "Skateboard":           "WheeledBoard",
     # Static Classes     
     "Tree":                 "Tree",
     "Traffic Sign":         "Sign",
@@ -266,9 +275,10 @@ BBOX_CLASS_TO_ID = {
     "Emergency Phone"       : 52,
     "Dumpster"              : 53,
     "Vacuum Cleaner"        : 54,
-    # "Segway":               : 55
-    # "Bus":                  : 56,
-    # "Skateboard"            : 57,
+    "Segway"                : 55,
+    "Bus"                   : 56,
+    "Skateboard"            : 57,
+    "Water Fountain"       : 58
 }
 
 OCCLUSION_TO_ID ={
@@ -339,8 +349,39 @@ BBOX_ID_TO_COLOR = [
     (0, 153, 76),      #51 Door Switch (Dark Green)
     (32, 32, 32),      #52 Emergency Phone (Light Black)
     (255, 255, 255),   #53 Dumpster (White)
-    (200, 200, 200)    #54 Vacuum Cleaner (Dark Gray)
+    (200, 200, 200),   #54 Vacuum Cleaner (Dark Gray)
+    (223, 32, 32),     #55 Segway
+    (255, 200, 255),   #56 Bus
+    (200, 200, 105),    #57 Scooter,
+    (100, 200, 90)      #58 WAter Fountain 
     #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
+]
+
+# Maps for each trajectory the overall weather condition for that trajectory
+TRAJECTORY_TO_WEATHER_MAP =[
+    "Cloudy"  ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Dark"    ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Cloudy"  ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Rainy"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Sunny"
 ]
 
 """
@@ -348,7 +389,7 @@ TERRAIN SEMANTIC CLASS CONSTANTS
 """
 
 SEM_CLASS_TO_ID = {
-    "Unknown":              0,
+    "Unlabeled":            0,
     "Concrete":             1,
     "Grass":                2,
     "Rocks":                3,
@@ -371,35 +412,36 @@ SEM_CLASS_TO_ID = {
     "Stairs":               20,
     "Door Mat":             21,
     "Threshold":            22,
-    "Metal Floor":          23
+    "Metal Floor":          23,
+    "Unknown":              24
 }
 
 SEM_ID_TO_COLOR = [
-    # (R, G, B) - Object Name
-    (0, 0, 0),                   # Unknown
-    (148, 60, 56),               # Concrete
-    (218, 194, 72),              # Grass
-    (213, 159, 63),              # Rocks
-    (103, 26, 108),              # Speedway Bricks
-    (221, 130, 178),             # Red Bricks
-    (180, 237, 171),             # Pebble Pavement
-    (56, 120, 121),              # Light Marble Tiling
-    (17, 17, 117),               # Dark Marble Tiling
-    (226, 220, 161),             # Dirt Paths
-    (214, 146, 144),             # Road Pavement
-    (244, 253, 243),             # Short Vegetation
-    (51, 110, 111),              # Porcelain Tile
-    (138, 90, 64),               # Metal Grates
-    (206, 170, 210),             # Blond Marble Tiling
-    (137, 73, 179),              # Wood Panel
-    (118, 128, 139),             # Patterned Tile
-    (106, 220, 221),             # Carpet
-    (205, 55, 216),              # Crosswalk
-    (210, 195, 212),             # Dome Mat
-    (241, 220, 197),             # Stairs
-    (169, 200, 220),             # Door Mat
-    (247, 240, 234)              # Threshold
-    (255, 255, 255)              # Metal Floor
+    [0, 0, 0],              # 0 Unknown
+    [47, 171, 97],          # 1 Concrete
+    [200, 77, 159],        # 2 Grass
+    [126, 49, 141],          # 3 Rocks
+    [55, 128, 235],         # 4 Speedway Bricks
+    [8, 149, 174],         # 5 Red Bricks
+    [141, 3, 98],        # 6 Pebble Pavement
+    [203, 110, 74],        # 7 Light Marble Tiling
+    [49, 240, 115],          # 8 Dark Marble Tiling
+    [78, 57, 127],         # 9 Dirt Paths
+    [60, 143, 142],          # 10 Road Pavement
+    [187, 187, 17],        # 11 Short Vegetation
+    [137, 247, 165],        # 12 Porcelain Tile
+    [89, 183, 27],         # 13 Metal Grates
+    [134, 29, 80],        # 14 Blond Marble Tiling
+    [150, 81, 244],        # 15 Wood Panel
+    [163, 77, 159],        # 16 Patterned Tile
+    [60, 100, 116],         # 17 Carpet
+    [156, 207, 153],         # 18 Crosswalk
+    [135, 138, 159],        # 19 Dome Mat
+    [44, 217, 131],        # 20 Stairs
+    [123, 97, 131],        # 21 Door Mat
+    [115, 226, 101],          # 22 Threshold
+    [156, 43, 40],          # 23 Metal Floor
+    [0, 0, 0]               # 24 Unlabeled
 ]
 
 """

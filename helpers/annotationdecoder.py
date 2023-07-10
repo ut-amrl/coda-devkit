@@ -87,7 +87,8 @@ class AnnotationDecoder(object):
 
         if self._gen_data:
             self.save_anno_json(anno_dict)
-            self.project_annos_3d_to_2d(anno_dict)
+            # TODO fix 3d to 2d annotation projection
+            # self.project_annos_3d_to_2d(anno_dict)
 
     def deepen_decode_single_sem_file(self, args):
         """
@@ -103,7 +104,7 @@ class AnnotationDecoder(object):
 
             self.deepen_decode_semantic(annotation_path, traj, start_frame)
 
-    def deepen_decoder(self, datadir, num_workers=16):
+    def deepen_decoder(self, datadir, num_workers=96):
         assert os.path.exists(datadir), "3d_label directory does not exist in %s"%datadir
         tred_subdirs = next(os.walk(datadir))[1]
 
@@ -121,8 +122,8 @@ class AnnotationDecoder(object):
                 annotation_files_multi.extend(annotation_files)
                 traj_dir_multi.extend(traj_dir_packed)
                 
-                self.deepen_decode_single_bbox_file((traj_dir_packed[0], annotation_files[0]))
-            
+                # self.deepen_decode_single_bbox_file((traj_dir_packed[0], annotation_files[0]))
+
             pool = Pool(processes=num_workers)
             for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_bbox_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
                 pass
@@ -141,6 +142,11 @@ class AnnotationDecoder(object):
                 traj_dir_packed     = [traj_dir] * len(annotation_files)
                 annotation_files_multi.extend(annotation_files)
                 traj_dir_multi.extend(traj_dir_packed)
+
+                # if traj_subdir != '9' and "6757" not in annotation_files:
+                #     continue
+
+                # self.deepen_decode_single_sem_file((traj_dir_packed[0], annotation_files[0]))
 
             pool = Pool(processes=num_workers)
             for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_sem_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
@@ -205,39 +211,57 @@ class AnnotationDecoder(object):
             #Copy over existing annotation data
             pc_list = self.recurs_dict(frame_anno, DEEPEN_TO_COMMON_ANNO)
 
-            #Reformat quat to euler
-            for (pc_idx, pc_anno) in enumerate(pc_list):
-                qx, qy, qz, qw = pc_list[pc_idx].pop("qx"), pc_list[pc_idx].pop("qy"), \
-                    pc_list[pc_idx].pop("qz"), pc_list[pc_idx].pop("qw")
-                euler = R.from_quat([qx, qy, qz, qw]).as_euler("xyz", degrees=False)
-                pc_list[pc_idx]["r"], pc_list[pc_idx]["p"], pc_list[pc_idx]["y"] = euler
+            try:
+                #Reformat quat to euler
+                for (pc_idx, pc_anno) in enumerate(pc_list):
+                    qx, qy, qz, qw = pc_list[pc_idx].pop("qx"), pc_list[pc_idx].pop("qy"), \
+                        pc_list[pc_idx].pop("qz"), pc_list[pc_idx].pop("qw")
+                    try: 
+                        euler = R.from_quat([qx, qy, qz, qw]).as_euler("xyz", degrees=False)
+                    except Exception as e:
+                        print("Quarternion is zero norm, setting w to 1 annotation...")
+                        euler = R.from_quat([qx, qy, qz, 1]).as_euler("xyz", degrees=False)
 
-                if "labelAttributes" not in pc_anno.keys() or \
-                    "isOccluded" not in pc_anno["labelAttributes"].keys():
-                    pc_list[pc_idx]["labelAttributes"] = {
-                        "isOccluded": "Unknown"
-                    }
+                    pc_list[pc_idx]["r"], pc_list[pc_idx]["p"], pc_list[pc_idx]["y"] = euler
 
-            pc_dict = {"3dbbox": pc_list}
-            #Copy frame and filetype over from existing data
-            pc_dict["filetype"]   = "json"
-            pc_dict["frame"]      = frame
+                    if pc_anno is not None:
+                        if "labelAttributes" not in pc_anno.keys():
+                            pc_list[pc_idx]["labelAttributes"] = {
+                                "isOccluded": "Unknown"
+                            }
+                        if "labelAttributes" in pc_anno.keys() and "isOccluded" not in pc_anno["labelAttributes"].keys():
+                            pc_list[pc_idx]["labelAttributes"] = {
+                                "isOccluded": "Unknown"
+                            }
+                    else:
+                        pc_list[pc_idx]["labelAttributes"] = {
+                            "isOccluded": "Unknown"
+                        }
+                        print("pc annotation for traj %s frame %s is none" % (str(traj), str(frame)))
 
-            #Infer modality from filetype
-            if not "subdir" in anno_dict:
-                for (subdir, filetype) in SENSOR_DIRECTORY_FILETYPES.items():
-                    if filetype==pc_dict["filetype"]:
-                        anno_dict["subdir"] = subdir
+                pc_dict = {"3dbbox": pc_list}
+                #Copy frame and filetype over from existing data
+                pc_dict["filetype"]   = "json"
+                pc_dict["frame"]      = frame
 
-            if self._use_wcs:
-                frame       = int(pc_dict["frame"])
-                pose        = dense_pose_np[frame]
-                pose_mat    = pose_to_homo(pose)
-                #Convert bbox centers to ego frame
-                for index, anno in enumerate(pc_dict["3dbbox"]):
-                    wcs_to_ego = np.linalg.inv(pose_mat)
-                    new_anno = bbox_transform(anno, wcs_to_ego)
-                    pc_dict["3dbbox"][index] = new_anno
+                #Infer modality from filetype
+                if not "subdir" in anno_dict:
+                    for (subdir, filetype) in SENSOR_DIRECTORY_FILETYPES.items():
+                        if filetype==pc_dict["filetype"]:
+                            anno_dict["subdir"] = subdir
+
+                if self._use_wcs:
+                    frame       = int(pc_dict["frame"])
+                    pose        = dense_pose_np[frame]
+                    pose_mat    = pose_to_homo(pose)
+                    #Convert bbox centers to ego frame
+                    for index, anno in enumerate(pc_dict["3dbbox"]):
+                        wcs_to_ego = np.linalg.inv(pose_mat)
+                        new_anno = bbox_transform(anno, wcs_to_ego)
+                        pc_dict["3dbbox"][index] = new_anno
+                
+            except Exception as e:
+                print("Error processing trajectory %s frame %s " % (str(traj), str(frame)))
 
             #Save annotations in dictionary
             anno_dict["tredannotations"].append(pc_dict)
@@ -255,9 +279,20 @@ class AnnotationDecoder(object):
         assert set(meta_file['paint_categories']).issubset(set(SEM_CLASS_TO_ID.keys())), \
             "metadata classes inconsistent with constants"
 
+        deepen_paint_classes = np.array(meta_file['paint_categories'])
+        deepen_to_coda_map = {paint_idx+1: SEM_CLASS_TO_ID[paint_class] for paint_idx, paint_class in enumerate(deepen_paint_classes) }
+        deepen_to_coda_map[0] = 0 # 0th index is always unlabeled
+        deepen_to_coda_map = sorted(deepen_to_coda_map.items(), key=lambda item: item[0])
+
+        deepen_to_coda_map = {key: value for key, value in deepen_to_coda_map }
+
         sem_file = open(sem_path, "rb").read()
         pc_size = np.prod(OS1_POINTCLOUD_SHAPE[:2])
         sem_np = np.frombuffer(sem_file, dtype=np.uint8).reshape(-1, pc_size)
+
+        # remap deepen semantic indices to ours
+        deepen_to_coda_map = np.array(list(deepen_to_coda_map.values()))
+        sem_np = deepen_to_coda_map[sem_np]
 
         outdir = join(self._outdir, SEMANTIC_LABEL_DIR, "os1", traj)
         num_frames = sem_np.shape[0]

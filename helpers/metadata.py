@@ -15,22 +15,25 @@ class METASetting(str, Enum):
     OUTDOOR='outdoor'
     INDOOR='indoor'
 
+OBJECT_DETECTION_TASK="ObjectTracking"
+SEMANTIC_SEGMENTATION_TASK="SemanticSegmentation"
+
 METADATA_DICT = {
     "date": "",     # Manual
     "operator": "", 
     "lighting": METALighting.NORMAL,
     "setting": METASetting.OUTDOOR,
-    "objects:": {},     # Each entry should be OBJECT (STR): COUNT (INT)
+    "objects": [],     # Each entry should be OBJECT (STR): COUNT (INT)
     "attributes": [],   # Flexible human readable category
     "waypoints": {},     # Each entry should be WAYPOINT (STR): TIMESTAMP (STR)
     "trajectory": 0,    # Path to trajectory file
     "poses": "",        # Path to poses file
-    "ObjectTracking": {
+    OBJECT_DETECTION_TASK: {
         "training": [],
         "validation": [],
         "testing": []
     },
-    "SemanticSegmentation": {
+    SEMANTIC_SEGMENTATION_TASK: {
         "training": [],
         "validation": [],
         "testing": []
@@ -42,13 +45,13 @@ METADATA_DICT = {
 }
 
 SENSOR_DIRECTORY_TO_TASK = {
-    "%s/os1"%TRED_BBOX_LABEL_DIR: "ObjectTracking",
-    "%s/os1"%SEMANTIC_LABEL_DIR: "SemanticSegmentation",
+    "%s/os1"%TRED_BBOX_LABEL_DIR: OBJECT_DETECTION_TASK,
+    "%s/os1"%SEMANTIC_LABEL_DIR: SEMANTIC_SEGMENTATION_TASK,
 }
 
 MODALITY_TO_TASK = {
-    "3d_bbox": "ObjectTracking",
-    "3d_semantic": "SemanticSegmentation"
+    TRED_BBOX_LABEL_DIR: OBJECT_DETECTION_TASK,
+    SEMANTIC_LABEL_DIR: SEMANTIC_SEGMENTATION_TASK
 }
 
 def read_metadata_anno(metadata_path, modality="3d_bbox", split="all"):

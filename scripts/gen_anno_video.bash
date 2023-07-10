@@ -2,7 +2,7 @@
 
 # Set the directory containing the image directories
 # base_dir="/robodata/arthurz/Datasets/CODa_bbox_full/2d_raw/cam0"
-# out_dir = "/robodata/arthurz/Media/CODa_bbox"
+# out_dir="/robodata/arthurz/Media/CODa_bbox"
 
 ## Uncomment to generate egocomp point cloud segmentation
 base_dir="/robodata/arthurz/Datasets/CODa_sem_full/2d_raw/cam0"

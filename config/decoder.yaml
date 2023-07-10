@@ -6,4 +6,4 @@ annotation_type: "deepen"
 
 verbose: False
 gen_data: True
-use_wcs: True
+use_wcs: True # assumes that the annotations are in world frame
