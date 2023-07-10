@@ -210,6 +210,16 @@ def plot_object_heatmap(indir, outdir):
     class_and_weather()
     combine_images()
 
+def plot_weather_time_frequency(indir, outdir):
+    metadata_dir = join(indir, METADATA_DIR)
+    metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
+              if os.path.isfile(os.path.join(metadata_dir, file_name))]
+
+    for metadata_file in metadata_files:
+        pass # TODO later
+
+        
+
 def main(args):
     #Get file paths and loop throught to sum each label
     indir = "/robodata/arthurz/Datasets/CODa_dev"
@@ -221,7 +231,10 @@ def main(args):
         #List of labels to use to get label name from index, Dictionary to keep track of total for each label
         plot_counts(indir, outdir)
     elif args.plot_type=="objheatmap":
+        # broken fix later
         plot_object_heatmap(indir, outdir)
+    elif args.plot_type=="weathertime":
+        plot_weather_time_frequency(indir, outdir)
 
 
 if __name__ == "__main__":

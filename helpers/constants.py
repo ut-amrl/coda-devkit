@@ -33,6 +33,8 @@ METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
 TWOD_PROJ_DIR           = "2d_proj"
+POSES_DIR               = "poses"
+DENSE_POSES_DIR         = "dense"
 
 DATASET_L1_DIR_LIST = [
     METADATA_DIR,
@@ -46,15 +48,16 @@ DATASET_L1_DIR_LIST = [
     TWOD_BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_DIR,
     TWOD_PROJ_DIR,
-    "poses"
+    POSES_DIR
 ]
 
 DATASET_L2_DIR_LIST = [
-    "poses/imu",
-    "poses/gps",
-    "poses/mag",
-    "poses/gpsodom",
-    "poses/inekfodom"
+    "%s/imu" % POSES_DIR,
+    "%s/gps" % POSES_DIR,
+    "%s/mag" % POSES_DIR,
+    "%s/gpsodom" % POSES_DIR,
+    "%s/inekfodom" % POSES_DIR,
+    "%s/%s" % (POSES_DIR, DENSE_POSES_DIR)
 ]
 
 """
@@ -354,6 +357,33 @@ BBOX_ID_TO_COLOR = [
     #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
 ]
 
+# Maps for each trajectory the overall weather condition for that trajectory
+TRAJECTORY_TO_WEATHER_MAP =[
+    "Cloudy"  ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Dark"    ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Cloudy"  ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Rainy"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Sunny"
+]
+
 """
 TERRAIN SEMANTIC CLASS CONSTANTS
 """
@@ -413,35 +443,6 @@ SEM_ID_TO_COLOR = [
     [156, 43, 40],          # 23 Metal Floor
     [0, 0, 0]               # 24 Unlabeled
 ]
-
-# [
-#     # (B, G, R) - Object Name
-#     (0, 0, 0),                    # 0 Unknown
-#     (148, 60, 56),                # 1 Concrete
-#     (185, 104, 114),              # 2 Grass
-#     (64, 90, 138),                # 3 Rocks
-#     (63, 159, 213),               # 4 Speedway Bricks
-#     (179, 73, 137),               # 5 Red Bricks
-#     (144, 146, 214),              # 6 Pebble Pavement
-#     (210, 170, 206),              # 7 Light Marble Tiling
-#     (117, 17, 17),                # 8 Dark Marble Tiling
-#     (108, 26, 103),               # 9 Dirt Paths
-#     (56, 60, 148),                # 10 Road Pavement
-#     (178, 130, 221),              # 11 Short Vegetation
-#     (171, 237, 180),              # 12 Porcelain Tile
-#     (217, 59, 206),               # 13 Metal Grates
-#     (241, 220, 197),              # 14 Blond Marble Tiling
-#     (132, 164, 196),              # 15 Wood Panel
-#     (161, 220, 226),              # 16 Patterned Tile
-#     (121, 120, 56),               # 17 Carpet
-#     (111, 110, 51),               # 18 Crosswalk
-#     (212, 195, 210),              # 19 Dome Mat
-#     (243, 253, 244),              # 20 Stairs
-#     (221, 220, 106),              # 21 Door Mat
-#     (60, 226, 93),                # 22 Threshold
-#     (108, 17, 17),                # 23 Metal Floor
-#     (0, 0, 0)                     # 24 Unlabeled
-# ]
 
 """
 Manifest file generation sensor to subdirectory mappings
