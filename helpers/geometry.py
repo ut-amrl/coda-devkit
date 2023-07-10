@@ -14,6 +14,64 @@ import cv2
 
 from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR
 
+# # Use this to decode deepen global poses
+# def densify_poses_between_ts(pose_np, ts_np):
+#     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
+#     ts_np = ts_np.reshape(-1,)
+#     for ts in ts_np:
+#         closest_pose = find_closest_pose(pose_np, ts)
+#         out_pose_np = np.vstack((out_pose_np, closest_pose))
+
+#     return out_pose_np
+
+# def find_closest_pose(pose_np, target_ts):
+#     curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
+
+#     if curr_ts_idx>=pose_np.shape[0]:
+#         curr_ts_idx = pose_np.shape[0]-1
+#         print("Reached end of known poses at time %10.6f" % target_ts)
+#     elif curr_ts_idx < 0:
+#         curr_ts_idx = 0
+
+#     next_ts_idx = curr_ts_idx + 1
+#     if next_ts_idx>=pose_np.shape[0]:
+#         next_ts_idx = pose_np.shape[0] - 1
+
+#     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
+#         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+#     else:
+#         pose = pose_np[curr_ts_idx]
+
+#     return pose
+
+# def inter_pose(posea, poseb, sensor_ts):
+#     """
+#     Pose assumed to be in x y z qw qx qy qz
+#     """
+#     tsa = posea[0]
+#     tsb = poseb[0]
+#     if tsa==tsb:
+#         return posea
+#     quata = posea[4:]
+#     quatb = poseb[4:]
+#     transa  = posea[1:4]
+#     transb  = poseb[1:4]
+
+#     tparam = abs(sensor_ts - tsa) / (tsb - tsa)
+#     inter_trans = transa + tparam * (transb - transa)
+#     theta = np.arccos(np.dot(quata, quatb))
+  
+#     # print("tsb ", tsb, " tsa ", tsa, " sensor_ts ", sensor_ts)
+#     # print("tparam ", tparam)
+
+#     inter_quat  =   ( np.sin( (1-tparam) * theta)  / np.sin(theta) ) * quata + \
+#                     ( np.sin( tparam * theta)      / np.sin(theta) ) * quatb
+#     # print("quat a ", quata, " inter_quat ", inter_quat, " quatb ", quatb)
+#     new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
+
+#     return new_pose
+
+
 def densify_poses_between_ts(pose_np, ts_np):
     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
     ts_np = ts_np.reshape(-1,)
@@ -77,27 +135,15 @@ def inter_pose(posea, poseb, sensor_ts):
     )
     slerp = Slerp(key_times, key_rots)
     times = [sensor_ts]
-    # try:
+
     inter_quat = slerp(times).as_quat()[0]
-    # except ValueError as e:
-    #     print("interpolation time ", times)
-    #     raise ValueError
     inter_quat = [inter_quat[3], inter_quat[0], inter_quat[1], inter_quat[2]]
-    # dotqaqb = np.clip(np.dot(quata, quatb), -1, 1) # for numerical stability
-    # theta = np.arccos(dotqaqb)
-  
-    # print("tsb ", tsb, " tsa ", tsa, " sensor_ts ", sensor_ts)
-    # print("tparam ", tparam)
-    
-    # inter_quat  =   ( np.sin( (1-tparam) * theta)  / (np.sin(theta) + 1e-5) ) * quata + \
-    #                 ( np.sin( tparam * theta)      / (np.sin(theta) + 1e-5) ) * quatb
-    # print("quat a ", quata, " inter_quat ", inter_quat, " quatb ", quatb)
+
     new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
-    # if np.sum(inter_quat)==0:
-    #     print("new pose ", new_pose, " theta ", theta, "dotqsqb ", dotqaqb, "pose a ", posea, " pose b ", poseb )
-    #     import pdb; pdb.set_trace()
+
     assert np.sum(np.isnan(new_pose))==0, "Interpolated pose is nan exiting..."
     return new_pose
+
 
 def load_ext_calib_to_mat(calib_ext_file):
     calib_ext = open(calib_ext_file, 'r')
@@ -349,6 +395,47 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
 
     return image_points
 
+def get_3dbbox_corners(bbox_dict):
+    """
+    Converts 3d bbox annotation from CODa format to 3d corners
+    """
+    tred_corners = np.zeros((8, 3), dtype=np.float32)
+    cX, cY, cZ, l, w, h = bbox_dict['cX'], bbox_dict['cY'], bbox_dict['cZ'],\
+                bbox_dict['l'], bbox_dict['w'], bbox_dict['h']
+    if "r" in bbox_dict.keys():
+        r, p, y = bbox_dict['r'], bbox_dict['p'], bbox_dict['y']
+        tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
+    else:
+        qx, qy, qz, qw = bbox_dict['qx'], bbox_dict['qy'], bbox_dict['qz'], bbox_dict["qw"]
+        tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
+
+    #Compute corners in axis aligned coordinates
+    x_sign = np.array([-1, -1, 1, 1])
+    y_sign = np.array([1, -1, -1, 1])
+    z_sign = np.array([-1, -1, -1, -1])
+
+    for cnum in np.arange(0, 8, 1):
+        sign_idx = cnum % 4
+        x_offset = x_sign[sign_idx] * l/2
+        y_offset = y_sign[sign_idx] * w/2
+        z_offset = z_sign[sign_idx] * h/2
+
+        if cnum >=4:
+            z_offset *= -1
+        tred_corners[cnum] = np.array([
+            x_offset, y_offset, z_offset])
+    
+    Tbox = np.eye(4)
+    Tbox[:3, :3] =  tred_orien_transform
+    Tbox[:3, 3] = np.array([cX, cY, cZ])
+
+    tred_corners_homo = np.hstack((tred_corners, np.ones((tred_corners.shape[0], 1) )))
+    tred_corners = (Tbox @ tred_corners_homo.T).T
+    tred_corners = tred_corners[:, :3]
+
+    return tred_corners
+    
+
 def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     """
     wcs_mat - 4x4 homogeneous matrix
@@ -360,42 +447,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
     all_points_fov_mask = np.empty( (0, 8), dtype=np.bool)
     all_valid_obj_idx   = np.empty( (0, 1), dtype=np.int32)
     for annotation_idx, annotation in enumerate(tred_annotation["3dbbox"]):
-        tred_corners = np.zeros((8, 3), dtype=np.float32)
-
-        cX, cY, cZ, l, w, h = annotation['cX'], annotation['cY'], annotation['cZ'],\
-                annotation['l'], annotation['w'], annotation['h']
-        if "r" in annotation.keys():
-            r, p, y = annotation['r'], annotation['p'], annotation['y']
-            tred_orien_transform = R.from_euler("xyz", [r, p, y], degrees=False).as_matrix()
-        else:
-            qx, qy, qz, qw = annotation['qx'], annotation['qy'], annotation['qz'], annotation["qw"]
-            tred_orien_transform = R.from_quat([qx, qy, qz, qw]).as_matrix()
-        
-        #Compute corners in axis aligned coordinates
-        x_sign = np.array([-1, -1, 1, 1])
-        y_sign = np.array([1, -1, -1, 1])
-        z_sign = np.array([-1, -1, -1, -1])
-
-        for cnum in np.arange(0, 8, 1):
-            sign_idx = cnum % 4
-            x_offset = x_sign[sign_idx] * l/2
-            y_offset = y_sign[sign_idx] * w/2
-            z_offset = z_sign[sign_idx] * h/2
-
-            if cnum >=4:
-                z_offset *= -1
-            tred_corners[cnum] = np.array([
-                x_offset, y_offset, z_offset])
-        Tbox = np.eye(4)
-        Tbox[:3, :3] =  tred_orien_transform
-        Tbox[:3, 3] = np.array([cX, cY, cZ])
-
-        tred_corners_homo = np.hstack((tred_corners, np.ones((tred_corners.shape[0], 1) )))
-        tred_corners = (Tbox @ tred_corners_homo.T).T
-        tred_corners = tred_corners[:, :3]
-        # import pdb; pdb.set_trace()
-        # tred_corners = (tred_orien_transform@tred_corners.T).T
-        # tred_corners += np.array([cX, cY, cZ])
+        tred_corners = get_3dbbox_corners(annotation)
 
         #Compute ego lidar to ego camera coordinate systems (Extrinsic)
         calib_ext = open(calib_ext_file, 'r')
@@ -419,7 +471,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
         #     continue
 
         image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
-
+       
         # valid_points_mask = np.logical_and(
         #     np.logical_and(image_points[:, :, 0] >= 0, image_points[:, :, 0] < img_w), 
         #     np.logical_and(image_points[:, :, 1] >= 0, image_points[:, :, 1] < img_h)

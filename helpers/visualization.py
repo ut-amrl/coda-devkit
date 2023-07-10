@@ -189,14 +189,15 @@ def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
 
     m_pub.publish(bbox_markers)
 
-def apply_semantic_cmap(image_pts, valid_point_mask, semantic_anno_path):
+def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
     sem_labels = read_sem_label(semantic_anno_path).astype(np.int32)
-    dt=np.dtype('int,int,int')
-    sem_id_to_color_np = np.array(SEM_ID_TO_COLOR,dtype=dt)
-    color_map = sem_id_to_color_np[sem_labels] 
-    valid_color_map = color_map[valid_point_mask]
+    # dt=np.dtype('int,int,int')
+    sem_id_to_color_np = np.array(SEM_ID_TO_COLOR,dtype=np.int32)
+    color_map = sem_id_to_color_np[sem_labels]
+    if valid_point_mask is not None:
+        color_map = color_map[valid_point_mask]
 
-    return valid_color_map
+    return color_map
 
 def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
@@ -223,7 +224,7 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         color_map = cm.get_cmap("turbo")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
         color_map = color_map[:, :3]
     else:
-        color_map = apply_semantic_cmap(image_pts, valid_point_mask, colormap)
+        color_map = apply_semantic_cmap(colormap, valid_point_mask)
 
     for pt_idx, pt in enumerate(valid_points):
         # import pdb; pdb.set_trace()
@@ -248,7 +249,6 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
     Projects 3D Bbox to 2d image
     """
     bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
-    
     for obj_idx in range(0, bbox_pts.shape[0]):
         # in_bounds = np.logical_and(
         #     np.logical_and(bbox_pts[obj_idx, :, 0]>=0, bbox_pts[obj_idx, :, 0]<1224),
@@ -263,8 +263,8 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
         valid_points = bbox_pts[obj_idx, valid_point_mask, :]
 
         bbox_idx = bbox_idxs[obj_idx][0]
-        if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
-            continue
+        # if anno_dict["3dbbox"][bbox_idx]["classId"] not in ["Car", "Pedestrian", "Bike", "Pickup Truck", "Delivery Truck", "Service Vehicle", "Utility Vehicle"]:
+        #     continue
 
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
@@ -286,7 +286,7 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
         # valid_points = bbox_pts[obj_idx, valid_point_mask, :]
         # if valid_points.shape[0]==0:
         #     continue
-        
+
         valid_points = bbox_pts[obj_idx, bbox_mask[obj_idx], :]
         if valid_points.shape[0]==0:
             continue
@@ -296,7 +296,8 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
         bbox_idx = bbox_idxs[obj_idx][0]
         max_xy = np.max(valid_points, axis=0)
         min_xy = np.min(valid_points, axis=0)
-        bbox_coords[bbox_idx] = np.concatenate((min_xy, max_xy), axis=0)
+        # using obj_idx instead of bbox_idx because not gauranteed to be continuous
+        bbox_coords[obj_idx] = np.concatenate((min_xy, max_xy), axis=0)
 
     return bbox_coords
 

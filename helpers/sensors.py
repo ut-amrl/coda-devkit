@@ -7,13 +7,14 @@ import shutil
 from more_itertools import nth
 
 #ROS
+import numpy as np
+np.float = np.float64  # temp fix for following import https://github.com/eric-wieser/ros_numpy/issues/37
 import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 
 #Libraries
 import cv2
 from cv_bridge import CvBridge
 import open3d as o3d
-import numpy as np
 from scipy.spatial.transform import Rotation as R
 from ouster import client
 import matplotlib.pyplot as plt 
