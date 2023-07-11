@@ -218,6 +218,166 @@ def plot_weather_time_frequency(indir, outdir):
     for metadata_file in metadata_files:
         pass # TODO later
 
+def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"], 
+    counts_file="GEN_object_counts.json"):
+    metadata_dir = join(indir, METADATA_DIR)
+    metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
+              if os.path.isfile(os.path.join(metadata_dir, file_name))]
+
+    
+    counts_cache = join(outdir, counts_file)
+    if not os.path.exists(counts_cache):
+    
+        counts_dict = {className: 0 for className in BBOX_CLASS_TO_ID.keys()}
+        for metadata_file in metadata_files:
+            meta_path = join(metadata_dir, metadata_file)
+            obj_splits = json.load(open(meta_path, 'r'))['ObjectTracking']
+
+            # Load all annotation paths and count labels
+            obj_anno_subpaths = []
+            for split in splits:
+                obj_anno_subpaths.extend(obj_splits[split])
+
+            print("Started meta file %s" % meta_path)
+            for obj_anno_subpath in obj_anno_subpaths:
+                obj_anno_path = join(indir, obj_anno_subpath)
+                obj_anno_dict = json.load(open(obj_anno_path, 'r'))["3dbbox"]
+
+                for obj_dict in obj_anno_dict:
+                    counts_dict[obj_dict["classId"]] += 1
+            print("Finished meta file %s" % meta_path)
+
+        # Save cached label counts
+        with open(counts_cache, "w") as counts_cache_file:
+            counts_dict_str = {k: str(v) for k, v in counts_dict.items()}
+            json.dump(counts_dict_str, counts_cache_file)
+    else:
+        counts_dict = json.load(open(counts_cache, 'r'))
+
+    # Divide into categories
+    class_to_cat = {
+        "Tree"                  : "Vegetation",
+        "Freestanding Plant"    : "Vegetation",
+        "Pole"                  : "Structure",
+        "Traffic Sign"          : "Structure",
+        "Bike Rack"             : "Structure",
+        "Door"                  : "Structure",
+        "Floor Sign"            : "Structure",
+        "Canopy"                : "Structure",
+        "Informational Sign"    : "Structure",
+        "Door Switch"           : "Structure",
+        "Room Label"            : "Structure",
+        "Wall Sign"             : "Structure",
+        "Traffic Light"         : "Structure",
+        "Railing"               : "Barrier",
+        "Bollard"               : "Barrier",
+        "Traffic Arm"           : "Barrier",
+        "Fence"                 : "Barrier",
+        "Cone"                  : "Barrier",
+        "Construction Barrier"  : "Barrier",
+        "Stanchion"             : "Barrier",
+        "Trash Can"             : "Container",
+        "Dumpster"              : "Container",
+        "Cart"                  : "Container",
+        "Newspaper Dispenser"   : "Service Machine",
+        "Sanitizer Dispenser"   : "Service Machine",
+        "Parking Kiosk"         : "Service Machine",
+        "ATM"                   : "Service Machine",
+        "Mailbox"               : "Service Machine",
+        "Condiment Dispenser"   : "Service Machine",
+        "Vending Machine"       : "Service Machine",
+        "Water Fountain"        : "Service Machine",
+        "Bike"                  : "Transportation",
+        "Car"                   : "Transportation",
+        "Scooter"               : "Transportation",
+        "Service Vehicle"       : "Transportation",
+        "Utility Vehicle"       : "Transportation",
+        "Delivery Truck"        : "Transportation",
+        "Pickup Truck"          : "Transportation",
+        "Motorcycle"            : "Transportation",
+        "Golf Cart"             : "Transportation",
+        "Truck"                 : "Transportation",
+        "Bus"                   : "Transportation",
+        "Segway"                : "Transportation",
+        "Skateboard"            : "Transportation",
+        "Emergency Phone"       : "Emergency Device",
+        "Fire Hydrant"          : "Emergency Device",
+        "Fire Extinguisher"     : "Emergency Device",
+        "Fire Alarm"            : "Emergency Device",
+        "Emergency Aid Kit"     : "Emergency Device",
+        "Pedestrian"            : "Mammal",
+        "Horse"                 : "Mammal",
+        "Chair"                 : "Furniture/ Appliance",
+        "Table"                 : "Furniture/ Appliance",
+        "Bench"                 : "Furniture/ Appliance",
+        "Couch"                 : "Furniture/ Appliance",
+        "Computer"              : "Furniture/ Appliance",
+        "Television"            : "Furniture/ Appliance",
+        "Vacuum Cleaner"        : "Furniture/ Appliance",
+        "Other"                 : "Other"
+    }
+
+    # Sort class counts dictionary
+    sorted_counts_dict = dict(sorted(counts_dict.items(), key=lambda item: int(item[1]), reverse=True ))
+
+    # Remove classes with no counts
+    sorted_counts_dict = { key: int(val) for key, val in sorted_counts_dict.items() if int(val)>0}
+
+    # Create new dictionary from sorted class counts dictionary into multiple smaller dictionaries
+    cat_list = []
+    for cat in class_to_cat.values():
+        if cat not in cat_list:
+            cat_list.append(cat)
+    cat_list_dict = {cat: {} for cat in cat_list }
+
+    for cls_name, counts in sorted_counts_dict.items():
+        if cls_name in class_to_cat:
+            cat = class_to_cat[cls_name]
+            cat_list_dict[cat][cls_name] = counts
+        else:
+            print("Class %s not in labels" % cls_name)
+
+    # Merge separate dictionaries into one
+    separated_counts_dict = {}
+    colors = []
+    for cat in cat_list_dict:
+        for cls_name, cls_count in cat_list_dict[cat].items():
+            colors.append(BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[cls_name]])
+            new_cls_name = cls_name.replace(' ', '\n')
+            separated_counts_dict[new_cls_name] = int(cls_count)
+
+    colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(colors)]
+    sns.set(style='white', font_scale=2.25)
+    sns.set_palette(colors)
+
+    # Plot expects dict in the form of x="cat name" y="cat counts"
+    df = pd.DataFrame({
+        'Counts': list(separated_counts_dict.values()),
+        'Labels': list(separated_counts_dict.keys())
+    })
+
+    ax = sns.catplot(x='Labels', y='Counts', data=df, 
+        kind='bar',
+        height=10,
+        aspect=3.5,
+        width=0.75,
+        legend=True,
+        palette=colors
+    )
+
+    import matplotlib.patches as mpatches
+    legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(colors, df['Labels'])]
+    name = "GEN_object_counts_plot"
+    
+    # plt.legend(handles=legend_handles, title='Semantic Class', ncol=7, fontsize=20)
+    plt.legend(handles=legend_handles, bbox_to_anchor=(0.5, 2.2), loc='upper center', ncol=11, fontsize=22)
+    plt.yscale('log')
+    ax.set(xlabel="")
+    ax.set(ylabel="# Labels (Log Scale)")
+    ax.set_xticklabels([])
+    plt.subplots_adjust(top=0.55)
+    # plt.subplots_adjust(top=0.1)
+    plt.savefig("%s/%s.png"%(outdir, name), format='png', dpi=300)
         
 
 def main(args):
@@ -235,7 +395,10 @@ def main(args):
         plot_object_heatmap(indir, outdir)
     elif args.plot_type=="weathertime":
         plot_weather_time_frequency(indir, outdir)
-
+    elif args.plot_type=="labelcounts":
+        plot_label_counts(indir, outdir)
+    elif args.plot_type=="labelweather":
+        plot_label_weather(indir, outdir)
 
 if __name__ == "__main__":
     args = parser.parse_args()
