@@ -37,8 +37,8 @@ user_num_frames = 10
 def main():
     #when reading from metadata file, split filename (find trajectory# and chdir)
     #reading in user input (json)
-    f = open("input.json")
-    input_file = json.load(f)
+    # f = open("input.json")
+    # input_file = json.load(f)
     
     # plt.rc('font', family='Helvetica Neue')
 
@@ -304,7 +304,8 @@ def training_set(training_files):
     ax_joint = fig.add_subplot(gs[1:, :-1])
     print("x_coords" + str(len(x_coord)))
     print("y_coords" + str(len(y_coord)))
-    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4, clip=[-25,25])
+
+    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4, clip=[-30, 30])
     plt.rcParams.update({'font.size': 22})
     # plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%d m'))
 
@@ -326,6 +327,11 @@ def training_set(training_files):
     name = "DynamicTraining"
     plt.savefig("/home/arshgamare/polar_plots/%s.png"%name, format='png')
     return
+
+"""
+generate_set(split=[train, val, test], input_dir_metadata_files, annotation_type=[3d_bbox, 3d_semantic])
+"""
+
 
 def cart2pol(x, y):
     r_result = []
