@@ -1,10 +1,10 @@
 import math
-import os
+# import os
 import json
-from matplotlib import pyplot as plt
-import numpy as np
-import seaborn as sns
-import pandas as pd
+# from matplotlib import pyplot as plt
+# import numpy as np
+# import seaborn as sns
+# import pandas as pd
 def main():
     # #input a directory (assuming it contains the frames from all the trajectories)
 
@@ -65,6 +65,13 @@ def labeling(filename):
     dynamic_y = []
     static_x = []
     static_y = []
+    class_counts = {"Pedestrian": 0, "Horse": 0, "Car": 0, "Pickup Truck": 0, "Delivery Truck": 0, "Service Vehicle": 0, "Utility Vehicle": 0,
+                     "Bike": 0, "Scooter": 0, "Motorcycle": 0, "Fire Hydrant": 0, "Fire Alarm": 0, "Parking Kiosk": 0, "Mailbox": 0, "Newspaper Dispenser": 0,
+                       "Sanitizer Dispenser": 0, "Condiment Dispenser": 0, "ATM": 0, "Vending Machine": 0, "Door Switch": 0, "Emergency Aid Kit": 0,
+                         "Fire Extinguisher": 0, "Emergency Phone": 0, "Computer": 0, "Television": 0, "Dumpster": 0, "Trash Can": 0, "Vacuum Cleaner": 0,
+                           "Cart": 0, "Chair": 0, "Couch": 0, "Bench": 0, "Table": 0, "Bollard": 0, "Construction Barrier": 0, "Fence": 0, "Railing": 0, 
+                           "Cone": 0, "Stanchion": 0, "Traffic Light": 0, "Traffic Sign": 0, "Traffic Arm": 0, "Canopy": 0, "Bike Rack": 0, "Pole": 0, 
+                           "Informational Sign": 0, "Wall Sign": 0, "Door": 0, "Floor Sign": 0, "Room Label": 0, "Freestanding Plant": 0, "Tree": 0, "Other": 0}
     # os.chdir("/home/christinaz")
     # f_2 = open("obj_labels.json")
     # all_obj_counts = json.load(f_2)
@@ -82,7 +89,7 @@ def labeling(filename):
         #     jsonFile.seek(0)
         #     json.dump(all_obj_counts, jsonFile)
 
-
+        class_counts[class_id] += 1
         if (class_id == "Tree"):
             tree_x.append(x_coord)
             tree_y.append(y_coord)
@@ -144,7 +151,7 @@ def labeling(filename):
     # heatmap.figure.savefig("/home/christinaz/labeling2/%s.png"%filename, format='png')
     # heatmap.figure.clf()
 
-    labels = {filename: {"weatherCondition":weather, "distance5m": distance5m, "distance15m": distance15m, "distance30m": distance30m, "theta":theta, "objCount":obj_count, "x_coord_list":list_x, "y_coord_list":list_y, "specified_objs_x":specified_objs_x, "specified_objs_y":specified_objs_y, "dynamic_x":dynamic_x, "dynamic_y":dynamic_y, "static_x":static_x, "static_y": static_y}}
+    labels = {filename: {"weatherCondition":weather, "distance5m": distance5m, "distance15m": distance15m, "distance30m": distance30m, "theta":theta, "objCount":obj_count, "x_coord_list":list_x, "y_coord_list":list_y, "specified_objs_x":specified_objs_x, "specified_objs_y":specified_objs_y, "dynamic_x":dynamic_x, "dynamic_y":dynamic_y, "static_x":static_x, "static_y": static_y, "class_counts":class_counts}}
     # result = [labels, list_x, list_y]
     # return result
     return labels

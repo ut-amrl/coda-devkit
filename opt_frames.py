@@ -3,9 +3,14 @@ import os
 import json
 import numpy as np
 # import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib.ticker import FormatStrFormatter
+from collections import OrderedDict
+import colorsys
+# import matplotlib.font_manager as font_manager
+from matplotlib import font_manager
+# import seaborn as sns
+# from matplotlib.ticker import FormatStrFormatter
 
 #sunny, cloudy, rainy, dark
 weather_total = [0, 0, 0, 0]
@@ -35,6 +40,7 @@ def main():
     f = open("input.json")
     input_file = json.load(f)
     
+    # plt.rc('font', family='Helvetica Neue')
 
     os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
     list_metadata_files = os.listdir("/robodata/arthurz/Datasets/CODa/metadata/")
@@ -45,42 +51,39 @@ def main():
     validation_files = []
     testing_files = []
     
-    counter = 0
     print(list_metadata_files)
     for metadata_file in list_metadata_files:
         # if(metadata_file != "6.json" and metadata_file != "13.json"):
-        if(metadata_file != "6.json"):
-        # if(metadata_file != "13.json"):
-            print("##########")
-            print(metadata_file)
-            print("##########")
-            f = open(metadata_file)
-            metadata = json.load(f)
-            # trajectory = metadata["trajectory"]
-            # for json_file in metadata["ObjectTracking"]["training"]:
-            trajectory_files = metadata["ObjectTracking"]["training"]
-            # print(trajectory_files)
-            temp = metadata["ObjectTracking"]["training"]
-            # training_files.extend(temp.split("/")[3])
-            training_files.extend(temp)
+        # if(metadata_file != "6.json"):
+        # if(metadata_file == "13.json"):
+        print("##########")
+        print(metadata_file)
+        print("##########")
+        f = open(metadata_file)
+        metadata = json.load(f)
+        # trajectory = metadata["trajectory"]
+        # for json_file in metadata["ObjectTracking"]["training"]:
+        trajectory_files = metadata["ObjectTracking"]["training"]
+        # print(trajectory_files)
+        temp = metadata["ObjectTracking"]["training"]
+        # training_files.extend(temp.split("/")[3])
+        training_files.extend(temp)
 
-            trajectory_files.extend(metadata["ObjectTracking"]["validation"])
-            # print(trajectory_files)
-            temp = metadata["ObjectTracking"]["validation"]
-            # validation_files.extend(temp.split("/")[3])
-            validation_files.extend(temp)
+        trajectory_files.extend(metadata["ObjectTracking"]["validation"])
+        # print(trajectory_files)
+        temp = metadata["ObjectTracking"]["validation"]
+        # validation_files.extend(temp.split("/")[3])
+        validation_files.extend(temp)
 
-            trajectory_files.extend(metadata["ObjectTracking"]["testing"])
-            temp = metadata["ObjectTracking"]["testing"]
-            # testing_files.extend(temp.split("/")[3])
-            testing_files.extend(temp)
+        trajectory_files.extend(metadata["ObjectTracking"]["testing"])
+        temp = metadata["ObjectTracking"]["testing"]
+        # testing_files.extend(temp.split("/")[3])
+        testing_files.extend(temp)
 
-            all_files.extend(trajectory_files)
-            traj_to_frame[metadata["trajectory"]] = len(trajectory_files)
-            sum_labels(trajectory_files)
-            os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
-            counter+=1
-            # break
+        all_files.extend(trajectory_files)
+        traj_to_frame[metadata["trajectory"]] = len(trajectory_files)
+        sum_labels(trajectory_files)
+        os.chdir("/robodata/arthurz/Datasets/CODa/metadata/")
     # cost(all_files)
     # print(validation_files)
     # print(opt_set(file_to_cost))
@@ -90,9 +93,174 @@ def main():
 
     # check_dist(temp_files, all_labels)
 
-    training_set(training_files)
-    validation_set(validation_files)
-    testing_set(testing_files)
+    # training_set(training_files)
+    # validation_set(validation_files)
+    # testing_set(testing_files)\
+    
+    dist_label_count_graph()
+
+def dist_label_count_graph():
+    # Update curr_class_counts
+    for file in all_labels:
+        for class_id in curr_class_counts:
+            curr_class_counts[class_id] = curr_class_counts[class_id] + all_labels[file]["class_counts"][class_id]
+    print(curr_class_counts)
+
+    # Make Lists of objects
+    vegetation_list = ["Tree", "Freestanding Plant"]
+    structure_list = ["Traffic Sign", "Traffic Light", "Canopy", "Bike Rack", "Pole", "Room Label", "Informational Sign", "Floor Sign", "Wall Sign", "Door", "Door Switch"]
+    barrier_list = ["Bollard", "Traffic Arm", "Construction Barrier", "Fence", "Railing", "Cone", "Stanchion"]
+    container_list = ["Dumpster", "Trash Can", "Cart"]
+    service_machine_list = ["Parking Kiosk", "Mailbox", "Newspaper Dispenser", "Sanitizer Dispenser", "Condiment Dispenser", "Vending Machine", "ATM"]
+    transportation_list = ["Scooter", "Motorcycle", "Segway", "Skateboard", "Bike", "Car", "Bus", "Pickup Truck", "Utility Vehicle", "Service Vehicle", "Delivery Truck"]
+    emergency_device_list = ["Emergency Aid Kit", "Emergency Phone", "Fire Extinguisher", "Fire Hydrant", "Fire Alarm"]
+    mammal_list = ["Pedestrian", "Dog", "Horse"]
+    furniture_appliance_list = ["Couch", "Chair", "Bench", "Table", "Computer", "Television"]
+    other_list = ["Other"]
+    category_list = [vegetation_list, structure_list, barrier_list, container_list, service_machine_list, transportation_list, emergency_device_list, mammal_list, furniture_appliance_list, other_list] 
+    vegetation_counts = OrderedDict()
+    structure_counts = OrderedDict()
+    barrier_counts = OrderedDict()
+    container_counts = OrderedDict()
+    service_machine_counts = OrderedDict()
+    transportation_counts = OrderedDict()
+    emergency_device_counts = OrderedDict()
+    mammal_counts = OrderedDict()
+    furniture_appliance_counts = OrderedDict()
+    other_counts = OrderedDict()
+    category_counts = [vegetation_counts, structure_counts, barrier_counts, container_counts, service_machine_counts, transportation_counts, emergency_device_counts, mammal_counts, furniture_appliance_counts, other_counts]
+    
+    for class_id in curr_class_counts:
+        for idx, category in enumerate(category_list):
+            if(class_id in category_list[idx]):
+                category_counts[idx][class_id] = curr_class_counts[class_id]
+
+    # Plot Graph
+    # Define colors for each dataset
+    colors = ['red', 'orange', 'gold', 'green', 'mediumspringgreen', 'cyan', 'darkblue', 'mediumorchid', 'blueviolet', 'grey']
+    
+    # Starting color in RGB format
+    start_color = (1.0, 0.0, 0.09019607843137255)  # RGB for #FF0017
+
+    # Number of colors in the spectrum
+    num_colors = 52  # Adjust the number of colors as desired
+
+    # Opacity level
+    opacity = 0.7  # Adjust the opacity value between 0.0 and 1.0
+
+    # Convert starting color from RGB to HSV
+    start_hsv = colorsys.rgb_to_hsv(*start_color)
+
+    # Generate the color spectrum with opacity
+    hsv_colors = [(start_hsv[0] + (i / num_colors), start_hsv[1], start_hsv[2]) for i in range(num_colors)]
+    rgba_colors = [colorsys.hsv_to_rgb(h, s, v) + (opacity,) for h, s, v in hsv_colors]
+
+    # Convert RGBA colors to hexadecimal codes
+    colors_hex = ['#' + ''.join([f'{int(channel * 255):02X}' for channel in color]) for color in rgba_colors]
+
+    # # Create an ordered dictionary to preserve the order of keys
+    # keys = OrderedDict()
+
+    # # Iterate over all datasets
+    # for data in category_counts:
+    #     # Iterate over keys in each dataset
+    #     for key in data.keys():
+    #         # Add key to the ordered dictionary if it doesn't exist yet
+    #         if key not in keys:
+    #             keys[key] = None
+
+    # Make category_counts sorted 
+    # Create an ordered dictionary to preserve the order of keys
+    keys = OrderedDict()
+
+    # Iterate over all datasets
+    for category in category_counts:
+        # Sort data by values in descending order
+        sorted_category = {k: v for k, v in sorted(category.items(), key=lambda item: item[1], reverse=True)}
+        # Update the dataset with sorted data
+        category= sorted_category
+        # Iterate over keys in each dataset
+        for key in category.keys():
+            # Add key to the ordered dictionary if it doesn't exist yet
+            if key not in keys:
+                keys[key] = None
+    # The x position of bars
+    x = np.arange(len(keys))
+
+    # Width of a bar
+    width = 0.9  # Adjust the width value here
+
+    fig, ax = plt.subplots(figsize=(25, 14))
+    to_grey = ["Informational Sign", "Wall Sign", "Door", "Floor Sign", "Room Label", 
+               "Bollard", "Fence", "Railing", "Cone", "Traffic Arm", "Door Switch", "Traffic Light", "Canopy"]
+    # Iterate over keys
+    for j, key in enumerate(keys.keys()):
+        # Iterate over all datasets
+        
+        for i, data in enumerate(category_counts):
+            if key in data:
+                # Adjust x position for each bar
+                bar_x = x[j] + i*width
+                if key == "Other":
+                    ax.bar(bar_x, data[key], width, color='grey')
+                elif key == "Informational Sign":
+                    ax.bar(bar_x, data[key], width, color='#facc5a')
+                elif key == "Door Switch":
+                    ax.bar(bar_x, data[key], width, color='#face61')
+                elif key == "Room Label":
+                    ax.bar(bar_x, data[key], width, color='#f0d069')
+                elif key == "Wall Sign":
+                    ax.bar(bar_x, data[key], width, color='#d1bb60')
+                elif key == "Traffic Light":
+                    ax.bar(bar_x, data[key], width, color='#b8ab56')
+                else:
+                    ax.bar(bar_x, data[key], width, color=colors_hex[j])
+
+                if data[key] == 0:
+                    if key == "Stanchion":
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+60, f"{0}", ha='center', color = 'black', fontsize = 15)
+                    elif key == "Mailbox":
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+53, f"{0}", ha='center', color = 'black', fontsize = 15) 
+                    elif key == "Condiment Dispenser":
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+150, f"{0}", ha='center', color = 'black', fontsize = 15) 
+                    elif key == "Vending Machine":
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+110, f"{0}", ha='center', color = 'black', fontsize = 15)  
+                    elif key == "Television":
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+65, f"{0}", ha='center', color = 'black', fontsize = 15)    
+                    else:
+                        ax.text(bar_x + 0.05, data[key] + 30, f"{key}", ha='center', rotation = 90, color= 'grey', fontsize=12, weight = 'bold')
+                        ax.text(bar_x, data[key]+135, f"{0}", ha='center', color = 'black', fontsize = 15)
+                # elif key == "Cart":
+                #     ax.text(bar_x + 0.05, data[key] + 0.5, f"{key}", ha='center', va='top', rotation = 90, weight='bold', color= 'grey', fontsize=15)
+                #     ax.text(bar_x, data[key], f"{data[key]}", ha='center', fontsize = 15)
+                else:
+                    ax.text(bar_x-0.02, data[key] - 0.5, f"{key}", ha='center', va='top', rotation = 90, weight='bold', color= 'white', fontsize=12, backgroundcolor = "#7f7f7f4D")
+                    ax.text(bar_x, data[key], f"{data[key]}", ha='center', fontsize = 15)
+
+    # Adding labels and title
+    plt.ylabel('Frequency', fontsize = 30, labelpad=20)
+    
+    # Set log scale
+    ax.set_yscale('log')
+    
+    # Set font size for y axis
+    ax.tick_params(axis='y', labelsize=30)
+    
+    plt.tick_params(bottom = False)
+    ax.get_xaxis().set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+    name = "DistributionLabels"
+    plt.savefig("/home/arshgamare/polar_plots/%s.png"%name, format='png')
+    return
+
 
 def training_set(training_files):
     x_coord = []
@@ -101,10 +269,10 @@ def training_set(training_files):
     for file in training_files:
         file = file.split("/")[3]
         file_labels = all_labels[file]
-        # x_coord.extend(file_labels["dynamic_x"])
-        # y_coord.extend(file_labels["dynamic_y"])
-        x_coord.extend(file_labels["static_x"])
-        y_coord.extend(file_labels["static_y"])
+        x_coord.extend(file_labels["dynamic_x"])
+        y_coord.extend(file_labels["dynamic_y"])
+        # x_coord.extend(file_labels["static_x"])
+        # y_coord.extend(file_labels["static_y"])
     
     # r_list, theta_list = cart2pol(x_coord, y_coord)
     # N = len(r_list)
@@ -136,7 +304,7 @@ def training_set(training_files):
     ax_joint = fig.add_subplot(gs[1:, :-1])
     print("x_coords" + str(len(x_coord)))
     print("y_coords" + str(len(y_coord)))
-    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4)
+    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4, clip=[-25,25])
     plt.rcParams.update({'font.size': 22})
     # plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%d m'))
 
@@ -155,7 +323,7 @@ def training_set(training_files):
     # ax_polar.set_position(pos=ax_joint.get_position())
     # ax_polar.set_rlim(0, max(xrange, yrange))
     ax_polar.set_yticks(np.arange(0,35,5))
-    name = "StaticTraining"
+    name = "DynamicTraining"
     plt.savefig("/home/arshgamare/polar_plots/%s.png"%name, format='png')
     return
 
@@ -175,10 +343,10 @@ def validation_set(validation_files):
     for file in validation_files:
         file = file.split("/")[3]
         file_labels = all_labels[file]
-        # x_coord.extend(file_labels["dynamic_x"])
-        # y_coord.extend(file_labels["dynamic_y"])
-        x_coord.extend(file_labels["static_x"])
-        y_coord.extend(file_labels["static_y"])
+        x_coord.extend(file_labels["dynamic_x"])
+        y_coord.extend(file_labels["dynamic_y"])
+        # x_coord.extend(file_labels["static_x"])
+        # y_coord.extend(file_labels["static_y"])
     # r_list, theta_list = cart2pol(x_coord, y_coord)
     # N = len(r_list)
     # colors = theta_list
@@ -207,7 +375,7 @@ def validation_set(validation_files):
     gs = plt.GridSpec(grid_ratio + 1, grid_ratio + 1)
 
     ax_joint = fig.add_subplot(gs[1:, :-1])
-    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4)
+    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4, clip=[-25,25])
     plt.rcParams.update({'font.size': 22})
 
     ax_joint.set_aspect('equal', adjustable='box')  # equal aspect ratio is needed for a polar plot
@@ -225,7 +393,7 @@ def validation_set(validation_files):
     # ax_polar.set_position(pos=ax_joint.get_position())
     # ax_polar.set_rlim(0, max(xrange, yrange))
     ax_polar.set_yticks(np.arange(0,35,5))
-    name = "StaticValidation"
+    name = "DynamicValidation"
     plt.savefig("/home/arshgamare/polar_plots/%s.png"%name, format='png')
     return
 
@@ -235,10 +403,10 @@ def testing_set(testing_files):
     for file in testing_files:
         file = file.split("/")[3]
         file_labels = all_labels[file]
-        # x_coord.extend(file_labels["dynamic_x"])
-        # y_coord.extend(file_labels["dynamic_y"])
-        x_coord.extend(file_labels["static_x"])
-        y_coord.extend(file_labels["static_y"])
+        x_coord.extend(file_labels["dynamic_x"])
+        y_coord.extend(file_labels["dynamic_y"])
+        # x_coord.extend(file_labels["static_x"])
+        # y_coord.extend(file_labels["static_y"])
     # r_list, theta_list = cart2pol(x_coord, y_coord)
     # N = len(r_list)
     # colors = theta_list
@@ -267,7 +435,7 @@ def testing_set(testing_files):
     gs = plt.GridSpec(grid_ratio + 1, grid_ratio + 1)
 
     ax_joint = fig.add_subplot(gs[1:, :-1])
-    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4)
+    sns.kdeplot(x=x_coord, y=y_coord, cmap="Reds", fill=True, bw_adjust=0.4, clip=[-25,25])
     plt.rcParams.update({'font.size': 22})
 
     ax_joint.set_aspect('equal', adjustable='box')  # equal aspect ratio is needed for a polar plot
@@ -285,7 +453,7 @@ def testing_set(testing_files):
     # ax_polar.set_position(pos=ax_joint.get_position())
     # ax_polar.set_rlim(0, max(xrange, yrange))
     ax_polar.set_yticks(np.arange(0,35,5))
-    name = "StaticTesting"
+    name = "DynamicTesting"
     plt.savefig("/home/arshgamare/polar_plots/%s.png"%name, format='png')
     return
 
@@ -516,6 +684,12 @@ def check_dist(opt_set, all_labels):
         # print("class total count" + str(class_total))
         # print("-------")
 
-
+curr_class_counts = {"Pedestrian": 0, "Horse": 0, "Car": 0, "Pickup Truck": 0, "Delivery Truck": 0, "Service Vehicle": 0, "Utility Vehicle": 0,
+                     "Bike": 0, "Scooter": 0, "Motorcycle": 0, "Fire Hydrant": 0, "Fire Alarm": 0, "Parking Kiosk": 0, "Mailbox": 0, "Newspaper Dispenser": 0,
+                       "Sanitizer Dispenser": 0, "Condiment Dispenser": 0, "ATM": 0, "Vending Machine": 0, "Door Switch": 0, "Emergency Aid Kit": 0,
+                         "Fire Extinguisher": 0, "Emergency Phone": 0, "Computer": 0, "Television": 0, "Dumpster": 0, "Trash Can": 0, "Vacuum Cleaner": 0,
+                           "Cart": 0, "Chair": 0, "Couch": 0, "Bench": 0, "Table": 0, "Bollard": 0, "Construction Barrier": 0, "Fence": 0, "Railing": 0, 
+                           "Cone": 0, "Stanchion": 0, "Traffic Light": 0, "Traffic Sign": 0, "Traffic Arm": 0, "Canopy": 0, "Bike Rack": 0, "Pole": 0, 
+                           "Informational Sign": 0, "Wall Sign": 0, "Door": 0, "Floor Sign": 0, "Room Label": 0, "Freestanding Plant": 0, "Tree": 0, "Other": 0}
 if __name__ == '__main__':
     main()
