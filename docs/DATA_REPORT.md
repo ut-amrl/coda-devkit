@@ -55,7 +55,7 @@ pip install utcoda-devkit
 
 # Data Collection Setup
 
-We collect UT CODa from the perspective of mobile robot (Clearpath Husky) on UT Austin campus. We use 2D, 3D, stereo, inertial, and GPS sensors which we describe in detail on our paper. We record raw sensors messages from multiple sensors using the Robot Operating System (ROS) and process these sensor messages into individual files using the `utcoda-devkit`. We provide this devkit for download for pip and the UT CODa dataset on the Texas Dataverse. 
+We collect UT CODa from the perspective of mobile robot (Clearpath Husky) on UT Austin campus. We use 2D, 3D, stereo, inertial, and GPS sensors which we describe in detail on our paper. We record raw sensors messages from multiple sensors using the Robot Operating System (ROS) and process these sensor messages into individual files using the `utcoda-devkit`. We provide this devkit for download from pip and the UT CODa dataset on the Texas Dataverse. 
 
 <p align="center">
   <img src="./campusmap.png" width="70%">
@@ -131,6 +131,8 @@ vnav  -> Vectornav VN-310 Dual GNSS/INS (Unsynchronized @ 40 Hz)
 ```
 
 ## Calibration Files (With Examples)
+
+For information on how we obtain the LiDAR Camera, LiDAR IMU, and Camera Camera calibrations, please refer to our paper.
 
 **calib_cam0_to_cam1.yaml** - Transformation matrix from cam0 to cam1
 ```
@@ -224,7 +226,7 @@ ts x y z qw qx qy qz twist_lin_x twist_lin_y twist_lin_z twist_ang_x twist_ang_y
 ts magx magy magz
 ```
 
-## Timestamps and Frames
+## Timestamps and Frames (timestamps)
 
 `timestamps` - Timestamps for each synchronized frame for the os1, cam0, and cam1. The line index in the file is the frame number and the value on each line is the frame's timestamp. The os1, cam0, and cam1 sensors are hardware synchronized. At the start of each lidar sweep, the os1 electrically begins image capture for cam0 and cam1. We treat each revolution as a single frame and use the timestamp from the os1 as the timestamp for each frame. Note that because the os1 begins the lidar sweep from the back of the robot, there may exist small point cloud image misalignments in the sensor data. Each line in the 
 ```
@@ -234,10 +236,12 @@ ts magx magy magz
 1673884190.489575
 ```
 
-## Metadata Format and Usage
+## Metadata Format and Usage (metadata)
 
 There is a separate metadata file for each sequence. Each sequence's metadata file contains its set of annotated objects, the date of collection, robot operator, lighting condition, trajectory number, subdirectory path to the ground truth poses, and annotation files for the train/validation/test splits for the UT CODa benchmarks. In the future, we plan on extending this with sequence specific attributes and a frames list to
 indicate when the robot is indoor versus outdoors. To use the annotation files in your dataloader, simply append the annotation subpath in the metadata file to the absolute path where UT CODa is downloaded.
+
+To view the metadata files for the small and medium versions of UT CODa, refer to the `metadata_small` and `metadata_md` directories.
 
 ```
 {
@@ -347,17 +351,17 @@ Contains egocompensated 3D points clouds for the os1 sensor. We perform egocompe
 
 The original annotation protocol for 3D bounding and 3D semantic segmentation annotations can be found on the [annotation protocol document](https://docs.google.com/document/d/1jDa0zftRUoW168iRHGlo4c7xjLbWuKpUWrTGgRbm7W0/edit?usp=sharing). We use this annotation protocol to guide our Deepen AI annotators. We provide a high level summary of this document's contents below.
 
-## 3d_bbox (3D Bounding Box Annotations)
+## 3D Bounding Box Annotations (3d_bbox)
 
 We annotate the 3D LiDAR point clouds with 9 degree of freedom bounding box annotations. Along with the x, y, z box center, length, width, height, roll, pitch, and yaw, we provide occlusion and object instance IDs. We use six occlusion types as defined below:
 
 ```
 None		(All object points are in view of image, easy to distinguish object in point cloud)
 Light		(>5% <25% of object are object points are obstructed, object is in image and easily distinguishable in point cloud)
-Medium      (>25% and <75% of object points are obstructed, object is in image and can still be distinguished in point cloud)
+Medium          (>25% and <75% of object points are obstructed, object is in image and can still be distinguished in point cloud)
 Heavy		(>75% and < 100% of object points are obstructed, difficult to distinguish without image or past knowledge)
 Full		(All object points are obstructed, in view of image but cannot detect without past knowledge)
-Unknown     (Occlusion Status is Unknown, object is not in view of image) 
+Unknown         (Occlusion Status is Unknown, object is not in view of image) 
 ```
 
 Objects will have the same instance ID within each contiguous sequence as long as they do not exit in the point cloud scan for more than 30 frames (3 seconds). For deformable objects like pedestrians, we identify when the bounding box for the object is largest and fix the bounding box size for the duration that it is tracked. We define 56 object classes and divide them into nine parent object classes. 
@@ -409,7 +413,7 @@ A 3D bbox annotation file has the following format with {SEQUENCE} being the seq
 }
 ```
 
-## 3d_semantic (3D Semantic Segmentation Annotations)
+## 3D Semantic Segmentation Annotations (3d_semantic)
 
 We annotate points on the environment terrain from the os1's point cloud. We assign each point on the terrain a semantic class and semantic ID. Point that are not on the terrain are labeled as "Unlabeled" and points that cannot be reliably identified from the point cloud/surrounding context are labeled as "Unknown". We use the following topology to organize the semantic segmentation class list. We refer the reader to the annotation protocol document for examples images of all of the semantic classes.
 
