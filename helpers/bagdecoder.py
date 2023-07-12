@@ -596,6 +596,8 @@ class BagDecoder(object):
         sensor_ts   = t
         if topic_type=="ouster_ros/PacketMsg":
             data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic, sensor_ts)
+        elif topic_type=="sensor_msgs/PointCloud2":
+            data, sensor_ts = process_pc2(msg, sensor_ts)
         elif topic_type=="sensor_msgs/Image":
             data, sensor_ts = process_image(msg)
         elif topic_type=="sensor_msgs/CompressedImage":

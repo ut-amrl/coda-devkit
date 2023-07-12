@@ -62,6 +62,19 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
 
     return pc, sensor_ts
 
+def process_pc2(pc_msg, sensor_ts):
+    """
+    Input:
+        pc_msg: ROS Pointcloud2 message
+        sensor_ts: float timestamp to use for point cloud2 message
+    Returns
+        pc: Nx4 np array (x y z i) following x forward, y left, z up
+    """
+    pc = np.array((1, 4))
+    # TODO fill this in
+
+    return pc, sensor_ts
+
 def set_filename_by_topic(topic, trajectory, frame):
     sensor_subpath  = SENSOR_DIRECTORY_SUBPATH[topic]
     sensor_prefix   = sensor_subpath.replace("/", "_") #get sensor name
