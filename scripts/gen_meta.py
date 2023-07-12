@@ -2,7 +2,10 @@ import os
 import sys
 import copy
 import json
+import time
 import argparse
+
+from os.path import join
 
 import numpy as np
 
@@ -17,6 +20,9 @@ from helpers.metadata import *
 from helpers.constants import *
 
 rng = np.random.default_rng(seed=42)
+
+from multiprocessing import Pool
+import tqdm
 
 def get_label_list(indir, label_dir, traj):
     traj = str(traj)
@@ -42,16 +48,54 @@ def gen_dataset_split(label_file_list, train_percent=0.7, val_percent=0.15):
 
     return label_file_list[train], label_file_list[val], label_file_list[test]
 
+
+def get_unique_objects(indir, traj, label_file_list):
+    # parse unique objects from each file in mp thread
+    
+    print("Start processing traj %s for unique objects" % str(traj))
+    start = time.time()
+    unique_objects = set()
+    for label_file in label_file_list:
+        label_path = join(indir, label_file)
+        anno_json = json.load(open(label_path, 'r'))
+
+        for anno_dict in anno_json["3dbbox"]:
+            unique_objects.add(anno_dict["classId"])
+
+    print("Done processing traj %s for unique objects in %6.2f seconds" %
+        (str(traj), time.time() - start) )
+    unique_objects = sorted(list(unique_objects))
+
+    return unique_objects
+    # pool = Pool(processes=num_workers)
+    # for _ in tqdm.tqdm(pool.imap_unordered( self.deepen_decode_single_sem_file, zip(traj_dir_multi, annotation_files_multi)), total=len(annotation_files_multi)):
+    #     pass
+
 def gen_metadata_file(indir, outdir, bbox_traj_list=[], sem_traj_list=[]):
     if len(bbox_traj_list)==0 and len(sem_traj_list)==0:
         print("No trajectories to process, returning...")
         return
     
+    operators_path = './helpers/helper_utils/operators.json'
+    dates_path = './helpers/helper_utils/dates.json'
+    operators_dict = None
+    dates_dict = None
+    if not os.path.exists(operators_path):
+        print("No operators path exists %s, skipping for metadata files..."%operators_path)
+    elif not os.path.exists(dates_path):
+        print("No dates path exists %s, skipping for metadata files..."%dates_path)
+    else:
+        operators_dict = json.load(open(operators_path, 'r'))
+        dates_dict = json.load(open(dates_path, 'r'))
+
     traj_list = sorted(list(set(bbox_traj_list+sem_traj_list)))
     for traj in traj_list:
         print("Creating metadata file for traj %d"%traj)
         metadata_dict = copy.deepcopy(METADATA_DICT)
         bbox_traj_fulldir, sem_traj_fulldir = None, None
+        metadata_dict["date"] = dates_dict[str(traj)] if dates_dict is not None else None
+        metadata_dict["operator"] = operators_dict[str(traj)] if metadata_dict is not None else None
+        metadata_dict["poses"] = join(POSES_DIR, DENSE_POSES_DIR, "%s.txt"%str(traj))
 
         tasks = {}
         if traj in bbox_traj_list:
@@ -68,6 +112,9 @@ def gen_metadata_file(indir, outdir, bbox_traj_list=[], sem_traj_list=[]):
             label_files = get_label_list(indir, task_dir, traj)
             train_files, val_files, test_files = gen_dataset_split(label_files)
 
+            if task==OBJECT_DETECTION_TASK:
+                metadata_dict["objects"].extend(get_unique_objects(indir, traj, label_files))
+
             metadata_dict[task]["training"].extend(train_files.tolist())
             metadata_dict[task]["validation"].extend(val_files.tolist())
             metadata_dict[task]["testing"].extend(test_files.tolist())
@@ -75,8 +122,8 @@ def gen_metadata_file(indir, outdir, bbox_traj_list=[], sem_traj_list=[]):
         metadata_dict["trajectory"] = int(traj)
         metadata_path = os.path.join(outdir, "%d.json"%traj)
         metadata_file = open(metadata_path, "w+")
-
         json.dump(metadata_dict, metadata_file, indent=4)
+        metadata_file.close()
 
 def main(args):
     indir = args.data_path

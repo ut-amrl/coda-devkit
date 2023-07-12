@@ -482,6 +482,7 @@ dependencies:
   - zipp=3.11.0=py38h06a4308_0
   - zlib=1.2.13=h5eee18b_0
   - zstd=1.5.0=ha95c52a_0
+  - seaborn=0.12.2
   - pip:
     - ouster-sdk==0.7.1
     - pillow==9.4.0

@@ -33,6 +33,8 @@ METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
 TWOD_PROJ_DIR           = "2d_proj"
+POSES_DIR               = "poses"
+DENSE_POSES_DIR         = "dense"
 
 DATASET_L1_DIR_LIST = [
     METADATA_DIR,
@@ -46,15 +48,16 @@ DATASET_L1_DIR_LIST = [
     TWOD_BBOX_LABEL_TYPE,
     SEMANTIC_LABEL_DIR,
     TWOD_PROJ_DIR,
-    "poses"
+    POSES_DIR
 ]
 
 DATASET_L2_DIR_LIST = [
-    "poses/imu",
-    "poses/gps",
-    "poses/mag",
-    "poses/gpsodom",
-    "poses/inekfodom"
+    "%s/imu" % POSES_DIR,
+    "%s/gps" % POSES_DIR,
+    "%s/mag" % POSES_DIR,
+    "%s/gpsodom" % POSES_DIR,
+    "%s/inekfodom" % POSES_DIR,
+    "%s/%s" % (POSES_DIR, DENSE_POSES_DIR)
 ]
 
 """
@@ -218,7 +221,7 @@ BBOX_CLASS_TO_ID = {
     "Bike"                  : 2,
     "Motorcycle"            : 3,
     "Golf Cart"             : 4,
-    "Truck"                 : 5,
+    "Truck"                 : 5, # Unused
     "Scooter"               : 6,
     # Static Classes
     "Tree"                  : 7,
@@ -291,67 +294,156 @@ OCCLUSION_TO_ID ={
 NONRIGID_CLASS_IDS = [6, 7]
 
 BBOX_ID_TO_COLOR = [
-    (255, 0, 0),       #0 Scooter (Red)
-    (0, 255, 0),       #1 Person (Green)
-    (0, 0, 255),       #2 Car (Blue)
-    (255, 128, 0),     #3 Motorcycle (Orange)
-    (255, 255, 0),     #4 Golf Cart (Yellow)
-    (128, 0, 128),     #5 Truck (Purple)
-    (0, 255, 255),     #6 Person (Cyan)
-    (255, 204, 0),     #7 Tree (Gold)
-    (204, 0, 0),       #8 Traffic Sign (Dark Red)
-    (192, 192, 192),   #9 Canopy (Silver)
-    (255, 255, 51),    #10 Traffic Lights (Lime)
-    (255, 102, 255),   #11 Bike Rack (Pink)
-    (128, 128, 128),   #12 Bollard (Gray)
-    (255, 153, 102),   #13 Construction Barrier (Light Orange)
-    (0, 0, 204),       #14 Parking Kiosk (Dark Blue)
-    (0, 51, 204),      #15 Mailbox (Royal Blue)
-    (255, 0, 0),       #16 Fire Hydrant (Red)
-    (0, 204, 0),       #17 Freestanding Plant (Green)
-    (255, 167, 49),     #18 Pole (Texan Orange)
-    (255, 255, 0),     #19 Informational Sign (Yellow)
-    (204, 51, 0),      #20 Door (Dark Orange)
-    (102, 51, 0),      #21 Fence (Brown)
-    (204, 102, 0),     #22 Railing (Orange)
-    (255, 153, 51),    #23 Cone (Light Orange)
-    (0, 204, 204),     #24 Chair (Turquoise)
-    (0, 51, 0),        #25 Bench (Dark Green)
-    (102, 102, 0),     #26 Table (Olive)
-    (255, 87, 51),      #27 Trash Can (Bright Blue)
-    (255, 204, 153),   #28 Newspaper Dispenser (Light Orange)
-    (255, 51, 255),    #29 Room Label (Magenta)
-    (224, 224, 224),   #30 Stanchion (Light Gray)
-    (51, 255, 255),    #31 Sanitizer Dispenser (Turquoise)
-    (76, 153, 0),      #32 Condiment Dispenser (Dark Green)
-    (51, 152, 255),    #33 Vending Machine (Sky Blue)
-    (255, 204, 204),   #34 Emergency Aid Kit (Light Pink)
-    (255, 102, 102),   #35 Fire Extinguisher (Light Red)
-    (0, 153, 76),      #36 Computer (Dark Green)
-    (32, 32, 32),      #37 Television (Black)
-    (255, 255, 255),   #38 Other (White)
-    # Temp new classes
-    (255, 102, 0),     #39 Horse (Orange)
-    (0, 204, 255),     #40 Pickup Truck (Sky Blue)
-    (255, 16, 240),    #41 Delivery Truck (Neon Pink)
-    (255, 255, 51),    #42 Service Vehicle (Lime)
-    (0, 128, 0),       #43 Utility Vehicle (Green)
-    (51, 0, 204),      #44 Fire Alarm (Blue)
-    (255, 204, 204),   #45 ATM (Light Pink)
-    (255, 102, 102),   #46 Cart (Light Red)
-    (0, 153, 76),      #47 Couch (Dark Green)
-    (32, 32, 32),      #48 Traffic Arm (Black)
-    (255, 255, 255),   #49 Wall Sign (White)
-    (255, 102, 102),   #50 Floor Sign (Light Red)
-    (0, 153, 76),      #51 Door Switch (Dark Green)
-    (32, 32, 32),      #52 Emergency Phone (Light Black)
-    (255, 255, 255),   #53 Dumpster (White)
-    (200, 200, 200),   #54 Vacuum Cleaner (Dark Gray)
-    (223, 32, 32),     #55 Segway
-    (255, 200, 255),   #56 Bus
-    (200, 200, 105),    #57 Scooter,
-    (100, 200, 90)      #58 WAter Fountain 
-    #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
+    (140, 51, 147),         #0 Car (Blue)
+    (7, 33, 229),           #1 Person (Green)
+    (66, 21, 72),           #2 Bike
+    (67, 31, 116),          #3 Motorcycle (Orange)
+    (159, 137, 254),        #4 Golf Cart (Yellow)
+    (52, 32, 130),          #5 Truck (Purple)
+    (239, 92, 215),         #6 Scooter (Red)
+    (4, 108, 69),           #7 Tree (Gold)
+    (160, 129, 2),          #8 Traffic Sign (Dark Red)
+    (160, 93, 2),           #9 Canopy (Silver)
+    (254, 145, 38),         #10 Traffic Lights (Lime)
+    (227, 189, 1),          #11 Bike Rack (Pink)
+    (202, 79, 74),          #12 Bollard (Gray)
+    (255, 196, 208),        #13 Construction Barrier (Light Orange)
+    (166, 240, 4),          #14 Parking Kiosk (Dark Blue)
+    (113, 168, 3),          #15 Mailbox (Royal Blue)
+    (14, 60, 157),           #16 Fire Hydrant (Red)
+    (41, 159, 115),         #17 Freestanding Plant (Green)
+    (91, 79, 14),           #18 Pole (Texan Orange)
+    (220, 184, 94),         #19 Informational Sign (Yellow)
+    (202, 159, 41),         #20 Door (Dark Orange)
+    (253, 137, 129),        #21 Fence (Brown)
+    (97, 37, 32),           #22 Railing (Orange)
+    (91, 31, 39),           #23 Cone (Light Orange)
+    (24, 55, 95),           #24 Chair (Turquoise)
+    (0, 87, 192),           #25 Bench (Dark Green)
+    (31, 70, 142),          #26 Table (Olive)
+    (24, 45, 66),           #27 Trash Can (Bright Blue)
+    (30, 54, 11),           #28 Newspaper Dispenser (Light Orange)
+    (247, 148, 90),         #29 Room Label (Magenta)
+    (250, 126, 149),        #30 Stanchion (Light Gray)
+    (70, 106, 19),          #31 Sanitizer Dispenser (Turquoise)
+    (128, 132, 0),          #32 Condiment Dispenser (Dark Green)
+    (152, 163, 0),          #33 Vending Machine (Sky Blue)
+    (6, 32, 231),        #34 Emergency Aid Kit (Light Pink)
+    (8, 68, 212),          #35 Fire Extinguisher (Light Red)
+    (18, 34, 119),          #36 Computer (Dark Green)
+    (17, 46, 168),          #37 Television (Black)
+    (203, 226, 37),            #38 Other (Orange)
+    (9, 9, 181),            #39 Horse (Orange)
+    (100, 34, 168),         #40 Pickup Truck (Sky Blue)
+    (150, 69, 253),         #41 Delivery Truck (Neon Pink)
+    (46, 22, 78),           #42 Service Vehicle (Lime)
+    (121, 46, 216),         #43 Utility Vehicle (Green)
+    (37, 95, 238),           #44 Fire Alarm (Blue)
+    (95, 100, 14),          #45 ATM (Light Pink)
+    (25, 97, 119),          #46 Cart (Light Red)
+    (18, 113, 225),         #47 Couch (Dark Green)
+    (207, 66, 89),          #48 Traffic Arm (Black)
+    (215, 80, 2),           #49 Wall Sign (White)
+    (161, 125, 16),         #50 Floor Sign (Light Red)
+    (82, 46, 22),           #51 Door Switch (Dark Green)
+    (28, 42, 65),         #52 Emergency Phone (Light Black)
+    (0, 140, 180),          #53 Dumpster (White)
+    (0, 73, 207),           #54 Vacuum Cleaner (Dark Gray)
+    (120, 94, 242),         #55 Segway
+    (35, 28, 79),           #56 Bus
+    (56, 30, 178),          #57 Skateboard
+    (48, 49, 20)            #58 WAter Fountain 
+]
+
+# BBOX_ID_TO_COLOR = [
+#     (255, 0, 0),       #0 Scooter (Red)
+#     (0, 255, 0),       #1 Person (Green)
+#     (0, 0, 255),       #2 Car (Blue)
+#     (255, 128, 0),     #3 Motorcycle (Orange)
+#     (255, 255, 0),     #4 Golf Cart (Yellow)
+#     (128, 0, 128),     #5 Truck (Purple)
+#     (0, 255, 255),     #6 Person (Cyan)
+#     (255, 204, 0),     #7 Tree (Gold)
+#     (204, 0, 0),       #8 Traffic Sign (Dark Red)
+#     (192, 192, 192),   #9 Canopy (Silver)
+#     (255, 255, 51),    #10 Traffic Lights (Lime)
+#     (255, 102, 255),   #11 Bike Rack (Pink)
+#     (128, 128, 128),   #12 Bollard (Gray)
+#     (255, 153, 102),   #13 Construction Barrier (Light Orange)
+#     (0, 0, 204),       #14 Parking Kiosk (Dark Blue)
+#     (0, 51, 204),      #15 Mailbox (Royal Blue)
+#     (255, 0, 0),       #16 Fire Hydrant (Red)
+#     (0, 204, 0),       #17 Freestanding Plant (Green)
+#     (255, 167, 49),     #18 Pole (Texan Orange)
+#     (255, 255, 0),     #19 Informational Sign (Yellow)
+#     (204, 51, 0),      #20 Door (Dark Orange)
+#     (102, 51, 0),      #21 Fence (Brown)
+#     (204, 102, 0),     #22 Railing (Orange)
+#     (255, 153, 51),    #23 Cone (Light Orange)
+#     (0, 204, 204),     #24 Chair (Turquoise)
+#     (0, 51, 0),        #25 Bench (Dark Green)
+#     (102, 102, 0),     #26 Table (Olive)
+#     (255, 87, 51),      #27 Trash Can (Bright Blue)
+#     (255, 204, 153),   #28 Newspaper Dispenser (Light Orange)
+#     (255, 51, 255),    #29 Room Label (Magenta)
+#     (224, 224, 224),   #30 Stanchion (Light Gray)
+#     (51, 255, 255),    #31 Sanitizer Dispenser (Turquoise)
+#     (76, 153, 0),      #32 Condiment Dispenser (Dark Green)
+#     (51, 152, 255),    #33 Vending Machine (Sky Blue)
+#     (255, 204, 204),   #34 Emergency Aid Kit (Light Pink)
+#     (255, 102, 102),   #35 Fire Extinguisher (Light Red)
+#     (0, 153, 76),      #36 Computer (Dark Green)
+#     (32, 32, 32),      #37 Television (Black)
+#     (255, 255, 255),   #38 Other (White)
+#     # Temp new classes
+#     (255, 102, 0),     #39 Horse (Orange)
+#     (0, 204, 255),     #40 Pickup Truck (Sky Blue)
+#     (255, 16, 240),    #41 Delivery Truck (Neon Pink)
+#     (255, 255, 51),    #42 Service Vehicle (Lime)
+#     (0, 128, 0),       #43 Utility Vehicle (Green)
+#     (51, 0, 204),      #44 Fire Alarm (Blue)
+#     (255, 204, 204),   #45 ATM (Light Pink)
+#     (255, 102, 102),   #46 Cart (Light Red)
+#     (0, 153, 76),      #47 Couch (Dark Green)
+#     (32, 32, 32),      #48 Traffic Arm (Black)
+#     (255, 255, 255),   #49 Wall Sign (White)
+#     (255, 102, 102),   #50 Floor Sign (Light Red)
+#     (0, 153, 76),      #51 Door Switch (Dark Green)
+#     (32, 32, 32),      #52 Emergency Phone (Light Black)
+#     (255, 255, 255),   #53 Dumpster (White)
+#     (200, 200, 200),   #54 Vacuum Cleaner (Dark Gray)
+#     (223, 32, 32),     #55 Segway
+#     (255, 200, 255),   #56 Bus
+#     (200, 200, 105),    #57 Scooter,
+#     (100, 200, 90)      #58 WAter Fountain 
+#     #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
+# ]
+
+# Maps for each trajectory the overall weather condition for that trajectory
+TRAJECTORY_TO_WEATHER_MAP =[
+    "Cloudy"  ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Dark"    ,
+    "Dark"    ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Dark"    ,
+    "Cloudy"  ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Cloudy"  ,
+    "Rainy"   ,
+    "Rainy"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Sunny"   ,
+    "Cloudy"  ,
+    "Sunny"
 ]
 
 """
@@ -369,7 +461,7 @@ SEM_CLASS_TO_ID = {
     "Light Marble Tiling":  7,
     "Dark Marble Tiling":   8,
     "Dirt Paths":           9,
-    "Road Pavement":        19,
+    "Road Pavement":        10,
     "Short Vegetation":     11,
     "Porcelain Tile":       12,
     "Metal Grates":         13,
@@ -413,35 +505,6 @@ SEM_ID_TO_COLOR = [
     [156, 43, 40],          # 23 Metal Floor
     [0, 0, 0]               # 24 Unlabeled
 ]
-
-# [
-#     # (B, G, R) - Object Name
-#     (0, 0, 0),                    # 0 Unknown
-#     (148, 60, 56),                # 1 Concrete
-#     (185, 104, 114),              # 2 Grass
-#     (64, 90, 138),                # 3 Rocks
-#     (63, 159, 213),               # 4 Speedway Bricks
-#     (179, 73, 137),               # 5 Red Bricks
-#     (144, 146, 214),              # 6 Pebble Pavement
-#     (210, 170, 206),              # 7 Light Marble Tiling
-#     (117, 17, 17),                # 8 Dark Marble Tiling
-#     (108, 26, 103),               # 9 Dirt Paths
-#     (56, 60, 148),                # 10 Road Pavement
-#     (178, 130, 221),              # 11 Short Vegetation
-#     (171, 237, 180),              # 12 Porcelain Tile
-#     (217, 59, 206),               # 13 Metal Grates
-#     (241, 220, 197),              # 14 Blond Marble Tiling
-#     (132, 164, 196),              # 15 Wood Panel
-#     (161, 220, 226),              # 16 Patterned Tile
-#     (121, 120, 56),               # 17 Carpet
-#     (111, 110, 51),               # 18 Crosswalk
-#     (212, 195, 210),              # 19 Dome Mat
-#     (243, 253, 244),              # 20 Stairs
-#     (221, 220, 106),              # 21 Door Mat
-#     (60, 226, 93),                # 22 Threshold
-#     (108, 17, 17),                # 23 Metal Floor
-#     (0, 0, 0)                     # 24 Unlabeled
-# ]
 
 """
 Manifest file generation sensor to subdirectory mappings
