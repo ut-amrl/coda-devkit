@@ -1,4 +1,5 @@
 import os
+import itertools
 from os.path import join
 import seaborn as sns
 import sys
@@ -13,6 +14,7 @@ import numpy as np
 import time
 import json
 import copy
+import cv2
 
 sys.path.append(os.getcwd())
 
@@ -218,7 +220,328 @@ def plot_weather_time_frequency(indir, outdir):
     for metadata_file in metadata_files:
         pass # TODO later
 
+def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"], 
+    counts_file="GEN_object_counts.json"):
+    metadata_dir = join(indir, METADATA_DIR)
+    metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
+              if os.path.isfile(os.path.join(metadata_dir, file_name))]
+
+    
+    counts_cache = join(outdir, counts_file)
+    if not os.path.exists(counts_cache):
+    
+        counts_dict = {className: 0 for className in BBOX_CLASS_TO_ID.keys()}
+        for metadata_file in metadata_files:
+            meta_path = join(metadata_dir, metadata_file)
+            obj_splits = json.load(open(meta_path, 'r'))['ObjectTracking']
+
+            # Load all annotation paths and count labels
+            obj_anno_subpaths = []
+            for split in splits:
+                obj_anno_subpaths.extend(obj_splits[split])
+
+            print("Started meta file %s" % meta_path)
+            for obj_anno_subpath in obj_anno_subpaths:
+                obj_anno_path = join(indir, obj_anno_subpath)
+                obj_anno_dict = json.load(open(obj_anno_path, 'r'))["3dbbox"]
+
+                for obj_dict in obj_anno_dict:
+                    counts_dict[obj_dict["classId"]] += 1
+            print("Finished meta file %s" % meta_path)
+
+        # Save cached label counts
+        with open(counts_cache, "w") as counts_cache_file:
+            counts_dict_str = {k: str(v) for k, v in counts_dict.items()}
+            json.dump(counts_dict_str, counts_cache_file)
+    else:
+        counts_dict = json.load(open(counts_cache, 'r'))
+
+    # Divide into categories
+    class_to_cat = {
+        "Tree"                  : "Vegetation",
+        "Freestanding Plant"    : "Vegetation",
+        "Pole"                  : "Structure",
+        "Traffic Sign"          : "Structure",
+        "Bike Rack"             : "Structure",
+        "Door"                  : "Structure",
+        "Floor Sign"            : "Structure",
+        "Canopy"                : "Structure",
+        "Informational Sign"    : "Structure",
+        "Door Switch"           : "Structure",
+        "Room Label"            : "Structure",
+        "Wall Sign"             : "Structure",
+        "Traffic Light"         : "Structure",
+        "Railing"               : "Barrier",
+        "Bollard"               : "Barrier",
+        "Traffic Arm"           : "Barrier",
+        "Fence"                 : "Barrier",
+        "Cone"                  : "Barrier",
+        "Construction Barrier"  : "Barrier",
+        "Stanchion"             : "Barrier",
+        "Trash Can"             : "Container",
+        "Dumpster"              : "Container",
+        "Cart"                  : "Container",
+        "Newspaper Dispenser"   : "Service Machine",
+        "Sanitizer Dispenser"   : "Service Machine",
+        "Parking Kiosk"         : "Service Machine",
+        "ATM"                   : "Service Machine",
+        "Mailbox"               : "Service Machine",
+        "Condiment Dispenser"   : "Service Machine",
+        "Vending Machine"       : "Service Machine",
+        "Water Fountain"        : "Service Machine",
+        "Bike"                  : "Transportation",
+        "Car"                   : "Transportation",
+        "Scooter"               : "Transportation",
+        "Service Vehicle"       : "Transportation",
+        "Utility Vehicle"       : "Transportation",
+        "Delivery Truck"        : "Transportation",
+        "Pickup Truck"          : "Transportation",
+        "Motorcycle"            : "Transportation",
+        "Golf Cart"             : "Transportation",
+        "Truck"                 : "Transportation",
+        "Bus"                   : "Transportation",
+        "Segway"                : "Transportation",
+        "Skateboard"            : "Transportation",
+        "Emergency Phone"       : "Emergency Device",
+        "Fire Hydrant"          : "Emergency Device",
+        "Fire Extinguisher"     : "Emergency Device",
+        "Fire Alarm"            : "Emergency Device",
+        "Emergency Aid Kit"     : "Emergency Device",
+        "Pedestrian"            : "Mammal",
+        "Horse"                 : "Mammal",
+        "Chair"                 : "Furniture/ Appliance",
+        "Table"                 : "Furniture/ Appliance",
+        "Bench"                 : "Furniture/ Appliance",
+        "Couch"                 : "Furniture/ Appliance",
+        "Computer"              : "Furniture/ Appliance",
+        "Television"            : "Furniture/ Appliance",
+        "Vacuum Cleaner"        : "Furniture/ Appliance",
+        "Other"                 : "Other"
+    }
+
+    # Sort class counts dictionary
+    sorted_counts_dict = dict(sorted(counts_dict.items(), key=lambda item: int(item[1]), reverse=True ))
+
+    # Remove classes with no counts
+    sorted_counts_dict = { key: int(val) for key, val in sorted_counts_dict.items() if int(val)>0}
+
+    # Create new dictionary from sorted class counts dictionary into multiple smaller dictionaries
+    cat_list = []
+    for cat in class_to_cat.values():
+        if cat not in cat_list:
+            cat_list.append(cat)
+    cat_list_dict = {cat: {} for cat in cat_list }
+
+    for cls_name, counts in sorted_counts_dict.items():
+        if cls_name in class_to_cat:
+            cat = class_to_cat[cls_name]
+            cat_list_dict[cat][cls_name] = counts
+        else:
+            print("Class %s not in labels" % cls_name)
+
+    # Merge separate dictionaries into one
+    separated_counts_dict = {}
+    colors = []
+    for cat in cat_list_dict:
+        for cls_name, cls_count in cat_list_dict[cat].items():
+            colors.append(BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[cls_name]])
+            new_cls_name = cls_name.replace(' ', '\n')
+            separated_counts_dict[new_cls_name] = int(cls_count)
+
+    colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(colors)]
+    sns.set(style='white', font_scale=2.25)
+    sns.set_palette(colors)
+
+    # Plot expects dict in the form of x="cat name" y="cat counts"
+    df = pd.DataFrame({
+        'Counts': list(separated_counts_dict.values()),
+        'Labels': list(separated_counts_dict.keys())
+    })
+
+    ax = sns.catplot(x='Labels', y='Counts', data=df, 
+        kind='bar',
+        height=10,
+        aspect=3.5,
+        width=0.75,
+        legend=True,
+        palette=colors
+    )
+
+    import matplotlib.patches as mpatches
+    legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(colors, df['Labels'])]
+    name = "GEN_object_counts_plot"
+    
+    # plt.legend(handles=legend_handles, title='Semantic Class', ncol=7, fontsize=20)
+    plt.legend(handles=legend_handles, bbox_to_anchor=(0.5, 2.2), loc='upper center', ncol=11, fontsize=22)
+    plt.yscale('log')
+    ax.set(xlabel="")
+    ax.set(ylabel="# Labels (Log Scale)")
+    ax.set_xticklabels([])
+    plt.subplots_adjust(top=0.55)
+    # plt.subplots_adjust(top=0.1)
+    plt.savefig("%s/%s.png"%(outdir, name), format='png', dpi=300)
         
+def plot_label_weather(indir, outdir, splits=["training", "validation", "testing"], 
+    counts_file="GEN_object_weather.json"):
+    metadata_dir = join(indir, METADATA_DIR)
+    metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
+              if os.path.isfile(os.path.join(metadata_dir, file_name))]
+    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data.json")
+    traj_weather_dict = json.load(open(traj_weather_path, 'r'))
+    weather_list = []
+    for weather in traj_weather_dict.values():
+        if weather not in weather_list:
+            weather_list.append(weather)
+
+    counts_cache = join(outdir, counts_file)
+    if not os.path.exists(counts_cache):
+    
+        counts_dict = {className: {weather: 0 for weather in weather_list} for className in BBOX_CLASS_TO_ID.keys()}
+        for metadata_file in metadata_files:
+            traj = metadata_file.split('.')[0]
+            meta_path = join(metadata_dir, metadata_file)
+            obj_splits = json.load(open(meta_path, 'r'))['ObjectTracking']
+            weather = traj_weather_dict[traj]
+
+            # Load all annotation paths and count labels
+            obj_anno_subpaths = []
+            for split in splits:
+                obj_anno_subpaths.extend(obj_splits[split])
+
+            print("Started meta file %s" % meta_path)
+            for obj_anno_subpath in obj_anno_subpaths:
+                obj_anno_path = join(indir, obj_anno_subpath)
+                obj_anno_dict = json.load(open(obj_anno_path, 'r'))["3dbbox"]
+
+                # Count occurrences of each object under each weather condition
+                for obj_dict in obj_anno_dict:
+                    counts_dict[obj_dict["classId"]][weather] += 1
+            print("Finished meta file %s" % meta_path)
+
+        # Save cached label counts
+        with open(counts_cache, "w") as counts_cache_file:
+            counts_dict_str = {k: str(v) for k, v in counts_dict.items()}
+            json.dump(counts_dict_str, counts_cache_file)
+    else:
+        counts_dict = json.load(open(counts_cache, 'r'))
+
+    def str_to_dict(string):
+        # remove the curly braces from the string
+        string = string.strip('{}')
+    
+        # split the string into key-value pairs
+        pairs = string.split(', ')
+    
+        # use a dictionary comprehension to create
+        # the dictionary, converting the values to
+        # integers and removing the quotes from the keys
+        return {key[1:-1]: int(value) for key, value in (pair.split(': ') for pair in pairs)}
+
+    def dict_sort_helper(weather_counts_dict):
+        sum = 0
+        for count in str_to_dict(weather_counts_dict[1]).values():
+            sum += int(count)
+        return sum
+
+    # Sort object classes by summing all counts across all weather conditions
+    sorted_counts_dict_str = dict(sorted(counts_dict.items(), key=dict_sort_helper, reverse=True ))
+    sorted_counts_dict = {}
+    for clsname, val in sorted_counts_dict_str.items():
+        new_cls_name = clsname.replace(' ', '\n', 1)
+        weather_counts_dict = str_to_dict(val)
+        
+        any_counts_nonzero = False
+        for _, weather_counts_val in weather_counts_dict.items():
+            if weather_counts_val > 0:
+                any_counts_nonzero = True
+        
+        if not any_counts_nonzero: # Dont append objects with zero annotation instances here
+            continue
+        sorted_counts_dict[new_cls_name] = weather_counts_dict
+
+    num_plots = 2
+    num_classes = len(sorted_counts_dict.keys())
+    classes_per_plot = num_classes // num_plots
+
+    start_class_index = 0
+    end_class_index = classes_per_plot
+    # Plot grouped histogram in seaborn
+    sns.set_style('whitegrid')
+    plot_idx = 0
+    plot_paths = []
+    while start_class_index < end_class_index:
+        data_list = []
+        colors = []
+
+        class_idx = 0
+        for cls_name, weather_dict in sorted_counts_dict.items():
+            if class_idx >= start_class_index and class_idx < end_class_index:
+                weather_counts_list = list(weather_dict.values())
+                df = pd.DataFrame(
+                    {
+                    'Counts': list(weather_dict.values()),
+                    'Weather': list(weather_dict.keys())
+                    }
+                ).assign(Location=cls_name)
+                single_line_cls_name = cls_name.replace('\n', ' ', 1)
+                colors.append(BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[single_line_cls_name]])
+                data_list.append(df)
+            class_idx += 1
+        if len(data_list)==0:
+            print("Finished generating subplots...")
+            break
+
+        cdf = pd.concat(data_list)
+        # mdf = pd.melt(cdf, id_vars=['Location'], var_name=['ClassName'])
+        mdf = cdf
+        colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(colors)]
+
+        plt.figure(figsize=(19, 5))  # Adjust the width and height as needed
+        plt.subplots_adjust(bottom=0.35)  # Adjust the margin bottom as needed
+        sns.set(style='white', font_scale=1.5)
+        ax = sns.barplot(x="Location", y="Counts", hue="Weather", data=mdf, 
+            errwidth=0
+        )
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=90, ha="right")
+        num_locations = len(mdf.Location.unique())
+
+        hatches = itertools.cycle(['*', '//', 'o', '-'])
+        for i, bar in enumerate(ax.patches):
+            if i % num_locations == 0:
+                hatch = next(hatches)
+            bar.set_hatch(hatch)
+
+        # Iterate over the bars and modify the colors and line styles
+        for i, patch in enumerate(ax.patches):
+            # Calculate the index within each group
+            index_within_group = i % len(colors)
+            # Set the same color for each group
+            patch.set_facecolor(colors[index_within_group])    
+
+        plt.yscale('log')
+        ax.set(xlabel="")
+        ax.set(ylabel="# Labels (Log Scale)")
+        ax.legend(loc='upper right', bbox_to_anchor=(1.0, 1.0), ncol=4, fancybox=True, shadow=False)
+
+        name="GEN_object_weather_plot%i" % plot_idx
+        plot_path = "%s/%s.png"%(outdir, name)
+        plot_paths.append(plot_path)
+        plt.savefig(plot_path, format='png', dpi=300)
+        plt.clf()
+
+        plot_idx += 1
+        start_class_index = end_class_index
+        end_class_index = max(end_class_index + classes_per_plot, end_class_index)
+
+    # Combine subsplots to vertically
+    img_list = [] 
+    for plot_path in plot_paths:
+        img_np = cv2.imread(plot_path)
+        img_list.append(img_np)
+
+    combined_img_np = np.vstack((img_np for img_np in img_list))
+    combined_img_path = join(outdir, "GEN_object_weather_plot_combined.png")
+    cv2.imwrite(combined_img_path, combined_img_np)
 
 def main(args):
     #Get file paths and loop throught to sum each label
@@ -235,49 +558,11 @@ def main(args):
         plot_object_heatmap(indir, outdir)
     elif args.plot_type=="weathertime":
         plot_weather_time_frequency(indir, outdir)
-
+    elif args.plot_type=="labelcounts":
+        plot_label_counts(indir, outdir)
+    elif args.plot_type=="labelweather":
+        plot_label_weather(indir, outdir)
 
 if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
-
-""""""
-    # cats = ['Outdoor Floor', 'Indoor Floor', 'Hybrid Floor']
-    # hue = labels_list
-    # center_positions = np.arange(len(cats)) * len(hue) + (len(hue) - 1) / 2
-    # plot = sns.catplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, kind="bar", 
-    #     height=15, 
-    #     legend_out=False, # move legend onto plot
-    #     dodge=True, # Set to false to stack class bars
-    #     aspect=1.25,
-    #     width=1,
-    #     center = center_positions
-    # )
-    # # plot._legend.set_bbox_to_anchor((0.75, 1))
-    # plt.legend(loc='upper right', ncol=2)
-    # plot.set(xlabel=None)
-    # plot.set(ylabel="Proportion %")
-
-    # # ax = plot.facet_axis(0, 0)  # or ax = g.axes.flat[0]
-    # # # x = np.arange(3)
-    # # # plot.set_xticks(x + 0.25,("Outdoor Flooring", "Indoor Flooring", "Hybrid Flooring"))
-    # # for c in ax.containers:
-    # #     class_counts = [str(labels_counts_dictionary[cls_name]) for cls_name in df['Labels']]
-
-    # #     ax.bar_label(c, labels=class_counts, label_type='edge')
-    # for ax in plot.axes.flat:
-    #     for bar_idx, bar in enumerate(ax.containers):
-    #         cls_name = df['Labels'][bar_idx]
-    #         cls_count = labels_counts_dictionary[cls_name]
-    #         ax.bar_label(bar, fmt='%0.3f', rotation=90)  # Format the label with desired precision
-
-    # for i, bar in enumerate(plot.axes.patches): 
-
-    #     # move the missing to the centre
-    #     current_width = bar.get_width()
-    #     current_pos = bar.get_x()
-    #     if i == 5:
-    #         bar.set_x(current_pos-(current_width/2))
-    #         # move also the std mark
-    #         plot.axes.lines[i].set_xdata(current_pos)
-""""""
