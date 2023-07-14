@@ -35,11 +35,13 @@ TWOD_RAW_DIR            = "2d_raw"
 TWOD_PROJ_DIR           = "2d_proj"
 POSES_DIR               = "poses"
 DENSE_POSES_DIR         = "dense"
+DENSE_POSES_FULL_DIR    = "poses/dense"
+TIMESTAMPS_DIR          = "timestamps"
 
 DATASET_L1_DIR_LIST = [
     METADATA_DIR,
     CALIBRATION_DIR,
-    "timestamps",
+    TIMESTAMPS_DIR,
     TWOD_RAW_DIR,
     "2d_rect",
     TRED_RAW_DIR,

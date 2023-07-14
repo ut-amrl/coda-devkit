@@ -217,11 +217,12 @@ def main(args):
                         print("Output image dir for %s does not exist, creating..."%output_img_dir)
                         os.makedirs(output_img_dir)
                     frame_list.append(frame)
-
-                    # #Uncomment below for testing
-                    # if not (trajectory==0 and int(frame) == 4965):
+                    
+                    #Uncomment below for testing
+                    # if not (trajectory==20 and int(frame) == 3492):
                     #     continue
                     # generate_single_anno_file((indir, ".", modality, sensor_name, trajectory, frame, [cam_id]))
+                    # import pdb; pdb.set_trace()
 
                 pool = Pool(processes=checker_cfg['num_workers'])
                 for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
