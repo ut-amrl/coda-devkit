@@ -16,7 +16,7 @@ def main(args):
     fpath   = os.path.join(fdir, traj + "_vis" + ".bin")
 
     # reads in the generated file
-    bin_np  = np.fromfile(fpath).reshape(-1, 6)
+    bin_np  = np.fromfile(fpath).reshape(-1, 8)
     pose_x, pose_y, obs_x, obs_y = bin_np[:, 0], bin_np[:, 1], bin_np[:, 3], bin_np[:, 4]
 
     print("Start plotting")

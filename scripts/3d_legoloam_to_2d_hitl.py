@@ -84,7 +84,8 @@ def process_pc(args):
     # pc_np     = pc_np_org.reshape(1024, 128, 3) # reshape incorrectly
     # axis 0 - hortizontal channel (1024), axis 1 - vertical channel (128)
     pc_np     = pc_np_org.reshape(128, 1024, 3)
-    pc_np     = np.transpose(pc_np, [1, 0, 2]) # (1024, 128, 3)
+    pc_np     = np.transpose(pc_np, [1, 0, 2]) # result (1024, 128, 3)
+    pc_np     = pc_np[::2, ::8, :] # downsample: 128 -> 16 and 1024 -> 512
     # TEST - np.equal(pc_np_org[::1024], pc_np[0])
 
     pc_np_flattened = pc_np.reshape(-1, 3)
@@ -117,17 +118,17 @@ def process_pc(args):
     
     if ( n_of_val_scans != 0 ): # skips to write if no valid pc in the frame
         if (option == "vis"):
-            np_bin_single = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)
+            obs_xy = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)
         else:
-            # 3) find two nearest points
-            _, ind = tree.query(pc_np_min, k=3)
-            closest_points = pc_np_flattened[ind]
-
-            # 4) find the normal vector to the plane
-            norm_xy = get_normal(closest_points)
-            
             obs_xy  = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_min)[:, :2]
-            np_bin_single = np.hstack((obs_xy, norm_xy))
+
+        # 3) find two nearest points
+        _, ind = tree.query(pc_np_min, k=3)
+        closest_points = pc_np_flattened[ind]
+
+        # 4) find the normal vector to the plane
+        norm_xy = get_normal(closest_points)
+        np_bin_single = np.hstack((obs_xy, norm_xy))
 
         # Dump frame to npy file
         np_bin_path = join(outdir, "np_bin_%i.npy"%frame)
@@ -160,7 +161,7 @@ def main(args):
     np_n_of_val_scans = np.zeros(len(pose_np), dtype=int)
 
     if (option == "vis"):
-        np_bin = np.zeros((len(pose_np)*1024, 6))
+        np_bin = np.zeros((len(pose_np)*1024, 8))
     else:
         np_bin = np.zeros((len(pose_np)*1024, 16))
     
@@ -176,6 +177,7 @@ def main(args):
     pool = Pool(processes=96)
     pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list), chunksize=32)
 
+    print("\nAggregating all pcs.\n")
     # Load in pcs for each frame
     start, end = 0, 0
     for frame in range(n_of_bin_files):
@@ -190,6 +192,7 @@ def main(args):
         end = start + np_n_of_val_scans[frame]
         if (option == "vis"):
             np_bin[start:end, 3:6] = np_bin_single[:, :3]
+            np_bin[start:end:, 6:] = np_bin_single[:, 3:5]# normal vector
         else:
             np_bin[start:end, 3:7] = np_bin_single
 
@@ -210,16 +213,18 @@ def main(args):
     
     if (option == "vis"):
         '''3d pose and 3d obs'''
-        np_bin[:,  :3] = get_pose(pose_np, np_n_of_val_scans, True) # add pose
+        np_bin[:,  :3] = get_pose(pose_np, np_n_of_val_scans, True) # add pose - (x,y,z)
         fpath_out = os.path.join(save_dir, trajectory + "_vis" + ".bin")
-    else:
+        # save as bin file
+        np_bin_flattended = np_bin.reshape(-1,)
+        np_bin_flattended.tofile(fpath_out)
+    else: 
         np_bin[:, :3] = get_pose(pose_np, np_n_of_val_scans, False)
         np_bin[:, 7:] = cov_gen(n_of_bin=len(pose_np), np_n_of_val_scans=np_n_of_val_scans)
-        fpath_out = os.path.join(save_dir, trajectory + ".bin")
+        fpath_out = os.path.join(save_dir, trajectory + ".txt")
+        header = 'StarterMap\n1455656519.379815'
+        np.savetxt(fpath_out, np_bin, delimiter=',', header=header, comments='')
 
-    # save as bin file
-    np_bin_flattended = np_bin.reshape(-1,)
-    np_bin_flattended.tofile(fpath_out)
 
 if __name__ == "__main__":
     start_time = time.time()
