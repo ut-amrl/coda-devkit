@@ -517,13 +517,26 @@ def draw_2d_sem(image, valid_pts, pts_labels):
         image = cv2.circle(image, (pt[0], pt[1]), radius=1, color=pt_color)
     return image
 
-def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2, img_w=1223, img_h=1023):
+def redistribute_rgb(r, g, b):
+    threshold = 255.999
+    m = max(r, g, b)
+    if m <= threshold:
+        return int(r), int(g), int(b)
+    total = r + g + b
+    if total >= 3 * threshold:
+        return int(threshold), int(threshold), int(threshold)
+    x = (3 * threshold - total) / (3 * m - total)
+    gray = threshold - x * m
+    return int(gray + x * r), int(gray + x * g), int(gray + x * b)
+
+def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, img_w=1223, img_h=1023):
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
     # available_points = np.arange(8, dtype=np.int32)
     old_to_new_index_map = np.zeros((8,), dtype=np.int32)
     old_to_new_index_map[available_points] = np.arange(0, available_points.shape[0])
-    # import pdb; pdb.set_trace()
+    brighter_color = tuple([c*1.8 for c in color])
+    color = (redistribute_rgb(brighter_color[0], brighter_color[1], brighter_color[2]))
     try:
         #Vert Beams
         for i in range(0, 4):
@@ -534,7 +547,7 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=2, im
                 p1 = tuple(bbox_2d_pts[si])
                 p2 = tuple(bbox_2d_pts[ei])
                 _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
-    
+               
                 image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
 
         # Horizontal Beams
