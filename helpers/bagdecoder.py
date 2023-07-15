@@ -234,7 +234,6 @@ class BagDecoder(object):
                         "/coda%s"%topic, topic_class, queue_size=10
                     )
                     
-
             #Create frame to timestamp map
             frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%self._trajectory)
             if self._gen_data:
