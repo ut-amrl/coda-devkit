@@ -92,14 +92,14 @@ We collected CODa from the perspective of a mobile robot (Clearpath Husky) on UT
 - 1 x Vectornav VN-310 Dual GNSS/INS, up to 800 Hz IMU Data. Inertial and GPS data captured @ 40Hz
 
 
-We synchronized the Ouster 3D LiDAR and FLIR cameras using hardware. At the start of each scan, the 3D LiDAR emits a sync pulse to trigger the exposure for the FLIR cameras. We store the original ROS timestamps for the other sensors, but do not guarantee that the timestamps are synchronized with respect to the 3D LiDAR and FLIR cameras. We recorded raw sensor messages from multiple sensors using the Robot Operating System (ROS) and processed these sensor messages into individual files using the `coda-devkit`. We provide this devkit for download from pip and the CODa dataset on the Texas Dataverse. 
+We synchronized the Ouster 3D LiDAR and FLIR cameras using hardware. At the start of each scan, the 3D LiDAR emits a sync pulse to trigger the exposure for the FLIR cameras. We store the original ROS timestamps for the other sensors, but do not guarantee that the timestamps are synchronized with respect to the 3D LiDAR and FLIR cameras. We recorded raw sensor messages from multiple sensors using the Robot Operating System (ROS) and processed these sensor messages into individual files using the `coda-devkit`. We provide this devkit for download from pip and CODa on the Texas Dataverse. 
 
 <p align="center">
   <img src="./campusmap.png" width="70%">
 </p>
 
 
-Robot operators teleoperated the robot along four distinct trajectories. We refer to different trials as sequences. Under this definition we have 22 sequences in our dataset. We define each unique trajectory by the order of waypoints visited and describe the order for each trajectory below. We marked these waypoints before data collection so that waypoint locations are identical between sequences. 
+Robot operators teleoperated the robot along four distinct trajectories. We refer to different trials as sequences. Under this definition, we have 22 sequences in our dataset. We define each unique trajectory by the order of waypoints visited and describe the order for each trajectory below. We marked these waypoints before data collection so that waypoint locations are identical between sequences. 
 
 ```
 Trajectory Definitions:
@@ -331,8 +331,8 @@ ts magx magy magz
 
 ## Metadata Format and Usage (metadata)
 
-There is a separate metadata file for each sequence. Each sequence's metadata file contains its set of annotated objects, the date of collection, robot operator, lighting condition, trajectory number, subdirectory path to the ground truth poses, and annotation files for the train/validation/test splits for the CODa benchmarks. In the future, we plan on extending this with sequence specific attributes and a frames list to
-indicate when the robot is indoor versus outdoors. To use the annotation files in your dataloader, simply append the annotation subpath in the metadata file to the absolute path where CODa is downloaded.
+There is a separate metadata file for each sequence. Each sequence's metadata file contains its set of annotated objects, the date of collection, robot operator, lighting condition, trajectory number, subdirectory path to the ground truth poses, and annotation files for the train/validation/test splits for the CODa benchmarks. In the future, we plan on extending this with sequence-specific attributes and a frames list to
+indicate when the robot is indoors versus outdoors. To use the annotation files in your dataloader, simply append the annotation subpath in the metadata file to the absolute path where CODa is downloaded.
 
 To view the metadata files for the small and medium versions of CODa, refer to the `metadata_small` and `metadata_md` directories.
 
@@ -426,7 +426,7 @@ os1 - stored as a 32 bit float binary file in the order: x y z intensity. In the
                  |/
   y left <------ 0 ------ right
 
-cam2/cam3 - stored as mono 16 bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. Note that these depth images may appear darker due to the colormap used store them. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
+cam2/cam3 - stored as mono 8-bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
 
             z up  y front
               ^    ^
@@ -438,7 +438,7 @@ cam2/cam3 - stored as mono 16 bit image at the original resolution with {SEQUENC
 ```
 
 2. 3d_comp directory
-Contains egocompensated 3D points clouds for the os1 sensor. We perform egocompensation using the provided poses found in each sequence's metadata file. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
+Contains ego-compensated 3D points clouds for the os1 sensor. We perform ego-compensation using the provided poses found in each sequence's metadata file. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
 
 # Annotation File Format
 
