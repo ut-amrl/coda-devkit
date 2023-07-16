@@ -154,3 +154,5 @@ cython_debug/
 
 plots/*
 2d_raw/*
+**/.vscode
+**/.clang-format
