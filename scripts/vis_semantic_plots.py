@@ -18,6 +18,7 @@ import cv2
 
 sys.path.append(os.getcwd())
 
+from helpers.metadata import OBJECT_DETECTION_TASK, SEMANTIC_SEGMENTATION_TASK
 from helpers.constants import *
 from helpers.sensors import read_sem_label
 from helpers.plotting_utils import sum_labels, kdeplot_set
@@ -543,12 +544,34 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
     combined_img_path = join(outdir, "GEN_object_weather_plot_combined.png")
     cv2.imwrite(combined_img_path, combined_img_np)
 
+def check_num_annotations(indir, task=SEMANTIC_SEGMENTATION_TASK):
+    meta_dir = join(indir, METADATA_DIR)
+    meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
+
+    annotation_files = {}
+    for meta_file in meta_files:
+        meta_path = join(meta_dir, meta_file)
+        obj_splits = json.load(open(meta_path, 'r'))[task]
+        for split in obj_splits.keys():
+            if split not in annotation_files:
+                annotation_files[split] = obj_splits[split]
+            else:
+                annotation_files[split].extend(obj_splits[split])
+
+    num_frames = 0
+    for split, split_list in annotation_files.items():
+        print("Split %s number of frames %i" % (split, len(split_list)))
+        num_frames += len(split_list)
+    print("Total number of frames across all splits %i"%num_frames)
+
 def main(args):
     #Get file paths and loop throught to sum each label
     indir = "/robodata/arthurz/Datasets/CODa_dev"
     outdir = "%s/plots" % os.getcwd()
     if not os.path.exists(outdir):
         os.mkdir(outdir)
+
+    check_num_annotations(indir)
 
     if args.plot_type=="semantichist":
         #List of labels to use to get label name from index, Dictionary to keep track of total for each label

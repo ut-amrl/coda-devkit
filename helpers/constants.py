@@ -97,7 +97,7 @@ BBOX_CLASS_VIZ_LIST = [
     "Bike"                  ,
     "Motorcycle"            ,
     "Golf Cart"             ,
-    "Truck"                 ,
+    "Truck"                 , # Unused
     "Scooter"               ,
     # Static Classes
     "Tree"                  ,
@@ -153,7 +153,8 @@ BBOX_CLASS_VIZ_LIST = [
     "Vacuum Cleaner"        ,
     "Segway"                ,
     "Bus"                   ,
-    "Skateboard"
+    "Skateboard"            ,
+    "Water Fountain"        
 ]
 
 BBOX_CLASS_REMAP = {
@@ -222,7 +223,7 @@ BBOX_CLASS_TO_ID = {
     "Pedestrian"            : 1,
     "Bike"                  : 2,
     "Motorcycle"            : 3,
-    "Golf Cart"             : 4,
+    "Golf Cart"             : 4, # Unused
     "Truck"                 : 5, # Unused
     "Scooter"               : 6,
     # Static Classes
@@ -232,7 +233,7 @@ BBOX_CLASS_TO_ID = {
     "Traffic Light"         : 10,
     "Bike Rack"             : 11,
     "Bollard"               : 12,
-    "Construction Barrier"  : 13,
+    "Construction Barrier"  : 13, # Unused
     "Parking Kiosk"         : 14,
     "Mailbox"               : 15,
     "Fire Hydrant"          : 16,
@@ -258,7 +259,7 @@ BBOX_CLASS_TO_ID = {
     "Emergency Aid Kit"     : 34,
     "Fire Extinguisher"     : 35,
     "Computer"              : 36,
-    "Television"            : 37,
+    "Television"            : 37, # unused
     "Other"                 : 38,
     "Horse"                 : 39,
     # New Classes
@@ -276,11 +277,11 @@ BBOX_CLASS_TO_ID = {
     "Door Switch"           : 51,
     "Emergency Phone"       : 52,
     "Dumpster"              : 53,
-    "Vacuum Cleaner"        : 54,
+    "Vacuum Cleaner"        : 54, # unused
     "Segway"                : 55,
     "Bus"                   : 56,
     "Skateboard"            : 57,
-    "Water Fountain"       : 58
+    "Water Fountain"        : 58
 }
 
 OCCLUSION_TO_ID ={

@@ -273,7 +273,7 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
     return image
 
 def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
-    bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file)
+    bbox_pts, bbox_mask, bbox_idxs = project_3dto2d_bbox(anno_dict, calib_ext_file, calib_intr_file, check_img=True)
     num_boxes = bbox_pts.shape[0]
     bbox_coords = np.zeros((num_boxes, 4)) # (left top) minxy, (right bottom) maxxy 
     for obj_idx in range(0, num_boxes):
