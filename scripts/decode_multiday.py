@@ -1,60 +1,18 @@
+import warnings
+warnings.filterwarnings("ignore")
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # or any {'0', '1', '2'}
 import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import yaml
 import numpy as np
 import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--config', default="config/bagdecoder.yaml",
-                    help="decode config file (see config/decode.yaml for example)")
-parser.add_argument('--all_days', default=False, help="decode all sudirs or the one specified in .yaml")
-
-# For imports
-sys.path.append(os.getcwd())
-
-#CustomImports
 from helpers.bagdecoder import BagDecoder
 
 
-def main(args):
-    if args.all_days:
-        # Process the following days in CODa_bags
-        settings_file =  open(args.config, 'r')
-        settings = yaml.safe_load(settings_file)
-        root_repo = settings['repository_root']
-
-        subdirs_to_process = -1
-        trajectory_curr = 0
-
-        if subdirs_to_process==-1: # Default to all subdirs
-            subdirs_to_process = [entry.path for entry in os.scandir(root_repo) if entry.is_dir()]
-            # [ subdir for subdir in os.listdir(root_repo) if os.path.isdir(os.path.join(
-            #     root_repo, subdir) ) ]
-
-        for dir_path in subdirs_to_process:
-            
-            bag_files = [ subdir_file.path.split('/')[-1] for subdir_file in os.scandir(dir_path) if subdir_file.path.endswith(".bag") and
-                "calibration" not in subdir_file.path]
-
-            subdir = dir_path.split('/')[-1]
-            # Modify bagdecoder.yaml settings with correct config
-            settings['bag_date'] = subdir
-            settings['bags_to_process'] = bag_files
-            settings['bags_to_traj_ids'] = np.arange(trajectory_curr, trajectory_curr+len(bag_files), 1)
-            trajectory_curr += len(bag_files)
-
-            bag_decoder = BagDecoder(settings, is_config_dict=True)
-
-            print("Starting conversion for date ", subdir, " days ", bag_files)            
-            bag_decoder.convert_bag()
-            print("Finished converting bag, sending bag complete signal...")
-
-    else:
-        bag_decoder = BagDecoder(args.config, is_config_dict=False)
-        # bag_decoder.convert_bag()
-        bag_decoder.densify_poses()
-        # bag_decoder.rectify_images(num_workers=24)
-    
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default="config/bagdecoder_lidarimuonly.yaml", help="decode config file (see config/decode.yaml for example)")
     args = parser.parse_args()
-    main(args)
+    bag_decoder = BagDecoder(args.config, is_config_dict=False)
+    bag_decoder.convert_bag()

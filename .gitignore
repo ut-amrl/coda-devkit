@@ -156,3 +156,4 @@ plots/*
 2d_raw/*
 **/.vscode
 **/.clang-format
+my_things/

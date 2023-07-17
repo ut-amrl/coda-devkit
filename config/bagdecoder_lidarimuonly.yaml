@@ -1,48 +1,19 @@
-repository_root: "/robodata/husky_logs/CODa_bags"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa"
-bag_date: "20230116"
+repository_root: "/home/dynamo/AMRL_Research/repos/coda-devkit/my_things/121422"
+dataset_output_root: "/home/dynamo/AMRL_Research/repos/coda-devkit/my_things/output"
+bag_date: ""
 
 #Bag Decoder Settings
-gen_data: False   # Generates data files
+gen_data: True   # Generates data files
 viz_topics: True     # Republish sensor messages
-verbose: True    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
-  # "/stereo/left/image_raw/compressed",
-  # "/stereo/right/image_raw/compressed"
 ]
 
 sensor_topics: [
-  #Transforms
-  # "/tf",
-  # "/tf_static",
-
   #OS1
-  "/ouster/lidar_packets", 
-
-  #Kinect
-  # "/camera/depth/image_raw/compressed",
-  # "/camera/rgb/image_raw/compressed",
-
-  # #FLIR
-  # "/stereo/left/image_raw/compressed",
-  # "/stereo/right/image_raw/compressed",
-
-  # #Vectornav
-  # "/vectornav/GPS",
-  "/vectornav/IMU",
-  # "/vectornav/Mag",
-  # "/vectornav/Odom",
-
-  # #ZED
-  # "/zed/zed_node/depth/depth_registered",
-  # "/zed/zed_node/left/image_rect_color/compressed",
-  # "/zed/zed_node/right/image_rect_color/compressed",
-
-  # #Odometry
-  # "/husky_velocity_controller/odom"
+  "/ouster/lidar_packets",
 ]
 
-bags_to_process: ["1673884184.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [81] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1671032206.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [42] # Leave empty to assign ids in sequential order from 0

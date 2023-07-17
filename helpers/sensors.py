@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 
 from helpers.constants import *
 import sensor_msgs
+from sensor_msgs import point_cloud2
 
 def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
     #Process Header
@@ -70,9 +71,11 @@ def process_pc2(pc_msg, sensor_ts):
     Returns
         pc: Nx4 np array (x y z i) following x forward, y left, z up
     """
-    pc = np.array((1, 4))
-    # TODO fill this in
-
+    gen = point_cloud2.read_points(pc_msg, field_names=("x", "y", "z", "intensity"), skip_nans=True)
+    pc = []
+    for p in gen:
+        pc.append(p)
+    pc = np.array(pc)
     return pc, sensor_ts
 
 def set_filename_by_topic(topic, trajectory, frame):
