@@ -55,19 +55,11 @@ class BagDecoder(object):
 
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
-        for subdir in DATASET_L1_DIR_LIST:
-            subdir_path = os.path.join(self._outdir, subdir)
+        subdir_path = os.path.join(self._outdir, "3d_raw")
 
-            if not os.path.exists(subdir_path):
-                print("Creating directory ", subdir_path)
-                os.makedirs(subdir_path)
-
-        for subdir in DATASET_L2_DIR_LIST:
-            subdir_path = os.path.join(self._outdir, subdir)
-
-            if not os.path.exists(subdir_path):
-                print("Creating directory ", subdir_path)
-                os.makedirs(subdir_path)
+        if not os.path.exists(subdir_path):
+            print("Creating directory ", subdir_path)
+            os.makedirs(subdir_path)
 
     def load_settings(self):
         if self._is_config_dict:
@@ -157,13 +149,6 @@ class BagDecoder(object):
             elif topic_type == "sensors_msgs/PointCloud2":
                 topic_class = PointCloud2
 
-        # Create frame to timestamp map
-        frame_to_ts_path = os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt" % self._trajectory)
-        if self._gen_data:
-            self._frame_to_ts = open(frame_to_ts_path, 'w+')
-
-        print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
-
         for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
             if topic in self._sync_topics:
                 topic_type = self._topic_to_type[topic]
@@ -180,9 +165,6 @@ class BagDecoder(object):
                     # Use ts as frame for non synchronized sensors
                     filepath = self.save_topic(msg, topic, self._trajectory, ts)
         print("Completed processing bag ", bag_fp)
-
-        if self._gen_data:
-            self._frame_to_ts.close()
 
     def sync_sensor(self, topic, msg, ts):
         if self._past_sync_ts == None:
@@ -238,15 +220,9 @@ class BagDecoder(object):
                 earliest_sync_timestamp = ts
 
         # Perform state sync updates
-        self.save_frame_ts(earliest_sync_timestamp)
         self._curr_frame += 1
 
         return latest_sync_timestamp
-
-    def save_frame_ts(self, timestamp):
-        if self._gen_data:
-            print("Saved frame %i timestamp %10.6f" % (self._curr_frame, timestamp.to_sec()))
-            self._frame_to_ts.write("%10.6f\n" % timestamp.to_sec())
 
     def remove_old_topics(self, latest_ts):
         latest_ts = latest_ts.to_sec()
@@ -293,7 +269,6 @@ class BagDecoder(object):
                     pass
                 else:
                     self._curr_frame += 1
-                    self.save_frame_ts(ts)
 
                 pc_msg = pub_pc_to_rviz(pc, None, ts, publish=False)
 
