@@ -9,8 +9,12 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+import matplotlib.dates as mdates
+import matplotlib.patches as mpatches
+from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 
+import math
 import time
 import json
 import copy
@@ -22,6 +26,7 @@ from helpers.metadata import OBJECT_DETECTION_TASK, SEMANTIC_SEGMENTATION_TASK
 from helpers.constants import *
 from helpers.sensors import read_sem_label
 from helpers.plotting_utils import sum_labels, kdeplot_set
+import datetime
 
 import argparse
 
@@ -563,6 +568,132 @@ def check_num_annotations(indir, task=SEMANTIC_SEGMENTATION_TASK):
         print("Split %s number of frames %i" % (split, len(split_list)))
         num_frames += len(split_list)
     print("Total number of frames across all splits %i"%num_frames)
+    return annotation_files
+
+def convert_ts_to_military(ts_np):
+    # Converts unix epoch timestamp to 24 hour military time
+    ts_local = [datetime.datetime.fromtimestamp(ts) for ts in ts_np]
+    # Format as 24-hour time strings
+    time_ints = [int(dt.strftime("%H%M%S")) for dt in ts_local]
+    return time_ints
+
+def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
+    meta_dir = join(indir, METADATA_DIR)
+    meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
+
+    timestamp_dir       = join(indir, TIMESTAMPS_DIR)
+    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data_multi.json")
+    traj_weather_dict = json.load(open(traj_weather_path, 'r'))
+    weather_list = [] # Set of available weather conditions
+    for weather in traj_weather_dict.values():
+        if type(weather) == list:
+            for subweather in weather:
+                if subweather not in weather_list:
+                    weather_list.append(subweather)
+        elif weather not in weather_list:
+            weather_list.append(weather)
+
+    location_frame_path = join(os.getcwd(), "helpers", "helper_utils", "locations.json")
+    location_frame_dict = json.load(open(location_frame_path, 'r'))
+
+    locations_densities_dict = {}
+    annotation_files = {}
+
+    # Load location counts if cached
+    cache_path = join(outdir, counts_file)
+    if not os.path.exists(cache_path):
+        # Loop through all available trajectories
+        for traj in range(23):
+            traj = str(traj)
+            timestamp_path = join(timestamp_dir, "%s_frame_to_ts.txt"%traj)
+            timestamp_np = np.loadtxt(timestamp_path).reshape(-1,)
+            time_ints = convert_ts_to_military(timestamp_np)
+            print("Start processing traj %s"%traj)
+            start_time = time.time()
+            for location_name, frames in location_frame_dict[traj].items():
+                if location_name not in locations_densities_dict:
+                    locations_densities_dict[location_name] = {weather: [] for weather in weather_list}
+                
+                start_frame, end_frame = frames[0], frames[1]
+                end_frame = len(time_ints) if end_frame == -1 else end_frame+1
+                for weather in traj_weather_dict[traj]:
+                    locations_densities_dict[location_name][weather].extend(time_ints[start_frame:end_frame])
+            print("Done processing took", time.time() - start_time)
+
+        
+        with open(cache_path, "w") as counts_cache_file:
+            json.dump(locations_densities_dict, counts_cache_file)
+    else:
+        locations_densities_dict = json.load(open(cache_path, 'r'))
+
+    # Plotting
+    locations = list(locations_densities_dict.keys())
+    # data = [
+    #     [1, 2, 3, 4, 5],
+    #     [2, 4, 6, 8, 10],
+    #     [3, 6, 9, 12, 15],
+    #     [4, 8, 12, 16, 20]
+    # ]
+
+    # Create a grid of subplots
+    fig, axes = plt.subplots(4, 1, figsize=(9, 10), sharex=True)
+
+    color_palette = ['#FD8F0F', '#0157E9', '#88E910', '#E11846'] # currently only support four weather types
+    weather_color_palette = {
+        weather: color_palette[weather_idx] for weather_idx, weather in enumerate(weather_list)
+    }
+    # Plot KDEs in each subplot
+    sns.set(font_scale=1.2)
+    decimal_places = 1
+    for i, ax in enumerate(axes):
+        location = locations[i]
+        print("Plotting location %s"%location)
+        # for weather, times in locations_densities_dict[location].items():
+            # if len(times) == 0:
+            #     continue
+
+        all_times = []
+        all_weather = []
+        for weather, times in locations_densities_dict[location].items():
+            ds_times = times[::5]
+
+            all_times.extend([time/10000 for time in ds_times])
+            all_weather.extend([weather]*len(ds_times))
+        data = pd.DataFrame({
+            'Time': np.array(all_times),
+            'Weather': np.array(all_weather, dtype=str)
+        })
+        custom_palette = [weather_color_palette[weather] for weather in data['Weather'].unique()]
+        # Use low bandwidth to show all spots
+        sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.25, palette=custom_palette, legend=True)
+            # Normalize times to be in hours insetad of seconds
+            # times = [t/10000 for t in times]
+            # sns.kdeplot(data=times, fill=True, ax=ax, bw_method=0.5)
+
+        ax.set_title(location, fontsize=18)
+        ax.set_ylabel('   ', fontsize=18)
+        ax.set_xlabel('Time (HH:MM:SS)', fontsize=20)
+        legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(custom_palette, data['Weather'].unique())]
+        ax.legend(handles=legend_patches, loc='center left')
+        y_min, y_max = ax.get_ylim()
+        ax.set_yticks(np.linspace(start=int(y_min), stop=math.ceil(y_max), num=4).tolist())
+        ax.yaxis.set_major_formatter(FormatStrFormatter(f'%.{decimal_places}f'))
+        ax.tick_params(axis='both', which='major', labelsize=18)
+        # legend_handles, legend_labels = ax.get_legend_handles_labels()
+        # ax.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5))
+
+    xtick_times = [str(int(t)).rjust(2, '0').ljust(6, '0') for t in ax.get_xticks()]
+    xtick_times = [f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}" for time_str in xtick_times]
+    # plt.yticks(fontsize=18)
+    plt.xticks(ax.get_xticks(), xtick_times, rotation=45)
+
+    # Set common x label for the entire figure
+    # fig.text(0.5, 0.01, 'Time (HH:MM:SS)', ha='center')
+    fig.text(0.02, 0.5, 'Frame Density', va='center', rotation='vertical', fontsize=20)
+    # Adjust spacing between subplots
+    plt.tight_layout()
+
+    plt.savefig(join(outdir, 'GEN_location_counts.png'), format='png', dpi=300)
 
 def main(args):
     #Get file paths and loop throught to sum each label
@@ -585,6 +716,8 @@ def main(args):
         plot_label_counts(indir, outdir)
     elif args.plot_type=="labelweather":
         plot_label_weather(indir, outdir)
+    elif args.plot_type=="labellocation":
+        plot_label_location(indir, outdir)
 
 if __name__ == "__main__":
     args = parser.parse_args()

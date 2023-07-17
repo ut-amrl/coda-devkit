@@ -1,13 +1,12 @@
-# Campus Scale Object Perception Dataset
+# University of Texas Campus Object Dataset (UT CODa)
 
-Planned Release: April 2023
-
+Planned Release 2023
 
 ### 3D Object Detection Benchmarks
 
 WIP
 
-### Long Term SLAM Benchmarks
+### 3D Semantic Segmentation Benchmarks
 
 WIP
 
