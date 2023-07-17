@@ -13,194 +13,19 @@ import std_msgs.msg
 from sensor_msgs.msg import PointCloud2, PointField
 
 
-OS1_PACKETS_PER_FRAME = 64
-OS1_POINTCLOUD_SHAPE = [1024, 128, 3]
-TRED_RAW_DIR = "3d_raw"
-SENSOR_DIRECTORY_SUBPATH = {
-    # Depth
-    "/ouster/lidar_packets": "%s/os1" % TRED_RAW_DIR,
-}
-
-SENSOR_DIRECTORY_FILETYPES = {
-    "%s/os1" % TRED_RAW_DIR: "bin",
-}
-
-
-def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
-    # Process Header
-    packets = client.Packets(packet_arr, os1_info)
-    scans = client.Scans(packets)
-    rg = nth(scans, 0).field(client.ChanField.RANGE)
-    rf = nth(scans, 0).field(client.ChanField.REFLECTIVITY)
-    signal = nth(scans, 0).field(client.ChanField.SIGNAL)
-    nr = nth(scans, 0).field(client.ChanField.NEAR_IR)
-    ts = nth(scans, 0).timestamp
-
-    # Set relative timestamp for each point
-    init_ts = ts[0]
-    ts_horizontal_rel = ts - init_ts
-    ts_horizontal_rel[ts_horizontal_rel < 0] = 0
-    ts_points = np.tile(ts_horizontal_rel, (OS1_POINTCLOUD_SHAPE[1], 1))
-
-    # Set ring to correspond to row idx
-    ring_idx = np.arange(0, 128, 1).reshape(-1, 1)
-    ring = np.tile(ring_idx, (1, OS1_POINTCLOUD_SHAPE[0]))
-
-    # Project Points to ouster LiDAR Frame
-    xyzlut = client.XYZLut(os1_info)
-    xyz_points = client.destagger(os1_info, xyzlut(rg))
-
-    # Homogeneous xyz coordinates
-    homo_xyz = np.ones((xyz_points.shape[0], xyz_points.shape[1], 1))
-    xyz_points = np.dstack((xyz_points, homo_xyz))
-
-    # Change from LiDAR to sensor coordinate system
-    signal = np.expand_dims(signal, axis=-1)
-    rf = np.expand_dims(rf, axis=-1)
-    ts_points = np.expand_dims(ts_points, axis=-1)
-    rg = np.expand_dims(rg, axis=-1)
-    nr = np.expand_dims(nr, axis=-1)
-    ring = np.expand_dims(ring, axis=-1)
-
-    pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
-
-    return pc, sensor_ts
-
-
-def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
-    if not isinstance(ts, rospy.Time):
-        ts = rospy.Time.from_sec(ts)
-    is_intensity = pc.shape[-1] >= 4
-    is_time = pc.shape[-1] >= 5
-    is_rf = pc.shape[-1] >= 6
-
-    if is_rf:
-        rf_start_offset = 5
-        rf_middle_offset = rf_start_offset + 1
-        rf_end_offset = 8
-
-        pc_first = pc[:, :, :rf_start_offset]
-        pc_time = pc[:, :, rf_start_offset].astype(np.uint32)
-        pc_middle = pc[:, :, rf_middle_offset:rf_end_offset].astype(np.uint16)
-        pc_end = pc[:, :, rf_end_offset:]
-
-        first_bytes = pc_first.reshape(-1, 1).tobytes()
-        time_bytes = pc_time.reshape(-1, 1).tobytes()
-        middle_bytes = pc_middle.reshape(-1, 1).tobytes()
-        # middle_pad_bytes= np.zeros((pc.shape[0], pc.shape[1], 1), dtype=np.uint16).tobytes()
-        end_bytes = pc_end.reshape(-1, 1).tobytes()
-
-        first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset * 4)
-        time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
-        middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2 * 2)
-        # middle_pad_bytes_np = np.frombuffer(middle_pad_bytes, dtype=np.uint8).reshape(
-        #     -1, 2
-        # )
-        end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
-        all_bytes_np = np.hstack((first_bytes_np, time_bytes_np,
-                                 middle_bytes_np, end_bytes_np))
-
-        # Add ambient and range bytes
-        all_bytes_np = all_bytes_np.reshape(-1, 1)
-
-    pc_flat = pc.reshape(-1, 1)
-
-    DATATYPE = PointField.FLOAT32
-    if pc.itemsize == 4:
-        DATATYPE = PointField.FLOAT32
-    else:
-        DATATYPE = PointField.FLOAT64
-        print("Undefined datatype size accessed, defaulting to FLOAT64...")
-
-    pc_msg = PointCloud2()
-    if pc.ndim > 2:
-        pc_msg.width = pc.shape[1]
-        pc_msg.height = pc.shape[0]
-    else:
-        pc_msg.width = 1
-        pc_msg.height = pc.shape[0]
-
-    pc_msg.header = std_msgs.msg.Header()
-    pc_msg.header.stamp = ts
-    pc_msg.header.frame_id = frame_id
-
-    fields = [
-        PointField('x', 0, DATATYPE, 1),
-        PointField('y', pc.itemsize, DATATYPE, 1),
-        PointField('z', pc.itemsize * 2, DATATYPE, 1)
-    ]
-
-    pc_item_position = 4
-    if is_time:
-        pc_msg.point_step = pc.itemsize * 7 + 6 + 2  # for actual values, 2 for padding
-        fields.append(PointField('intensity', 16, DATATYPE, 1))
-        fields.append(PointField('t', 20, PointField.UINT32, 1))
-        fields.append(PointField('reflectivity', 24, PointField.UINT16, 1))
-        fields.append(PointField('ring', 26, PointField.UINT16, 1))
-        fields.append(PointField('ambient', 28, PointField.UINT16, 1))
-        fields.append(PointField('range', 32, PointField.UINT32, 1))
-        # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
-    elif is_rf:
-        pc_msg.point_step = pc.itemsize * 5 + 2
-        fields.append(PointField('intensity', pc.itemsize * pc_item_position, DATATYPE, 1))
-        fields.append(PointField('ring', pc.itemsize * (pc_item_position + 1), PointField.UINT16, 1))
-    elif is_intensity:
-        pc_msg.point_step = pc.itemsize * 4
-        fields.append(PointField('intensity', pc.itemsize * pc_item_position, DATATYPE, 1))
-    else:
-        pc_msg.point_step = pc.itemsize * 3
-
-    pc_msg.row_step = pc_msg.width * pc_msg.point_step
-    pc_msg.fields = fields
-    if is_rf:
-        pc_msg.data = all_bytes_np.tobytes()
-    else:
-        pc_msg.data = pc_flat.tobytes()
-    pc_msg.is_dense = True
-
-    # if publish:
-    #     pc_pub.publish(pc_msg)
-
-    return pc_msg
-
-
-def set_filename_by_topic(topic, trajectory, frame):
-    sensor_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
-    sensor_prefix = sensor_subpath.replace("/", "_")  # get sensor name
-    sensor_filetype = SENSOR_DIRECTORY_FILETYPES[sensor_subpath]
-
-    sensor_filename = "%s_%s_%s.%s" % (sensor_prefix, str(trajectory),
-                                       str(frame), sensor_filetype)
-
-    return sensor_filename
-
-
-def get_ouster_packet_info(os1_info, data):
-    return client.LidarPacket(data, os1_info)
-
-
-def pc_to_bin(pc, filename, include_time=True):
-    # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
-
-    pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
-    pc_dim = 4
-    if include_time:
-        pc_dim = 5
-    pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], pc_dim), dtype=np.float32)
-    pc_np[..., 0] = pc_cloud['x']
-    pc_np[..., 1] = pc_cloud['y']
-    pc_np[..., 2] = pc_cloud['z']
-    pc_np[..., 3] = pc_cloud['intensity']
-    if pc_dim == 5:
-        pc_np[..., 4] = pc_cloud['t']
-
-    pc_np = pc_np.reshape(-1, pc_dim)
-
-    flat_pc = pc_np.reshape(-1).astype(np.float32)
-    flat_pc.tofile(filename)  # empty sep=bytes
-
-
 class BagDecoder(object):
+    OS1_PACKETS_PER_FRAME = 64
+    OS1_POINTCLOUD_SHAPE = [1024, 128, 3]
+    TRED_RAW_DIR = "3d_raw"
+    SENSOR_DIRECTORY_SUBPATH = {
+        # Depth
+        "/ouster/lidar_packets": "%s/os1" % TRED_RAW_DIR,
+    }
+
+    SENSOR_DIRECTORY_FILETYPES = {
+        "%s/os1" % TRED_RAW_DIR: "bin",
+    }
+
     def __init__(self, config):
         self._settings_fp = os.path.join(os.getcwd(), config)
         assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
@@ -299,15 +124,15 @@ class BagDecoder(object):
 
     def qpacket(self, topic, msg, ts, do_sync=True):
         published_packet = False
-        packet = get_ouster_packet_info(self._os1_info, msg.buf)
+        packet = BagDecoder.get_ouster_packet_info(self._os1_info, msg.buf)
         if packet.frame_id != self._qp_frame_id:
-            if self._qp_counter == OS1_PACKETS_PER_FRAME:  # 64 columns per packet
+            if self._qp_counter == BagDecoder.OS1_PACKETS_PER_FRAME:  # 64 columns per packet
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
                 if do_sync:
                     pass
                 else:
                     self._curr_frame += 1
-                pc_msg = pub_pc_to_rviz(pc, None, ts, publish=False)
+                pc_msg = BagDecoder.pub_pc_to_rviz(pc, None, ts, publish=False)
                 if do_sync:
                     self.sync_sensor(topic, pc_msg, ts)
                 published_packet = True
@@ -381,9 +206,9 @@ class BagDecoder(object):
 
     def save_topic(self, data, topic, trajectory, frame):
         topic_type = self._topic_to_type[topic]
-        topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
+        topic_type_subpath = BagDecoder.SENSOR_DIRECTORY_SUBPATH[topic]
         save_dir = os.path.join(self._outdir, topic_type_subpath, str(trajectory))
-        filename = set_filename_by_topic(topic, trajectory, frame)
+        filename = BagDecoder.set_filename_by_topic(topic, trajectory, frame)
         filepath = os.path.join(save_dir, filename)
         if not self._gen_data:
             return filepath
@@ -391,7 +216,7 @@ class BagDecoder(object):
             print("Creating %s because it does not exist..." % save_dir)
             os.makedirs(save_dir)
         if topic_type == "ouster_ros/PacketMsg" or topic_type == "sensor_msgs/PointCloud2":
-            pc_to_bin(data, filepath)  # Expects PointCloud2 Object
+            BagDecoder.pc_to_bin(data, filepath)  # Expects PointCloud2 Object
         return filepath
 
     def process_topic(self, topic, msg, t):
@@ -402,7 +227,181 @@ class BagDecoder(object):
         data = None
         sensor_ts = t
         if topic_type == "ouster_ros/PacketMsg":
-            data, sensor_ts = process_ouster_packet(self._os1_info, msg, topic, sensor_ts)
+            data, sensor_ts = BagDecoder.process_ouster_packet(self._os1_info, msg, topic, sensor_ts)
         # elif topic_type == "sensor_msgs/PointCloud2":
         #     data, sensor_ts = process_pc2(msg, sensor_ts)
         return data, sensor_ts
+
+    @staticmethod
+    def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
+        # Process Header
+        packets = client.Packets(packet_arr, os1_info)
+        scans = client.Scans(packets)
+        rg = nth(scans, 0).field(client.ChanField.RANGE)
+        rf = nth(scans, 0).field(client.ChanField.REFLECTIVITY)
+        signal = nth(scans, 0).field(client.ChanField.SIGNAL)
+        nr = nth(scans, 0).field(client.ChanField.NEAR_IR)
+        ts = nth(scans, 0).timestamp
+
+        # Set relative timestamp for each point
+        init_ts = ts[0]
+        ts_horizontal_rel = ts - init_ts
+        ts_horizontal_rel[ts_horizontal_rel < 0] = 0
+        ts_points = np.tile(ts_horizontal_rel, (BagDecoder.OS1_POINTCLOUD_SHAPE[1], 1))
+
+        # Set ring to correspond to row idx
+        ring_idx = np.arange(0, 128, 1).reshape(-1, 1)
+        ring = np.tile(ring_idx, (1, BagDecoder.OS1_POINTCLOUD_SHAPE[0]))
+
+        # Project Points to ouster LiDAR Frame
+        xyzlut = client.XYZLut(os1_info)
+        xyz_points = client.destagger(os1_info, xyzlut(rg))
+
+        # Homogeneous xyz coordinates
+        homo_xyz = np.ones((xyz_points.shape[0], xyz_points.shape[1], 1))
+        xyz_points = np.dstack((xyz_points, homo_xyz))
+
+        # Change from LiDAR to sensor coordinate system
+        signal = np.expand_dims(signal, axis=-1)
+        rf = np.expand_dims(rf, axis=-1)
+        ts_points = np.expand_dims(ts_points, axis=-1)
+        rg = np.expand_dims(rg, axis=-1)
+        nr = np.expand_dims(nr, axis=-1)
+        ring = np.expand_dims(ring, axis=-1)
+
+        pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
+
+        return pc, sensor_ts
+
+    @staticmethod
+    def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
+        if not isinstance(ts, rospy.Time):
+            ts = rospy.Time.from_sec(ts)
+        is_intensity = pc.shape[-1] >= 4
+        is_time = pc.shape[-1] >= 5
+        is_rf = pc.shape[-1] >= 6
+
+        if is_rf:
+            rf_start_offset = 5
+            rf_middle_offset = rf_start_offset + 1
+            rf_end_offset = 8
+
+            pc_first = pc[:, :, :rf_start_offset]
+            pc_time = pc[:, :, rf_start_offset].astype(np.uint32)
+            pc_middle = pc[:, :, rf_middle_offset:rf_end_offset].astype(np.uint16)
+            pc_end = pc[:, :, rf_end_offset:]
+
+            first_bytes = pc_first.reshape(-1, 1).tobytes()
+            time_bytes = pc_time.reshape(-1, 1).tobytes()
+            middle_bytes = pc_middle.reshape(-1, 1).tobytes()
+            # middle_pad_bytes= np.zeros((pc.shape[0], pc.shape[1], 1), dtype=np.uint16).tobytes()
+            end_bytes = pc_end.reshape(-1, 1).tobytes()
+
+            first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset * 4)
+            time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+            middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2 * 2)
+            # middle_pad_bytes_np = np.frombuffer(middle_pad_bytes, dtype=np.uint8).reshape(
+            #     -1, 2
+            # )
+            end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
+            all_bytes_np = np.hstack((first_bytes_np, time_bytes_np,
+                                      middle_bytes_np, end_bytes_np))
+
+            # Add ambient and range bytes
+            all_bytes_np = all_bytes_np.reshape(-1, 1)
+
+        pc_flat = pc.reshape(-1, 1)
+
+        DATATYPE = PointField.FLOAT32
+        if pc.itemsize == 4:
+            DATATYPE = PointField.FLOAT32
+        else:
+            DATATYPE = PointField.FLOAT64
+            print("Undefined datatype size accessed, defaulting to FLOAT64...")
+
+        pc_msg = PointCloud2()
+        if pc.ndim > 2:
+            pc_msg.width = pc.shape[1]
+            pc_msg.height = pc.shape[0]
+        else:
+            pc_msg.width = 1
+            pc_msg.height = pc.shape[0]
+
+        pc_msg.header = std_msgs.msg.Header()
+        pc_msg.header.stamp = ts
+        pc_msg.header.frame_id = frame_id
+
+        fields = [
+            PointField('x', 0, DATATYPE, 1),
+            PointField('y', pc.itemsize, DATATYPE, 1),
+            PointField('z', pc.itemsize * 2, DATATYPE, 1)
+        ]
+
+        pc_item_position = 4
+        if is_time:
+            pc_msg.point_step = pc.itemsize * 7 + 6 + 2  # for actual values, 2 for padding
+            fields.append(PointField('intensity', 16, DATATYPE, 1))
+            fields.append(PointField('t', 20, PointField.UINT32, 1))
+            fields.append(PointField('reflectivity', 24, PointField.UINT16, 1))
+            fields.append(PointField('ring', 26, PointField.UINT16, 1))
+            fields.append(PointField('ambient', 28, PointField.UINT16, 1))
+            fields.append(PointField('range', 32, PointField.UINT32, 1))
+            # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
+        elif is_rf:
+            pc_msg.point_step = pc.itemsize * 5 + 2
+            fields.append(PointField('intensity', pc.itemsize * pc_item_position, DATATYPE, 1))
+            fields.append(PointField('ring', pc.itemsize * (pc_item_position + 1), PointField.UINT16, 1))
+        elif is_intensity:
+            pc_msg.point_step = pc.itemsize * 4
+            fields.append(PointField('intensity', pc.itemsize * pc_item_position, DATATYPE, 1))
+        else:
+            pc_msg.point_step = pc.itemsize * 3
+
+        pc_msg.row_step = pc_msg.width * pc_msg.point_step
+        pc_msg.fields = fields
+        if is_rf:
+            pc_msg.data = all_bytes_np.tobytes()
+        else:
+            pc_msg.data = pc_flat.tobytes()
+        pc_msg.is_dense = True
+
+        # if publish:
+        #     pc_pub.publish(pc_msg)
+
+        return pc_msg
+
+    @staticmethod
+    def set_filename_by_topic(topic, trajectory, frame):
+        sensor_subpath = BagDecoder.SENSOR_DIRECTORY_SUBPATH[topic]
+        sensor_prefix = sensor_subpath.replace("/", "_")  # get sensor name
+        sensor_filetype = BagDecoder.SENSOR_DIRECTORY_FILETYPES[sensor_subpath]
+
+        sensor_filename = "%s_%s_%s.%s" % (sensor_prefix, str(trajectory),
+                                           str(frame), sensor_filetype)
+
+        return sensor_filename
+
+    @staticmethod
+    def get_ouster_packet_info(os1_info, data):
+        return client.LidarPacket(data, os1_info)
+
+    @staticmethod
+    def pc_to_bin(pc, filename, include_time=True):
+        # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
+
+        pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
+        pc_dim = 4
+        if include_time:
+            pc_dim = 5
+        pc_np = np.zeros((pc_cloud.shape[0], pc_cloud.shape[1], pc_dim), dtype=np.float32)
+        pc_np[..., 0] = pc_cloud['x']
+        pc_np[..., 1] = pc_cloud['y']
+        pc_np[..., 2] = pc_cloud['z']
+        pc_np[..., 3] = pc_cloud['intensity']
+        if pc_dim == 5:
+            pc_np[..., 4] = pc_cloud['t']
+
+        pc_np = pc_np.reshape(-1, pc_dim)
+
+        flat_pc = pc_np.reshape(-1).astype(np.float32)
+        flat_pc.tofile(filename)  # empty sep=bytes
