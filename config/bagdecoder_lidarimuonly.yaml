@@ -4,7 +4,6 @@ bag_date: ""
 
 #Bag Decoder Settings
 gen_data: True   # Generates data files
-viz_topics: True     # Republish sensor messages
 
 sync_topics: [
   "/ouster/lidar_packets",

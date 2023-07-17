@@ -46,15 +46,6 @@ class BagDecoder(object):
         self._bags_to_process = []
         self.load_settings()
 
-        # Load visualization for async topics
-        if self._viz_topics:
-            self._async_pubs = {}
-            for topic in self._sensor_topics:
-                if topic in self._sync_topics:
-                    continue
-
-                self._async_pubs[topic] = None  # Infer type of topic later
-
         # Generate Dataset
         if self._gen_data:
             self.gen_dataset_structure()
@@ -106,7 +97,6 @@ class BagDecoder(object):
 
         # Load decoder settings
         self._gen_data = settings['gen_data']
-        self._viz_topics = settings['viz_topics']
         self._outdir = settings['dataset_output_root']
         self._bags_to_traj_ids = settings['bags_to_traj_ids']
         if not os.path.exists(self._outdir):
@@ -183,8 +173,7 @@ class BagDecoder(object):
             # Preprocess topics
             rosbag_info = yaml.safe_load(rosbag.Bag(bag_fp)._get_yaml_info())
 
-            self._topic_to_type = {topic_entry['topic']: topic_entry['type']
-                                   for topic_entry in rosbag_info['topics']}
+            self._topic_to_type = {topic_entry['topic']: topic_entry['type'] for topic_entry in rosbag_info['topics']}
             self.setup_sync_filter()
 
             # Setup ros publishers for nonasync
@@ -198,11 +187,6 @@ class BagDecoder(object):
                     topic_class = PointCloud2
                 elif topic_type == "sensors_msgs/PointCloud2":
                     topic_class = PointCloud2
-
-                if self._viz_topics and topic_class != None:
-                    self._async_pubs[topic] = rospy.Publisher(
-                        "/coda%s" % topic, topic_class, queue_size=10
-                    )
 
             # Create frame to timestamp map
             frame_to_ts_path = os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt" % self._trajectory)
@@ -227,18 +211,6 @@ class BagDecoder(object):
                     else:
                         # Use ts as frame for non synchronized sensors
                         filepath = self.save_topic(msg, topic, self._trajectory, ts)
-
-                        # Publish non sync topics
-                        if self._viz_topics and self._async_pubs[topic] != None:
-                            # Special case for Kinect
-                            if topic == "/camera/depth/image_raw/compressed":
-                                # pub_img(self._async_pubs[topic], msg.header, filepath, -1)
-                                pass
-                            else:
-                                # if "vectornav" in topic: #Vnav to sensor frame
-                                #     proc_msg, _ = self.process_topic(topic, msg, msg.header.stamp)
-                                #     msg = proc_msg
-                                self._async_pubs[topic].publish(msg)
             print("Completed processing bag ", bag_fp)
 
             if self._gen_data:
@@ -318,8 +290,7 @@ class BagDecoder(object):
                     print("Found difference of ", abs(curr_ts - latest_ts), " for topic ", topic)
                     delete_indices.append(idx)
                     break
-            self._sync_msg_queue[topic] = [msg for idx, msg in
-                                           enumerate(self._sync_msg_queue[topic]) if idx not in delete_indices]
+            self._sync_msg_queue[topic] = [msg for idx, msg in enumerate(self._sync_msg_queue[topic]) if idx not in delete_indices]
 
     def get_latest_queue_msg(self, last_ts):
         earliest_ts = last_ts
@@ -355,11 +326,8 @@ class BagDecoder(object):
                 else:
                     self._curr_frame += 1
                     self.save_frame_ts(ts)
-                    topic_name = self._async_pubs[topic]
 
-                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, publish=self._viz_topics)
-                if self._viz_topics:
-                    self._pub_rate.sleep()  # Limit publish rate of point clouds for LeGO-LOAM
+                pc_msg = pub_pc_to_rviz(pc, None, ts, publish=False)
 
                 if do_sync:
                     self.sync_sensor(topic, pc_msg, ts)
