@@ -88,7 +88,7 @@ class AnnotationDecoder(object):
         if self._gen_data:
             self.save_anno_json(anno_dict)
             # TODO fix 3d to 2d annotation projection
-            # self.project_annos_3d_to_2d(anno_dict)
+            self.project_annos_3d_to_2d(anno_dict)
 
     def deepen_decode_single_sem_file(self, args):
         """
@@ -320,14 +320,19 @@ class AnnotationDecoder(object):
         calib_ext_file = join(calib_dir, "calib_os1_to_cam0.yaml")
         calib_intr_file = join(calib_dir, "calib_cam0_intrinsics.yaml")
         
+        assert len(anno_dict['tredannotations'])>0, "Error: anno dict is length zero"
         for annotation in anno_dict['tredannotations']:
             frame = annotation['frame']
             bbox_coords = project_3dto2d_bbox_image(annotation, calib_ext_file, calib_intr_file)
             bbox_coords = bbox_coords.astype(np.int)
+            # Only include 3d bbox annotations that in camera image
+            # valid_coords_mask = np.any(bbox_coords>0, axis=-1)
+            # bbox_coords = bbox_coords[valid_coords_mask]
 
             bbox_labels = []
             bbox_occlusion = []
             for annotation_idx, annotation in enumerate(annotation["3dbbox"]):
+                # if valid_coords_mask[annotation_idx]:
                 class_label = annotation["classId"]
                 occlusion = OCCLUSION_TO_ID[annotation["labelAttributes"]["isOccluded"]]
                 bbox_labels.append(BBOX_CLASS_TO_ID[class_label])
@@ -346,6 +351,7 @@ class AnnotationDecoder(object):
                 if self._verbose:
                     print("Saving 2d bbox traj %s frame %s to %s"%(traj, frame, twod_label_path))
                 np.savetxt(twod_label_path, gt_anno, fmt='%d', delimiter=' ')
+        
 
     def ewannotate_decoder(self, filepath, traj):
         with open(filepath, 'r') as annos_file:

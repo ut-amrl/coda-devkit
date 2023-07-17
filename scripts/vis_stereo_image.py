@@ -48,7 +48,7 @@ def main(args):
     target_frame = args.frame
 
     sync_img_dir = "%s/2d_raw/cam0/%s" % (indir, traj)
-    unsync_img_dir = "%s/3d_raw/cam3/%s" % (indir, traj)
+    unsync_img_dir = "%s/3d_raw/cam2/%s" % (indir, traj)
     sync_ts_file = join(indir, TIMESTAMPS_DIR, "%s_frame_to_ts.txt"%traj)
     unsync_img_files = np.array([img_file for img_file in os.listdir(unsync_img_dir) if img_file.endswith('.png')])
     unsync_img_ts = np.array([extract_ts(img_file) for img_file in unsync_img_files])
@@ -73,9 +73,11 @@ def main(args):
         print("Closest image found with timestamp %s ", sorted_unsync_img_ts[closest_img_idx])
 
         sync_img_np = cv2.imread(join(sync_img_dir, sync_img_file))
-        unsync_img_np = cv2.imread(closest_img_path)
+        unsync_img_np = cv2.imread(closest_img_path, cv2.IMREAD_GRAYSCALE)
         max_val = np.max(unsync_img_np)
-        unsync_img_np = unsync_img_np * (255 / max_val)
+        import pdb; pdb.set_trace()
+        unsync_img_np = unsync_img_np * (255.0 / max_val)
+        
         cv2.imwrite("testsync.png", sync_img_np)
         cv2.imwrite("testunsync.png", unsync_img_np)
         import pdb; pdb.set_trace()

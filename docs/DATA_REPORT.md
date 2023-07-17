@@ -1,6 +1,6 @@
 ```
 ###########################################################################
-#                 UT Austin Campus Object Dataset (UT CODa)               #
+#                 UT Austin Campus Object Dataset (CODa)                  #
 #                                                                         #
 #   Principal Investigators                                               #
 #   Arthur Zhang                        Dr. Joydeep Biswas                #
@@ -31,11 +31,12 @@
 
 ## Terms of Use
 
-UT CODa is available for non-commerical under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License (“CC BY-NC-SA 4.0”). The CC BY-NC-SA 4.0 may be accessed at https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode When You download or use the Datasets from the Websites or elsewhere, You are agreeing to comply with the terms of CC BY-NC-SA 4.0 as applicable, and also agreeing to the Dataset Terms. Where these Dataset Terms conflict with the terms of CC BY-NC-SA 4.0, these Dataset Terms shall prevail.
+CODa is available for non-commerical under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License (“CC BY-NC-SA 4.0”). The CC BY-NC-SA 4.0 may be accessed at https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode When You download or use the Datasets from the Websites or elsewhere, You are agreeing to comply with the terms of CC BY-NC-SA 4.0 as applicable, and also agreeing to the Dataset Terms. Where these Dataset Terms conflict with the terms of CC BY-NC-SA 4.0, these Dataset Terms shall prevail.
 
 # Citation
-If you use our dataset of the tools, we would appreciate if you cite our paper \TODO arthur
+If you use our dataset of the tools, we would appreciate if you cite both our dataset and paper. 
 
+### Paper Citation
 ```
 @inproceedings{zhang2023ijjr,
   author = {A. Zhang, C. Eranki, C. Zhang, R. Hong, P. Kalyani, L. Kalyanaraman, A. Gamare, M. Esteva, J. Biswas},
@@ -43,28 +44,120 @@ If you use our dataset of the tools, we would appreciate if you cite our paper \
   booktitle = {},
   year = {2023}
 }
+``` 
+
+### Dataset Citation
+```
+@data{coda-tdr,
+author = {Zhang, Arthur and Eranki, Chaitanya and Zhang, Christina and Hong, Raymond and Kalyani, Pranav and Kalyanaraman, Lochana and Gamare, Arsh and Esteva, Maria and Biswas, Joydeep},
+publisher = {Texas Data Repository},
+title = {{UT Campus Object Dataset (CODa)}},
+year = {2023},
+version = {0.1},
+doi = {10.18738/T8/BBOQMV},
+url = {https://doi.org/10.18738/T8/BBOQMV}
+}
 ```
 
-# Installing the Official UT CODa Development Kit
+# Installing the Official CODa Development Kit
 
-The UT CODa development kit provides scripts for downloading, visualizing, and interfacing with UT CODa and can be installed from pip using the following command:
+The CODa development kit provides scripts for downloading, visualizing, and interfacing with CODa and can be installed from pip using the following command:
 
 ```
-pip install utcoda-devkit
+pip install coda-devkit
 ```
+
+# Dataset Contents
+The dataset contains the following:
+- 8.5 hours of egocentric, multimodal sensor data
+- Synchronized 3D point clouds and stereo RGB video from a 128-channel 3D LiDAR and two 1.25MP RGB cameras at 10 fps
+- RGB-D videos from additional 1MP and 0.5MP sensors at 5 and 7 fps 
+- 9-Degree of Freedom (DOF) Inertial data from an IMU sensor at 40 Hz 
+- 28K frames (58 minutes) of ground-truth annotations containing 1.3 million 3D bounding boxes with instance IDs for 50 semantic classes 
+- 5K frames of 3D semantic segmentation annotations for urban terrain
+- Globally consistent pseudo-ground truth poses
 
 # Data Collection Setup
 
-We collect UT CODa from the perspective of mobile robot (Clearpath Husky) on UT Austin campus. We use 2D, 3D, stereo, inertial, and GPS sensors which we describe in detail on our paper. We record raw sensors messages from multiple sensors using the Robot Operating System (ROS) and process these sensor messages into individual files using the `utcoda-devkit`. We provide this devkit for download from pip and the UT CODa dataset on the Texas Dataverse. 
+<p align="center">
+  <img src="./huskynobg.png" width="30%">
+</p>
+
+We collected CODa from the perspective of a mobile robot (Clearpath Husky) on UT Austin campus. We operate this robot between 0 to 1 meter per second and mount the following sensors on the robot:
+
+- 1 x Ouster OS1-128 3D laser scanner, 128 beams, 0.35 degree angular resolution, up to 2.6 million points/second, field of view: 360 degree horizontal, 45 degree vertical, range: 128 m. Point clouds captured in 128 channels @ 10 Hz
+- 2 x Teledyne FLIR Blackfly S RGB Cameras (BFS-U3-51S5C-C) up to 5 Megapixels, 75 Hz, global shutter. Paired with KOWA F2.8/5mm lenses. Field of view (H x W): 70x79 degrees. Images captured in 1.25 Megapixels @ 10 Hz
+- 1 x Microsoft Azure Kinect RGBD Camera up to 12 and 1 MP (RGB and Depth) @ 15 Hz, rolling shutter. 7 microphone circular array. RGB and Depth Images captured in 2.0 MP @ 5Hz
+- 1 x Stereolabs ZED 2i Stereo Camera up to 4 Megapixels @ 15 Hz, rolling shutter. Images captured in 0.5MP @ 5Hz
+- 1 x Vectornav VN-310 Dual GNSS/INS, up to 800 Hz IMU Data. Inertial and GPS data captured @ 40Hz
+
+
+We synchronized the Ouster 3D LiDAR and FLIR cameras using hardware. At the start of each scan, the 3D LiDAR emits a sync pulse to trigger the exposure for the FLIR cameras. We store the original ROS timestamps for the other sensors, but do not guarantee that the timestamps are synchronized with respect to the 3D LiDAR and FLIR cameras. We recorded raw sensor messages from multiple sensors using the Robot Operating System (ROS) and processed these sensor messages into individual files using the `coda-devkit`. We provide this devkit for download from pip and CODa on the Texas Dataverse. 
 
 <p align="center">
   <img src="./campusmap.png" width="70%">
 </p>
 
-# Data Format Description
 
-The data for UT CODa is divided into the following folders.
+Robot operators teleoperated the robot along four distinct trajectories. We refer to different trials as sequences. Under this definition, we have 22 sequences in our dataset. We define each unique trajectory by the order of waypoints visited and describe the order for each trajectory below. We marked these waypoints before data collection so that waypoint locations are identical between sequences. 
 
+```
+Trajectory Definitions:
+
+GDC (Forward)
+S0 -> S1 -> S2 -> S3 -> D1 -> S1 -> S0
+
+GDC (Backward)
+S0 -> S1 -> D1 -> S3 -> S2 -> S1 -> S0
+
+Guad (Forward)
+S0 -> S1 -> G1 -> G2 -> G3 -> G4 -> G5 -> G2 -> G1 -> S1 -> S0
+
+Guad (Backward)
+S0 -> S1 -> G1 -> G2 -> G5 -> G4 -> G3 -> G2 -> G1 -> S1 -> S0
+
+UNB
+G2 -> U1 -> U2 -> U3 -> U2 -> U1 -> G2
+
+WCP (Forward)
+S0 -> S1 -> S2 -> S3 -> W7 -> W5 -> W6 -> W7 -> S3 -> S2 -> S1 -> S0
+
+WCP (Backward)
+S0 -> S1 -> S2 -> S3 -> W7 -> W6 -> W5 -> W7 -> S3 -> S2 -> S1 -> S0
+```
+
+
+## Dataset Collection Schedule
+We provide a summary of all of the sequences in CODa, robot operator, trajectory, sequence duration, estimated traffic level, weather, and collection date. We abbreviate the forward and backward directions as F and B respectively.
+
+| Sequence ID   | Person    | Trajectory     | Time (secs) | Traffic Level | Weather/Brightness| Date       |
+| ------------- | --------- | ------------   | ----------- | ------------- | ----------------- | ---------- |
+| 0             | Raymond   | GDC (F)        | 821.2       | Light         | Cloudy            | 2023-01-16 |
+| 1             | Arthur    | GDC (B)        | 870.4       | Light         | Cloudy            | 2023-01-16 |
+| 2             | Chaitanya | Guad (F)       | 1669.3      | Light         | Dark              | 2023-01-16 |
+| 3             | Chaitanya | GDC (B)        | 1472.3      | Medium        | Sunny             | 2023-01-17 |
+| 4             | Arthur    | GDC (B)        | 823.6       | Light         | Dark              | 2023-01-18 |
+| 5             | Arthur    | GDC (F)        | 721.1       | Light         | Sunset->Dark      | 2023-01-18 |
+| 6             | Pranav    | WCP (B)        | 1358.2      | Medium        | Sunny             | 2023-01-26 |
+| 7             | Pranav    | Guad (F)       | 1619        | Medium        | Sunny             | 2023-01-26 |
+| 8             | Chaitanya | UNB            | 1020.8      | Light         | Cloudy            | 2023-01-27 |
+| 9             | Christina | WCP(B)         | 1228.9      | Medium        | Dark              | 2023-01-27 |
+| 10            | Raymond   | WCP (F)        | 1331.4      | Medium        | Cloudy            | 2023-01-30 |
+| 11            | Christina | WCP (B)        | 1648.9      | Light         | Sunny             | 2023-02-03 |
+| 12            | Pranav    | Guad (B)       | 1968.7      | Light         | Cloudy            | 2023-02-03 |
+| 13            | Christina | WCP (F)        | 1539.4      | Heavy         | Cloudy/Rainy      | 2023-02-06 |
+| 14            | Chaitanya | UNB            | 1198.6      | Light         | Cloudy            | 2023-02-06 |
+| 15            | Chaitanya | UNB            | 1133.8      | Medium        | Dark/Rainy        | 2023-02-07 |
+| 16            | Pranav    | Guad (F)       | 1706.2      | Heavy         | Cloudy/Rainy      | 2023-02-08 |
+| 17            | Lochana   | Guad (B)       | 1951.9      | Medium        | Sunny             | 2023-02-08 |
+| 18            | Pranav    | GDC (B)        | 876.3       | Medium        | Sunny             | 2023-02-09 |
+| 19            | Lochana   | GDC (F)        | 1443.9      | Medium        | Sunny             | 2023-02-09 |
+| 20            | Raymond   | WCP (F)        | 1402.7      | Heavy         | Sunny             | 2023-02-09 |
+| 21            | Arthur    | Guad (B)       | 2152.9      | Light         | Cloudy/Clear      | 2023-02-10 |
+| 22            | Chaitanya | WCP (F)        | 1551.5      | Medium        | Sunny             | 2023-02-10 |
+
+# Dataset Organization
+CODa is organized in the following levels: the data modality (2D/3D), sensor type, and sequence number. We recommend users first inspect the metadata under the <b>metadata</b> directory to understand which files should be used for their task. The metadata files contain the file paths to the ground truth annotations relative to the root location where CODa is downloaded on your file system.  For instance, there are lists that define the annotation files for the train, validation, and test splits for the 3D object detection and 3D semantic segmentation tasks. The data for CODa is organized in the following folder structure:
 
 ```
 - CODa
@@ -191,7 +284,7 @@ projection_matrix:
 
 ## Poses
 
-Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset update. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We ensure this by linearly interpolating between our known SLAM poses.
+Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset version. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We ensure this by linearly interpolating between our known SLAM poses.
 
 Example Pose File: (ts x y z qw qx qy qz)
 ```
@@ -238,10 +331,10 @@ ts magx magy magz
 
 ## Metadata Format and Usage (metadata)
 
-There is a separate metadata file for each sequence. Each sequence's metadata file contains its set of annotated objects, the date of collection, robot operator, lighting condition, trajectory number, subdirectory path to the ground truth poses, and annotation files for the train/validation/test splits for the UT CODa benchmarks. In the future, we plan on extending this with sequence specific attributes and a frames list to
-indicate when the robot is indoor versus outdoors. To use the annotation files in your dataloader, simply append the annotation subpath in the metadata file to the absolute path where UT CODa is downloaded.
+There is a separate metadata file for each sequence. Each sequence's metadata file contains its set of annotated objects, the date of collection, robot operator, lighting condition, trajectory number, subdirectory path to the ground truth poses, and annotation files for the train/validation/test splits for the CODa benchmarks. In the future, we plan on extending this with sequence-specific attributes and a frames list to
+indicate when the robot is indoors versus outdoors. To use the annotation files in your dataloader, simply append the annotation subpath in the metadata file to the absolute path where CODa is downloaded.
 
-To view the metadata files for the small and medium versions of UT CODa, refer to the `metadata_small` and `metadata_md` directories.
+To view the metadata files for the small and medium versions of CODa, refer to the `metadata_small` and `metadata_md` directories.
 
 ```
 {
@@ -333,7 +426,7 @@ os1 - stored as a 32 bit float binary file in the order: x y z intensity. In the
                  |/
   y left <------ 0 ------ right
 
-cam2/cam3 - stored as mono 16 bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. Note that these depth images may appear darker due to the colormap used store them. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
+cam2/cam3 - stored as mono 8-bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
 
             z up  y front
               ^    ^
@@ -345,7 +438,7 @@ cam2/cam3 - stored as mono 16 bit image at the original resolution with {SEQUENC
 ```
 
 2. 3d_comp directory
-Contains egocompensated 3D points clouds for the os1 sensor. We perform egocompensation using the provided poses found in each sequence's metadata file. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
+Contains ego-compensated 3D points clouds for the os1 sensor. We perform ego-compensation using the provided poses found in each sequence's metadata file. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
 
 # Annotation File Format
 

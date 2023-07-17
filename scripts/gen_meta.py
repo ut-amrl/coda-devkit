@@ -142,7 +142,9 @@ def main(args):
     """
     assert os.path.isdir(indir), '%s does not exist for root directory' % indir
 
-    outdir = os.path.join(indir, "metadata_%s"%datasize)
+    outdir = os.path.join(indir, "metadata")
+    if datasize!="full":
+        outdir = os.path.join(indir, "metadata_%s"%datasize)
     if not os.path.exists(outdir):
         print("Metadata directory does not exist, creating at %s..."%outdir)
         os.mkdir(outdir)

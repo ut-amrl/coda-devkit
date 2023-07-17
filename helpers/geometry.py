@@ -144,7 +144,6 @@ def inter_pose(posea, poseb, sensor_ts):
     assert np.sum(np.isnan(new_pose))==0, "Interpolated pose is nan exiting..."
     return new_pose
 
-
 def load_ext_calib_to_mat(calib_ext_file):
     calib_ext = open(calib_ext_file, 'r')
     calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
@@ -436,7 +435,7 @@ def get_3dbbox_corners(bbox_dict):
     return tred_corners
     
 
-def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
+def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file, check_img=False):
     """
     wcs_mat - 4x4 homogeneous matrix
 
@@ -472,13 +471,15 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file):
 
         image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
        
-        # valid_points_mask = np.logical_and(
-        #     np.logical_and(image_points[:, :, 0] >= 0, image_points[:, :, 0] < img_w), 
-        #     np.logical_and(image_points[:, :, 1] >= 0, image_points[:, :, 1] < img_h)
-        # )
-        valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
-        valid_points_mask = valid_points_mask.reshape(1, -1)
-        # import pdb; pdb.set_trace()
+        if check_img:
+            valid_points_mask = np.logical_and(
+                np.logical_and(image_points[:, :, 0] >= 0, image_points[:, :, 0] < img_w), 
+                np.logical_and(image_points[:, :, 1] >= 0, image_points[:, :, 1] < img_h)
+            )
+        else:
+            valid_points_mask = get_pointsinfov_mask((ext_homo_mat[:3, :3]@tred_corners.T).T+ext_homo_mat[:3, 3])
+            valid_points_mask = valid_points_mask.reshape(1, -1)
+            # import pdb; pdb.set_trace()
         if annotation["classId"] in BBOX_CLASS_VIZ_LIST:
             all_image_points = np.vstack(
                 (all_image_points, image_points)
