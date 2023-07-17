@@ -14,5 +14,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="config/bagdecoder_lidarimuonly.yaml", help="decode config file (see config/decode.yaml for example)")
     args = parser.parse_args()
-    bag_decoder = BagDecoder(args.config, is_config_dict=False)
+    bag_decoder = BagDecoder(args.config)
     bag_decoder.convert_bag()

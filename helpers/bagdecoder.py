@@ -8,25 +8,17 @@ import yaml
 import rospy
 import rosbag
 from visualization_msgs.msg import *
-from std_msgs.msg import String
 from sensor_msgs.msg import PointCloud2
 
 from helpers.sensors import *
 from helpers.visualization import pub_pc_to_rviz
 from helpers.constants import *
 
-from multiprocessing import Pool
-import tqdm
-
 
 class BagDecoder(object):
-    def __init__(self, config, is_config_dict=False):
-        self._is_config_dict = is_config_dict
-        if not is_config_dict:
-            self._settings_fp = os.path.join(os.getcwd(), config)
-            assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
-        else:
-            self._settings_fp = config
+    def __init__(self, config):
+        self._settings_fp = os.path.join(os.getcwd(), config)
+        assert os.path.isfile(self._settings_fp), '%s does not exist' % self._settings_fp
 
         # Load available bag files
         print("Loading settings from ", self._settings_fp)
@@ -62,10 +54,7 @@ class BagDecoder(object):
             os.makedirs(subdir_path)
 
     def load_settings(self):
-        if self._is_config_dict:
-            settings = self._settings_fp
-        else:
-            settings = yaml.safe_load(open(self._settings_fp, 'r'))
+        settings = yaml.safe_load(open(self._settings_fp, 'r'))
 
         # Load bag file directory
         self._repository_root = settings["repository_root"]
@@ -136,18 +125,6 @@ class BagDecoder(object):
 
         self._topic_to_type = {topic_entry['topic']: topic_entry['type'] for topic_entry in rosbag_info['topics']}
         self.setup_sync_filter()
-
-        # Setup ros publishers for nonasync
-        for topic in self._sensor_topics:
-            if topic in self._sync_topics:
-                continue
-
-            topic_type = self._topic_to_type[topic]
-            topic_class = None
-            if topic_type == "ouster_ros/PacketMsg":
-                topic_class = PointCloud2
-            elif topic_type == "sensors_msgs/PointCloud2":
-                topic_class = PointCloud2
 
         for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
             if topic in self._sync_topics:
