@@ -63,9 +63,6 @@ class BagDecoder(object):
 
         self._past_sync_ts = None
 
-        # Load bag complete header signal
-        self._bagdecoder_signal = rospy.Publisher('bagdecoder_signal', String, queue_size=10)
-
     def gen_dataset_structure(self):
         print("Generating processed dataset subdirectories...")
         for subdir in DATASET_L1_DIR_LIST:
@@ -132,7 +129,6 @@ class BagDecoder(object):
             print("Error: Topic to type mappings not defined yet. Exiting...")
             exit(1)
 
-        self._sync_pubs = {}
         self._sync_msg_queue = {}
         for topic in self._sync_topics:
             topic_class = None
@@ -144,9 +140,6 @@ class BagDecoder(object):
                 print("Undefined topic %s for sync filter, skipping..." % topic)
 
             if topic_class != None:
-                self._sync_pubs[topic] = rospy.Publisher(
-                    "/coda%s" % topic, topic_class, queue_size=10
-                )
                 self._sync_msg_queue[topic] = []
 
     def convert_bag(self):
@@ -154,10 +147,6 @@ class BagDecoder(object):
         Decodes requested topics in bag file to individual files
         """
         for trajectory_idx, bag_file in enumerate(self._all_bags):
-            bag_date = self._bag_dir.split('/')[-1]
-            docode_signal_str = "START %s %s" % (bag_date, bag_file)
-            self._bagdecoder_signal.publish(docode_signal_str)
-
             if bag_file not in self._bags_to_process:
                 continue
 
@@ -202,7 +191,6 @@ class BagDecoder(object):
                         self.qpacket(topic, msg, ts)
                     else:
                         self.sync_sensor(topic, msg, ts)
-                        self._sync_pubs[topic].publish(msg)
                 elif topic in self._sensor_topics:
                     topic_type = self._topic_to_type[topic]
 
@@ -322,7 +310,7 @@ class BagDecoder(object):
                 pc, _ = self.process_topic(topic, self._qp_scan_queue, ts)
 
                 if do_sync:
-                    topic_name = self._sync_pubs[topic]
+                    pass
                 else:
                     self._curr_frame += 1
                     self.save_frame_ts(ts)
