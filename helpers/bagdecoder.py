@@ -9,27 +9,17 @@ import rospy
 import rosbag
 from visualization_msgs.msg import *
 from std_msgs.msg import String
-from sensor_msgs.msg import PointCloud2, CompressedImage, Imu, MagneticField, Image, NavSatFix
-from tf2_msgs.msg import TFMessage
-from nav_msgs.msg import Odometry
+from sensor_msgs.msg import PointCloud2
 
 from helpers.sensors import *
-from helpers.visualization import pub_pc_to_rviz, pub_img
+from helpers.visualization import pub_pc_to_rviz
 from helpers.constants import *
-from helpers.geometry import densify_poses_between_ts
 
 from multiprocessing import Pool
 import tqdm
 
 
 class BagDecoder(object):
-    """
-    Decodes directory of bag files into dataset structure defined in README.md
-
-    This decoder requires the bag files to contain /ouster/lidar_packets and
-    two compressed image topics to be published within 50 milliseconds of each other.
-    """
-
     def __init__(self, config, is_config_dict=False):
         self._is_config_dict = is_config_dict
         if not is_config_dict:
@@ -43,7 +33,7 @@ class BagDecoder(object):
 
         # Load topics to process
         self._sensor_topics = {}
-        self._bags_to_process = []
+        self._bags_to_process = None
         self.load_settings()
 
         # Generate Dataset
@@ -95,7 +85,7 @@ class BagDecoder(object):
         # Load decoder settings
         self._gen_data = settings['gen_data']
         self._outdir = settings['dataset_output_root']
-        self._bags_to_traj_ids = settings['bags_to_traj_ids']
+        self._bags_to_traj_ids = 42
         if not os.path.exists(self._outdir):
             os.mkdir(self._outdir)
 
@@ -105,9 +95,6 @@ class BagDecoder(object):
         self._sync_method = settings["sync_method"] if "sync_method" in settings else None
 
         self._bags_to_process = settings['bags_to_process']
-        self._all_bags = [file for file in sorted(os.listdir(self._bag_dir)) if os.path.splitext(file)[-1] == ".bag"]
-        if len(self._bags_to_process) == 0:
-            self._bags_to_process = self._all_bags
 
         # Load LiDAR decoder settings
         if "/ouster/lidar_packets" in self._sensor_topics:
@@ -146,63 +133,56 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for trajectory_idx, bag_file in enumerate(self._all_bags):
-            if bag_file not in self._bags_to_process:
+        self._trajectory = 84
+
+        self._curr_frame = 0
+        bag_fp = os.path.join(self._bag_dir, self._bags_to_process)
+        print("Processing bag ", bag_fp, " as trajectory", self._trajectory)
+
+        # Preprocess topics
+        rosbag_info = yaml.safe_load(rosbag.Bag(bag_fp)._get_yaml_info())
+
+        self._topic_to_type = {topic_entry['topic']: topic_entry['type'] for topic_entry in rosbag_info['topics']}
+        self.setup_sync_filter()
+
+        # Setup ros publishers for nonasync
+        for topic in self._sensor_topics:
+            if topic in self._sync_topics:
                 continue
 
-            self._trajectory = trajectory_idx
-            if len(self._bags_to_traj_ids) == len(self._bags_to_process):
-                bag_idx = self._bags_to_process.index(bag_file)
-                self._trajectory = self._bags_to_traj_ids[bag_idx]
+            topic_type = self._topic_to_type[topic]
+            topic_class = None
+            if topic_type == "ouster_ros/PacketMsg":
+                topic_class = PointCloud2
+            elif topic_type == "sensors_msgs/PointCloud2":
+                topic_class = PointCloud2
 
-            self._curr_frame = 0
-            bag_fp = os.path.join(self._bag_dir, bag_file)
-            print("Processing bag ", bag_fp, " as trajectory", self._trajectory)
+        # Create frame to timestamp map
+        frame_to_ts_path = os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt" % self._trajectory)
+        if self._gen_data:
+            self._frame_to_ts = open(frame_to_ts_path, 'w+')
 
-            # Preprocess topics
-            rosbag_info = yaml.safe_load(rosbag.Bag(bag_fp)._get_yaml_info())
+        print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
 
-            self._topic_to_type = {topic_entry['topic']: topic_entry['type'] for topic_entry in rosbag_info['topics']}
-            self.setup_sync_filter()
-
-            # Setup ros publishers for nonasync
-            for topic in self._sensor_topics:
-                if topic in self._sync_topics:
-                    continue
-
+        for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
+            if topic in self._sync_topics:
                 topic_type = self._topic_to_type[topic]
-                topic_class = None
                 if topic_type == "ouster_ros/PacketMsg":
-                    topic_class = PointCloud2
-                elif topic_type == "sensors_msgs/PointCloud2":
-                    topic_class = PointCloud2
+                    self.qpacket(topic, msg, ts)
+                else:
+                    self.sync_sensor(topic, msg, ts)
+            elif topic in self._sensor_topics:
+                topic_type = self._topic_to_type[topic]
 
-            # Create frame to timestamp map
-            frame_to_ts_path = os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt" % self._trajectory)
-            if self._gen_data:
-                self._frame_to_ts = open(frame_to_ts_path, 'w+')
+                if topic_type == "ouster_ros/PacketMsg":
+                    msg = self.qpacket(topic, msg, ts, do_sync=False)
+                else:
+                    # Use ts as frame for non synchronized sensors
+                    filepath = self.save_topic(msg, topic, self._trajectory, ts)
+        print("Completed processing bag ", bag_fp)
 
-            print("Writing frame to timestamp map to %s\n" % frame_to_ts_path)
-
-            for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
-                if topic in self._sync_topics:
-                    topic_type = self._topic_to_type[topic]
-                    if topic_type == "ouster_ros/PacketMsg":
-                        self.qpacket(topic, msg, ts)
-                    else:
-                        self.sync_sensor(topic, msg, ts)
-                elif topic in self._sensor_topics:
-                    topic_type = self._topic_to_type[topic]
-
-                    if topic_type == "ouster_ros/PacketMsg":
-                        msg = self.qpacket(topic, msg, ts, do_sync=False)
-                    else:
-                        # Use ts as frame for non synchronized sensors
-                        filepath = self.save_topic(msg, topic, self._trajectory, ts)
-            print("Completed processing bag ", bag_fp)
-
-            if self._gen_data:
-                self._frame_to_ts.close()
+        if self._gen_data:
+            self._frame_to_ts.close()
 
     def sync_sensor(self, topic, msg, ts):
         if self._past_sync_ts == None:
