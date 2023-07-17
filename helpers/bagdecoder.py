@@ -12,70 +12,17 @@ import ros_numpy  # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
 import std_msgs.msg
 from sensor_msgs.msg import PointCloud2, PointField
 
-np.float = np.float64  # temp fix for following import https://github.com/eric-wieser/ros_numpy/issues/37
-
 
 OS1_PACKETS_PER_FRAME = 64
 OS1_POINTCLOUD_SHAPE = [1024, 128, 3]
 TRED_RAW_DIR = "3d_raw"
-TRED_COMP_DIR = "3d_comp"
-SEMANTIC_LABEL_DIR = "3d_semantic"
-TRED_BBOX_LABEL_DIR = "3d_bbox"
-TWOD_BBOX_LABEL_TYPE = "2d_bbox"
-METADATA_DIR = "metadata"
-CALIBRATION_DIR = "calibrations"
-TWOD_RAW_DIR = "2d_raw"
-TWOD_PROJ_DIR = "2d_proj"
-POSES_DIR = "poses"
-DENSE_POSES_DIR = "dense"
-DENSE_POSES_FULL_DIR = "poses/dense"
-TIMESTAMPS_DIR = "timestamps"
 SENSOR_DIRECTORY_SUBPATH = {
     # Depth
     "/ouster/lidar_packets": "%s/os1" % TRED_RAW_DIR,
-    "/camera/depth/image_raw/compressed": "%s/cam2" % TRED_RAW_DIR,
-    "/zed/zed_node/depth/depth_registered": "%s/cam3" % TRED_RAW_DIR,
-    # RGB
-    "/stereo/left/image_raw/compressed": "2d_raw/cam0",
-    "/stereo/right/image_raw/compressed": "2d_raw/cam1",
-    "/camera/rgb/image_raw/compressed": "2d_raw/cam2",
-    "/zed/zed_node/left/image_rect_color/compressed": "2d_raw/cam3",
-    "/zed/zed_node/right/image_rect_color/compressed": "2d_raw/cam4",
-    # Inertial
-    "/vectornav/IMU": "poses/imu",
-    "/vectornav/Mag": "poses/mag",
-    "/vectornav/GPS": "poses/gps",
-    "/vectornav/Odom": "poses/gpsodom",
-    "/husky_velocity_controller/odom": "poses/inekfodom"
 }
 
 SENSOR_DIRECTORY_FILETYPES = {
-    # Depth
     "%s/os1" % TRED_RAW_DIR: "bin",
-    "%s/cam2" % TRED_RAW_DIR: "png",
-    "%s/cam3" % TRED_RAW_DIR: "png",
-    # RGB
-    "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png",
-    "2d_raw/cam2": "png",
-    "2d_raw/cam3": "png",
-    "2d_raw/cam4": "png",
-    "2d_rect/cam0": "jpg",
-    "2d_rect/cam1": "jpg",
-    # Labels
-    "%s/cam0" % TWOD_BBOX_LABEL_TYPE: "txt",  # KITTI FORMAT
-    "%s/cam1" % TWOD_BBOX_LABEL_TYPE: "txt",
-    "%s/os1" % TRED_BBOX_LABEL_DIR: "json",
-    "%s/os1" % SEMANTIC_LABEL_DIR: "bin",
-    "%s/os1" % TRED_COMP_DIR: "bin",
-    "%s/cam0" % TWOD_PROJ_DIR: "jpg",
-    "%s/cam1" % TWOD_PROJ_DIR: "jpg",
-    # Inertial
-    "poses/imu": "txt",
-    "poses/mag": "txt",
-    "poses/gps": "txt",
-    "poses/gpsodom": "txt",
-    "poses/inekfodom": "txt"
 }
 
 
