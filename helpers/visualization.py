@@ -11,7 +11,7 @@ from cv_bridge import CvBridge
 #ROS
 import rospy
 import std_msgs.msg
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointCloud2, Imu
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import PoseStamped
 import matplotlib.cm as cm
@@ -26,7 +26,9 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         ts = rospy.Time.from_sec(ts)
     is_intensity    = pc.shape[-1]>=4
     is_time         = pc.shape[-1]>=5
-    is_rf           = pc.shape[-1]>=6
+    is_ring         = pc.shape[-1]>=6
+    is_rf           = pc.shape[-1]>=7
+    is_all          = pc.shape[-1]>=8
 
     if is_rf:
         rf_start_offset   = 5
@@ -41,18 +43,36 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         first_bytes     = pc_first.reshape(-1, 1).tobytes()
         time_bytes      = pc_time.reshape(-1, 1).tobytes()
         middle_bytes    = pc_middle.reshape(-1, 1).tobytes()
-        # middle_pad_bytes= np.zeros((pc.shape[0], pc.shape[1], 1), dtype=np.uint16).tobytes()
         end_bytes       = pc_end.reshape(-1, 1).tobytes()
         
         first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset*4)
         time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
         middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2*2)
-        # middle_pad_bytes_np = np.frombuffer(middle_pad_bytes, dtype=np.uint8).reshape(
-        #     -1, 2
-        # )
+
         end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
         all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, 
             middle_bytes_np, end_bytes_np))
+
+        # Add ambient and range bytes
+        all_bytes_np = all_bytes_np.reshape(-1, 1)
+    elif is_ring:
+        ring_start_offset   = 4
+        ring_middle_offset  = ring_start_offset+1
+        ring_end_offset     = 6
+
+        pc_first    = pc[:, :, :ring_start_offset]
+        pc_time     = pc[:, :, ring_start_offset].astype(np.uint32)
+        pc_ring   = pc[:, :, ring_middle_offset:ring_end_offset].astype(np.uint16)
+
+        first_bytes     = pc_first.reshape(-1, 1).tobytes()
+        time_bytes      = pc_time.reshape(-1, 1).tobytes()
+        ring_bytes       = pc_ring.reshape(-1, 1).tobytes()
+        
+        first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, ring_start_offset*4)
+        time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+        ring_bytes_np = np.frombuffer(ring_bytes, dtype=np.uint8).reshape(-1, 2)
+
+        all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, ring_bytes_np))
 
         # Add ambient and range bytes
         all_bytes_np = all_bytes_np.reshape(-1, 1)
@@ -85,7 +105,7 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
     ]
 
     pc_item_position = 4
-    if is_time:
+    if is_all:
         pc_msg.point_step   = pc.itemsize*7 + 6 + 2 # for actual values, 2 for padding
         fields.append(PointField('intensity', 16, DATATYPE, 1))
         fields.append(PointField('t', 20, PointField.UINT32, 1))
@@ -94,6 +114,11 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         fields.append(PointField('ambient', 28, PointField.UINT16, 1))
         fields.append(PointField('range', 32, PointField.UINT32, 1))
         # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
+    elif is_ring:
+        pc_msg.point_step   = pc.itemsize*5 + 2 + 2 # for actual values, 2 for padding
+        fields.append(PointField('intensity', 16, DATATYPE, 1))
+        fields.append(PointField('t', 20, PointField.UINT32, 1))
+        fields.append(PointField('ring', 24, PointField.UINT16, 1))
     elif is_rf:
         pc_msg.point_step   = pc.itemsize*5 + 2
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
@@ -116,6 +141,32 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
         pc_pub.publish(pc_msg)
 
     return pc_msg
+
+def pub_imu_to_rviz(imu_np, imu_pub, frame_id="vectornav", publish=True):
+    """
+    IMU data assummed to be in the same frame as LiDAR for coordinate axes
+    """
+    imu_msg = Imu()
+    imu_msg.header.stamp    =  rospy.Time.from_sec(imu_np[0])
+    imu_msg.header.frame_id = frame_id
+
+    imu_msg.orientation.x   = imu_np[8]
+    imu_msg.orientation.y   = imu_np[9]
+    imu_msg.orientation.z   = imu_np[10]
+    imu_msg.orientation.w   = imu_np[7]
+
+    imu_msg.angular_velocity.x  = imu_np[4]
+    imu_msg.angular_velocity.y  = imu_np[5]
+    imu_msg.angular_velocity.z  = imu_np[6]
+
+    imu_msg.linear_acceleration.x  = imu_np[1]
+    imu_msg.linear_acceleration.y  = imu_np[2]
+    imu_msg.linear_acceleration.z  = imu_np[3]
+
+    if publish:
+        imu_pub.publish(imu_msg)
+
+    return imu_msg
 
 def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
     """
@@ -301,7 +352,10 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
 
     return bbox_coords
 
-def pub_pose(pose_pub, pose, frame, frame_time):
+def pub_pose(pose_pub, pose, frame_time):
+    if not isinstance(frame_time, rospy.Time):
+        frame_time = rospy.Time.from_sec(frame_time)
+
     p = PoseStamped()
     p.header.stamp = frame_time
     p.header.frame_id = "os_sensor"

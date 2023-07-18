@@ -24,25 +24,25 @@ from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_V
 
 #     return out_pose_np
 
-# def find_closest_pose(pose_np, target_ts):
-#     curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
+def find_closest_pose(pose_np, target_ts):
+    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
 
-#     if curr_ts_idx>=pose_np.shape[0]:
-#         curr_ts_idx = pose_np.shape[0]-1
-#         print("Reached end of known poses at time %10.6f" % target_ts)
-#     elif curr_ts_idx < 0:
-#         curr_ts_idx = 0
+    if curr_ts_idx>=pose_np.shape[0]:
+        curr_ts_idx = pose_np.shape[0]-1
+        print("Reached end of known poses at time %10.6f" % target_ts)
+    elif curr_ts_idx < 0:
+        curr_ts_idx = 0
 
-#     next_ts_idx = curr_ts_idx + 1
-#     if next_ts_idx>=pose_np.shape[0]:
-#         next_ts_idx = pose_np.shape[0] - 1
+    next_ts_idx = curr_ts_idx + 1
+    if next_ts_idx>=pose_np.shape[0]:
+        next_ts_idx = pose_np.shape[0] - 1
 
-#     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-#         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
-#     else:
-#         pose = pose_np[curr_ts_idx]
+    if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
+        pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+    else:
+        pose = pose_np[curr_ts_idx]
 
-#     return pose
+    return pose
 
 # def inter_pose(posea, poseb, sensor_ts):
 #     """
@@ -77,36 +77,38 @@ def densify_poses_between_ts(pose_np, ts_np):
     ts_np = ts_np.reshape(-1,)
     for ts in ts_np:
         closest_pose = find_closest_pose(pose_np, ts)
+        # Modify the pose timestamp to be the target timestamp
+        closest_pose[0] = ts
         out_pose_np = np.vstack((out_pose_np, closest_pose))
 
     return out_pose_np
 
-def find_closest_pose(pose_np, target_ts, return_idx=False):
-    # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
-    # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
-    curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
-    next_ts_idx=curr_ts_idx+1
+# def find_closest_pose(pose_np, target_ts, return_idx=False):
+#     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
+#     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
+#     curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")-1
+#     next_ts_idx=curr_ts_idx+1
 
-    curr_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
-    next_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
-    # if next_ts_idx>=pose_np.shape[0]:
-    #     next_ts_idx = pose_np.shape[0]-1
-    #     print("Reached end of known poses at time %10.6f" % target_ts)
-    # elif curr_ts_idx < 0:
-    #     curr_ts_idx = 0
+#     curr_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
+#     next_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
+#     # if next_ts_idx>=pose_np.shape[0]:
+#     #     next_ts_idx = pose_np.shape[0]-1
+#     #     print("Reached end of known poses at time %10.6f" % target_ts)
+#     # elif curr_ts_idx < 0:
+#     #     curr_ts_idx = 0
 
-    # next_ts_idx = curr_ts_idx + 1
-    # if next_ts_idx>=pose_np.shape[0]:
-    #     next_ts_idx = pose_np.shape[0] - 1
+#     # next_ts_idx = curr_ts_idx + 1
+#     # if next_ts_idx>=pose_np.shape[0]:
+#     #     next_ts_idx = pose_np.shape[0] - 1
 
-    if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-        # pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
-        pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
-    else:
-        pose = pose_np[next_ts_idx]
-    if return_idx:
-        return next_ts_idx
-    return pose
+#     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
+#         # pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+#         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
+#     else:
+#         pose = pose_np[next_ts_idx]
+#     if return_idx:
+#         return next_ts_idx
+#     return pose
 
 def inter_pose(posea, poseb, sensor_ts):
     """
