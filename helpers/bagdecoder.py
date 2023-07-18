@@ -18,12 +18,13 @@ class BagDecoder(object):
     OS1_POINTCLOUD_SHAPE = [1024, 128, 3]
     TRED_RAW_DIR = "3d_raw"
     SENSOR_DIRECTORY_SUBPATH = {
-        # Depth
         "/ouster/lidar_packets": "%s/os1" % TRED_RAW_DIR,
+        "/velodyne_points": "%s/vlp16" % TRED_RAW_DIR,
     }
 
     SENSOR_DIRECTORY_FILETYPES = {
         "%s/os1" % TRED_RAW_DIR: "bin",
+        "%s/vlp16" % TRED_RAW_DIR: "bin",
     }
 
     def __init__(self, config):
@@ -88,6 +89,8 @@ class BagDecoder(object):
             exit(1)
         self._sync_msg_queue = {}
         for topic in self._sync_topics:
+            if not topic in self._topic_to_type:
+                continue
             topic_class = None
             if self._topic_to_type[topic] == "ouster_ros/PacketMsg":
                 topic_class = PointCloud2  # Post Process PacketMsg to Pointcloud2 later
@@ -105,21 +108,25 @@ class BagDecoder(object):
         rosbag_info = yaml.safe_load(rosbag.Bag(bag_fp)._get_yaml_info())
         self._topic_to_type = {topic_entry['topic']: topic_entry['type'] for topic_entry in rosbag_info['topics']}
         self.setup_sync_filter()
-
+        frno = 0
         for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
-            if topic in self._sync_topics:
+            print(f"Processing frame {frno}")
+            if topic in self._sync_topics and topic in self._topic_to_type.keys():
                 topic_type = self._topic_to_type[topic]
                 if topic_type == "ouster_ros/PacketMsg":
                     self.qpacket(topic, msg, ts)
                 else:
                     self.sync_sensor(topic, msg, ts)
-            elif topic in self._sensor_topics:
+            elif topic in self._sensor_topics and topic in self._topic_to_type.keys():
                 topic_type = self._topic_to_type[topic]
                 if topic_type == "ouster_ros/PacketMsg":
                     msg = self.qpacket(topic, msg, ts, do_sync=False)
+                elif topic_type == "sensor_msgs/PointCloud2":
+                    filepath = self.save_topic(msg, topic, 0, ts, velodyne=True)
                 else:
                     # Use ts as frame for non synchronized sensors
                     filepath = self.save_topic(msg, topic, 0, ts)
+            frno += 1
         print("Completed processing bag ", bag_fp)
 
     def qpacket(self, topic, msg, ts, do_sync=True):
@@ -204,7 +211,7 @@ class BagDecoder(object):
             are_queues_empty = are_queues_empty or len(msgs) == 0
         return are_queues_empty
 
-    def save_topic(self, data, topic, trajectory, frame):
+    def save_topic(self, data, topic, trajectory, frame, velodyne=False):
         topic_type = self._topic_to_type[topic]
         topic_type_subpath = BagDecoder.SENSOR_DIRECTORY_SUBPATH[topic]
         save_dir = os.path.join(self._outdir, topic_type_subpath, str(trajectory))
@@ -216,7 +223,7 @@ class BagDecoder(object):
             print("Creating %s because it does not exist..." % save_dir)
             os.makedirs(save_dir)
         if topic_type == "ouster_ros/PacketMsg" or topic_type == "sensor_msgs/PointCloud2":
-            BagDecoder.pc_to_bin(data, filepath)  # Expects PointCloud2 Object
+            BagDecoder.pc_to_bin(data, filepath, velodyne=velodyne)  # Expects PointCloud2 Object
         return filepath
 
     def process_topic(self, topic, msg, t):
@@ -386,10 +393,15 @@ class BagDecoder(object):
         return client.LidarPacket(data, os1_info)
 
     @staticmethod
-    def pc_to_bin(pc, filename, include_time=True):
-        # pc_np = np.array(ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc))
+    def velodyne_process_pc2(pc):
+        return ros_numpy.point_cloud2.pointcloud2_to_array(pc).reshape(1, -1)
 
-        pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
+    @staticmethod
+    def pc_to_bin(pc, filename, include_time=False, velodyne=False):
+        if velodyne:
+            pc_cloud = BagDecoder.velodyne_process_pc2(pc)
+        else:
+            pc_cloud = ros_numpy.point_cloud2.pointcloud2_to_array(pc)
         pc_dim = 4
         if include_time:
             pc_dim = 5

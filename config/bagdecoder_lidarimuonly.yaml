@@ -1,4 +1,4 @@
-repository_root: "/home/dynamo/AMRL_Research/repos/coda-devkit/my_things/121422"
+repository_root: "/home/dynamo/AMRL_Research/repos/coda-devkit/my_things/spot/"
 dataset_output_root: "/home/dynamo/AMRL_Research/repos/coda-devkit/my_things/output"
 bag_date: ""
 
@@ -10,8 +10,8 @@ sync_topics: [
 ]
 
 sensor_topics: [
-  #OS1
   "/ouster/lidar_packets",
+  "/velodyne_points"
 ]
 
-bags_to_process: "1671032206.bag" #Leave empty to process all bags in directory
+bags_to_process: "seq3_reduced.bag" #Leave empty to process all bags in directory
