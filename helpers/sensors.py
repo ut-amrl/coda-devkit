@@ -83,8 +83,8 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
         )
     return sensor_filename
 
-def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=True):
-    assert (frame is None and not include_name) or (frame is not None and include_name), \
+def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=False):
+    assert (frame is not None and include_name) or (frame is None and not include_name), \
         "Invalid frame and include name argument combination..."
     trajectory = str(trajectory)
 
