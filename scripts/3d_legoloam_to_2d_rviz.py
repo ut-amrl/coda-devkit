@@ -59,9 +59,9 @@ def main(args):
     # Iterate through all poses
     LIDAR_HEIGHT = 0.8 # meters
     ZBAND_HEIGHT = 0.5 # meters
-    ZMIN_OFFSET = 2.2 # meters
+    ZMIN_OFFSET = 1.9 # meters
 
-    rate = rospy.Rate(40)
+    rate = rospy.Rate(100)
 
     dense_pose_np = densify_poses_between_ts(pose_np, timestamp_np)
     last_pose = None
@@ -106,24 +106,34 @@ def main(args):
     #         last_pose = closest_pose
     #     # import pdb; pdb.set_trace()
     #     rate.sleep()
-    for pose in pose_np:
+    for pose_idx, pose in enumerate(pose_np):
         pose_ts = pose[0]
-        
+        if pose_idx < 1000:
+            continue
+        print("pose ", pose_idx)
         closest_lidar_frame = np.searchsorted(timestamp_np, pose_ts, side='left')
         lidar_ts = timestamp_np[closest_lidar_frame]
-        bin_path = set_filename_dir(indir, "3d_comp", "os1", trajectory, closest_lidar_frame)
+        bin_path = set_filename_dir(indir, "3d_raw", "os1", trajectory, closest_lidar_frame)
         lidar_np = read_bin(bin_path, keep_intensity=False)
+
+        # Filter all point between zmin and zmax, downsample angular to 1/4 original size
+        lidar_np = lidar_np.reshape(128, 1024, -1)
+        zmin = ZMIN_OFFSET - LIDAR_HEIGHT
+        zmax = zmin+ZBAND_HEIGHT
+        z_mask = np.logical_and(lidar_np[:, :, 2] > zmin, lidar_np[:, :, 2] < zmax)
+        lidar_np = lidar_np[z_mask].reshape(-1, 3).astype(np.float32)
 
         LtoG                = pose_to_homo(pose) # lidar to global frame
         homo_lidar_np       = np.hstack((lidar_np, np.ones((lidar_np.shape[0], 1))))
         trans_homo_lidar_np = (LtoG @ homo_lidar_np.T).T
-        trans_lidar_np      = trans_homo_lidar_np[:, :3].reshape(128, 1024, -1)
+        trans_lidar_np      = trans_homo_lidar_np[:, :3] #.reshape(128, 1024, -1)
+        trans_lidar_np      = trans_lidar_np.reshape(-1, 3).astype(np.float32)
 
-        # Filter all point between zmin and zmax, downsample angular to 1/4 original size
-        zmin = LIDAR_HEIGHT + ZMIN_OFFSET
-        zmax = zmin+ZBAND_HEIGHT
-        z_mask = np.logical_and(trans_lidar_np[:, :, 2] > zmin, trans_lidar_np[:, :, 2] < zmax)
-        trans_lidar_np = trans_lidar_np[z_mask].reshape(-1, 3).astype(np.float32)
+        # # Filter all point between zmin and zmax, downsample angular to 1/4 original size
+        # zmin = LIDAR_HEIGHT + ZMIN_OFFSET
+        # zmax = zmin+ZBAND_HEIGHT
+        # z_mask = np.logical_and(trans_lidar_np[:, :, 2] > zmin, trans_lidar_np[:, :, 2] < zmax)
+        # trans_lidar_np = trans_lidar_np[z_mask].reshape(-1, 3).astype(np.float32)
 
         pub_pc_to_rviz(trans_lidar_np, pc_pub, lidar_ts)
         pub_pose(pose_pub, pose, pose[0])
@@ -131,12 +141,12 @@ def main(args):
             last_pose = pose
         else:
             print("check is last poses are similar")
-            print("last pose ", last_pose[1:])
-            print("last pose ", pose[1:])
+            # print("last pose ", last_pose[1:])
+            # print("last pose ", pose[1:])
             print(np.allclose(last_pose[1:], pose[1:], rtol=1e-5) )
             last_pose = pose
         # import pdb; pdb.set_trace()
-        rate.sleep()
+        # rate.sleep()
 
 if __name__ == "__main__":
     start_time = time.time()
