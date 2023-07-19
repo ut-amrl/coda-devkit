@@ -164,7 +164,7 @@ def compensate_trajectory_frames(args):
         cam_list.append(camid)
         save_mod_list.append(save_modality)
 
-    pool = Pool(processes=64)
+    pool = Pool(processes=16)
     for _ in tqdm.tqdm(pool.imap_unordered(compensate_single_trajectory_frame, zip(indir_list, outdir_list, \
         trajectory_list, pc_path_list, offset_list, cam_list, save_mod_list)), total=len(pc_paths)):
         pass
@@ -196,9 +196,9 @@ def main(args):
         ]
     }
 
-    ## Uncomment Below to view all egocompensated trajectories
+    # Uncomment Below to view all egocompensated trajectories
     trajectory_list = []
-    for i in range(22):
+    for i in range(22, 23):
         curr_traj_dict = copy.deepcopy(dummy_trajectory)
         curr_traj_dict["trajectory"] = i
         trajectory_list.append(curr_traj_dict)

@@ -613,11 +613,12 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
             for location_name, frames in location_frame_dict[traj].items():
                 if location_name not in locations_densities_dict:
                     locations_densities_dict[location_name] = {weather: [] for weather in weather_list}
-                
-                start_frame, end_frame = frames[0], frames[1]
-                end_frame = len(time_ints) if end_frame == -1 else end_frame+1
-                for weather in traj_weather_dict[traj]:
-                    locations_densities_dict[location_name][weather].extend(time_ints[start_frame:end_frame])
+
+                for frame_set in frames:
+                    start_frame, end_frame = frame_set[0], frame_set[1]
+                    end_frame = len(time_ints) if end_frame == -1 else end_frame+1
+                    for weather in traj_weather_dict[traj]:
+                        locations_densities_dict[location_name][weather].extend(time_ints[start_frame:end_frame])
             print("Done processing took", time.time() - start_time)
 
         
@@ -634,17 +635,16 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
     #     [3, 6, 9, 12, 15],
     #     [4, 8, 12, 16, 20]
     # ]
-
     # Create a grid of subplots
-    fig, axes = plt.subplots(4, 1, figsize=(9, 10), sharex=True)
+    fig, axes = plt.subplots(5, 1, figsize=(10, 11), sharex=True)
 
-    color_palette = ['#FD8F0F', '#0157E9', '#88E910', '#E11846'] # currently only support four weather types
+    color_palette = ['#FD8F0F', '#0157E9', '#88E910', '#E11846', '#CC8899'] # currently only support four weather types
     weather_color_palette = {
         weather: color_palette[weather_idx] for weather_idx, weather in enumerate(weather_list)
     }
     # Plot KDEs in each subplot
     sns.set(font_scale=1.2)
-    decimal_places = 1
+    decimal_places = 0
     for i, ax in enumerate(axes):
         location = locations[i]
         print("Plotting location %s"%location)
@@ -655,7 +655,7 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
         all_times = []
         all_weather = []
         for weather, times in locations_densities_dict[location].items():
-            ds_times = times[::5]
+            ds_times = times
 
             all_times.extend([time/10000 for time in ds_times])
             all_weather.extend([weather]*len(ds_times))
@@ -665,7 +665,8 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
         })
         custom_palette = [weather_color_palette[weather] for weather in data['Weather'].unique()]
         # Use low bandwidth to show all spots
-        sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.25, palette=custom_palette, legend=True)
+        # sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.2, palette=custom_palette, legend=True)
+        sns.histplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, palette=custom_palette, legend=True, multiple='stack')
             # Normalize times to be in hours insetad of seconds
             # times = [t/10000 for t in times]
             # sns.kdeplot(data=times, fill=True, ax=ax, bw_method=0.5)
@@ -674,7 +675,7 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
         ax.set_ylabel('   ', fontsize=18)
         ax.set_xlabel('Time (HH:MM:SS)', fontsize=20)
         legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(custom_palette, data['Weather'].unique())]
-        ax.legend(handles=legend_patches, loc='center left')
+        ax.legend(handles=legend_patches, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=18)
         y_min, y_max = ax.get_ylim()
         ax.set_yticks(np.linspace(start=int(y_min), stop=math.ceil(y_max), num=4).tolist())
         ax.yaxis.set_major_formatter(FormatStrFormatter(f'%.{decimal_places}f'))
@@ -689,7 +690,7 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
 
     # Set common x label for the entire figure
     # fig.text(0.5, 0.01, 'Time (HH:MM:SS)', ha='center')
-    fig.text(0.02, 0.5, 'Frame Density', va='center', rotation='vertical', fontsize=20)
+    fig.text(0.02, 0.5, '# Frames', va='center', rotation='vertical', fontsize=20)
     # Adjust spacing between subplots
     plt.tight_layout()
 

@@ -105,8 +105,8 @@ if __name__ == '__main__':
     frame_to_ts_path = join(indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
     frame_to_ts_np = np.fromfile(frame_to_ts_path, sep=' ').reshape(-1,)
 
-    pc_pub_rate = rospy.Rate(3)
-    imu_pub_rate = rospy.Rate(40)
+    pc_pub_rate = rospy.Rate(2)
+    imu_pub_rate = rospy.Rate(20)
     # Set pc publisher
     pc_pub = rospy.Publisher(ouster_topic, PointCloud2, queue_size=5)
     imu_pub = rospy.Publisher(imu_topic, Imu, queue_size=5)
