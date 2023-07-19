@@ -336,7 +336,7 @@ BBOX_ID_TO_COLOR = [
     (18, 34, 119),          #36 Computer (Dark Green)
     (17, 46, 168),          #37 Television (Black)
     (203, 226, 37),            #38 Other (Orange)
-    (9, 9, 181),            #39 Horse (Orange)
+    (255, 83, 0),            #39 Horse (Orange)
     (100, 34, 168),         #40 Pickup Truck (Sky Blue)
     (150, 69, 253),         #41 Delivery Truck (Neon Pink)
     (46, 22, 78),           #42 Service Vehicle (Lime)

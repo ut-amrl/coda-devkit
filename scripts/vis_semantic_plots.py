@@ -108,16 +108,49 @@ def plot_counts(indir, outdir):
     sns.set_style("darkgrid")
     sns.set_palette(colors)
 
+    class_to_type_dict ={
+        'Road Pavement':    'Outdoor', 
+        'Concrete':         'Outdoor', 
+        'Speedway Bricks':  'Outdoor', 
+        'Dirt Paths':       'Outdoor', 
+        'Short Vegetation': 'Outdoor', 
+        'Carpet':           'Indoor', 
+        'Porcelain Tile':   'Indoor', 
+        'Pebble Pavement':  'Outdoor', 
+        'Patterned Tile':   'Indoor', 
+        'Dark Marble Tiling':   'Outdoor', 
+        'Grass':            'Outdoor', 
+        'Red Bricks':       'Outdoor', 
+        'Crosswalk':        'Outdoor', 
+        'Rocks':            'Outdoor',  
+        'Stairs':           'Both', 
+        'Wood Panel':       'Outdoor', 
+        'Light Marble Tiling':  'Indoor', 
+        'Unknown':          'Both',
+        'Metal Grates':     'Outdoor', 
+        'Door Mat':         'Both', 
+        'Dome Mat':         'Outdoor',
+        'Blond Marble Tiling':  'Indoor',
+        'Metal Floor':      'Indoor',
+        'Threshold':        'Indoor'
+    }
+    floor_type_list = []
+    for floor in keys:
+        floor_type_list.append(class_to_type_dict[floor])
+
+    floor_counts_list = []
+    for floor in keys:
+        floor_counts_list.append(labels_counts_dictionary[floor])
+
     #Create dataframe with each label names, group, and counts.
     df = pd.DataFrame({'Labels': keys,
-        'Type': ['Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Outdoor Floor', 'Outdoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Outdoor Floor', 'Outdoor Floor', 'Indoor Floor', 'Hybrid Floor', 'Hybrid Floor', 'Hybrid Floor'],
+        'Type': floor_type_list,
         'Proportion': values,
-        'Counts': labels_counts_dictionary.values()})
-    df = df.sort_values(by=['Type','Proportion'], ascending=False)
-
+        'Counts': floor_counts_list})
+    df = df.sort_values(by=['Type'], ascending=False, kind='mergesort').reset_index()
     #Plot and set fields.
     print("Plotting")
-    cats = ['Outdoor Floor', 'Indoor Floor', 'Hybrid Floor']
+    cats = ['Outdoor', 'Indoor', 'Both']
     # sns.set_theme(style='white')
     sns.set(style='white', font_scale=4)
 
@@ -143,10 +176,9 @@ def plot_counts(indir, outdir):
         x = i.get_x() + i.get_width()/2
         y = i.get_y() + p + 0.001
 
-        plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=30, rotation=90)
-
-    # plt.title('UT CODA Terrain Segmentation Class Breakdown')
-
+        plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=40, rotation=90)
+        print("counts ", df['Counts'][idx], " idx ", idx)
+    import pdb; pdb.set_trace()
     print(labels_dictionary)
     sns.despine()
     #Save locally
@@ -277,6 +309,7 @@ def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"
         "Room Label"            : "Structure",
         "Wall Sign"             : "Structure",
         "Traffic Light"         : "Structure",
+        "Horse"                 : "Structure",
         "Railing"               : "Barrier",
         "Bollard"               : "Barrier",
         "Traffic Arm"           : "Barrier",
@@ -313,8 +346,7 @@ def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"
         "Fire Extinguisher"     : "Emergency Device",
         "Fire Alarm"            : "Emergency Device",
         "Emergency Aid Kit"     : "Emergency Device",
-        "Pedestrian"            : "Mammal",
-        "Horse"                 : "Mammal",
+        "Pedestrian"            : "Human",
         "Chair"                 : "Furniture/ Appliance",
         "Table"                 : "Furniture/ Appliance",
         "Bench"                 : "Furniture/ Appliance",
@@ -392,12 +424,13 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
     metadata_dir = join(indir, METADATA_DIR)
     metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
               if os.path.isfile(os.path.join(metadata_dir, file_name))]
-    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data.json")
+    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data_multi.json")
     traj_weather_dict = json.load(open(traj_weather_path, 'r'))
     weather_list = []
-    for weather in traj_weather_dict.values():
-        if weather not in weather_list:
-            weather_list.append(weather)
+    for traj_weather_list in traj_weather_dict.values():
+        for weather in traj_weather_list:
+            if weather not in weather_list:
+                weather_list.append(weather)
 
     counts_cache = join(outdir, counts_file)
     if not os.path.exists(counts_cache):
@@ -407,29 +440,29 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
             traj = metadata_file.split('.')[0]
             meta_path = join(metadata_dir, metadata_file)
             obj_splits = json.load(open(meta_path, 'r'))['ObjectTracking']
-            weather = traj_weather_dict[traj]
-
-            # Load all annotation paths and count labels
-            obj_anno_subpaths = []
-            for split in splits:
-                obj_anno_subpaths.extend(obj_splits[split])
 
             print("Started meta file %s" % meta_path)
-            for obj_anno_subpath in obj_anno_subpaths:
-                obj_anno_path = join(indir, obj_anno_subpath)
-                obj_anno_dict = json.load(open(obj_anno_path, 'r'))["3dbbox"]
+            for weather in traj_weather_dict[traj]:
+                # Load all annotation paths and count labels
+                obj_anno_subpaths = []
+                for split in splits:
+                    obj_anno_subpaths.extend(obj_splits[split])
 
-                # Count occurrences of each object under each weather condition
-                for obj_dict in obj_anno_dict:
-                    counts_dict[obj_dict["classId"]][weather] += 1
+                for obj_anno_subpath in obj_anno_subpaths:
+                    obj_anno_path = join(indir, obj_anno_subpath)
+                    obj_anno_dict = json.load(open(obj_anno_path, 'r'))["3dbbox"]
+
+                    # Count occurrences of each object under each weather condition
+                    for obj_dict in obj_anno_dict:
+                        counts_dict[obj_dict["classId"]][weather] += 1
             print("Finished meta file %s" % meta_path)
 
         # Save cached label counts
         with open(counts_cache, "w") as counts_cache_file:
             counts_dict_str = {k: str(v) for k, v in counts_dict.items()}
             json.dump(counts_dict_str, counts_cache_file)
-    else:
-        counts_dict = json.load(open(counts_cache, 'r'))
+
+    counts_dict = json.load(open(counts_cache, 'r'))
 
     def str_to_dict(string):
         # remove the curly braces from the string
@@ -448,6 +481,7 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
         for count in str_to_dict(weather_counts_dict[1]).values():
             sum += int(count)
         return sum
+
 
     # Sort object classes by summing all counts across all weather conditions
     sorted_counts_dict_str = dict(sorted(counts_dict.items(), key=dict_sort_helper, reverse=True ))
