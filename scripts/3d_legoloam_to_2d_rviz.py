@@ -33,8 +33,8 @@ def main(args):
     global option
     trajectory, option = args.traj, args.option
     indir = "/robodata/arthurz/Datasets/CODa_dev"
-    # pose_path = f"{indir}/poses/{trajectory}.txt"
-    pose_path = f"{trajectory}.txt"
+    pose_path = f"{indir}/poses_highfreq/{trajectory}.txt"
+    # pose_path = f"{trajectory}.txt"
     ts_path = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
     bin_dir   = f"{indir}/3d_comp/os1/{trajectory}/"
     outdir    = f"./cloud_to_laser/%s" % args.traj
@@ -108,12 +108,12 @@ def main(args):
     #     rate.sleep()
     for pose_idx, pose in enumerate(pose_np):
         pose_ts = pose[0]
-        if pose_idx < 1000:
-            continue
+        # if pose_idx < 1000:
+        #     continue
         print("pose ", pose_idx)
         closest_lidar_frame = np.searchsorted(timestamp_np, pose_ts, side='left')
         lidar_ts = timestamp_np[closest_lidar_frame]
-        bin_path = set_filename_dir(indir, "3d_raw", "os1", trajectory, closest_lidar_frame)
+        bin_path = set_filename_dir(indir, "3d_raw", "os1", trajectory, closest_lidar_frame, include_name=True)
         lidar_np = read_bin(bin_path, keep_intensity=False)
 
         # Filter all point between zmin and zmax, downsample angular to 1/4 original size
