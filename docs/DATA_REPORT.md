@@ -414,9 +414,10 @@ cam0/cam1 - stored as 8 bit jpg with {SEQUENCE} being the sequence and {TIMESTAM
 All depth measurements are provided in meters with respect to the sensor.
 
 1. 3d_raw directory
-Contains raw 3D sensor data from os1, cam2, and cam3. Point clouds in this directory have not been egocompensated or altered in any way.
+Contains raw 3D sensor data from os1, cam2, and cam3. Point clouds in this directory have not been egocompensated or altered in any way. We describe the file format for each sensor in the `3d_raw` directory below. All units are in meters.
+
 ```
-os1 - stored as a 32 bit float binary file in the order: x y z intensity. In the filename, the {SEQUENCE} is the sequence number and {FRAME} is the frame number within the sequence. Point cloud should be reshaped to Nx4 or 1024x128x4 before use. The point clouds follow the standard LiDAR coordinate convention where +x is forward, +y is to the left, and +z is towards the sky.
+os1 - stored as a 32 bit float binary file in the order: x y z intensity. In the filename, the {SEQUENCE} is the sequence number and {FRAME} is the frame number within the sequence. Point cloud should be reshaped to Nx4 or 128x1024x4 before use. The point clouds follow the standard LiDAR coordinate convention where +x is forward, +y is to the left, and +z is towards the sky.
 
                z up  x front
                  ^    ^
@@ -426,7 +427,7 @@ os1 - stored as a 32 bit float binary file in the order: x y z intensity. In the
                  |/
   y left <------ 0 ------ right
 
-cam2/cam3 - stored as mono 8-bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
+cam2/cam3 - stored as mono 8-bit image at the original resolution with {SEQUENCE} being the sequence and {TIMESTAMP} being the ROS timestamp from the original ROS image message. The range for cam2 is 0-3.86 meters and cam3 is 0-25 meters. To obtain the absolute depth, scale the stored 8-bit value by the min/max range of the camera. The depth clouds follow the standard depth coordinate convention where +x is to the right, +y is forwards, and +z is to the sky.
 
             z up  y front
               ^    ^
@@ -438,7 +439,7 @@ cam2/cam3 - stored as mono 8-bit image at the original resolution with {SEQUENCE
 ```
 
 2. 3d_comp directory
-Contains ego-compensated 3D points clouds for the os1 sensor. We perform ego-compensation using the provided poses found in each sequence's metadata file. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
+Contains ego-compensated 3D points clouds for the os1 sensor. We linearly interpolate between the ground truth poses found in each sequence's metadata file and use these poses to copmensate each point cloud. All other aspects (file naming convention, file format, point cloud shape) are otherwise identical.
 
 # Annotation File Format
 
@@ -457,13 +458,13 @@ Full		(All object points are obstructed, in view of image but cannot detect with
 Unknown         (Occlusion Status is Unknown, object is not in view of image) 
 ```
 
-Objects will have the same instance ID within each contiguous sequence as long as they do not exit in the point cloud scan for more than 30 frames (3 seconds). For deformable objects like pedestrians, we identify when the bounding box for the object is largest and fix the bounding box size for the duration that it is tracked. We define 56 object classes and divide them into nine parent object classes. 
+Objects will have the same instance ID within each contiguous sequence as long as they do not exit in the point cloud scan for more than 30 frames (3 seconds). For deformable objects like pedestrians, we identify when the bounding box for the object is largest and fix the bounding box size for the duration that it is tracked. We define 56 object classes and divide them into nine parent object classes. For the object detection task, we only use 53 object classes as 3 do not have labels. We provide a standardized object class to class ID mapping in the coda-devkit [here](https://github.com/ut-amrl/coda-devkit/blob/main/helpers/constants.py).
 
 <p align="center">
   <img src="./object_list.png" width="100%">
 </p>
 
-Each 3D bounding box is annotated with respect to the ego-LiDAR frame and follow the right hand convention.
+Each 3D bounding box is annotated with respect to the ego-LiDAR frame and follow the right hand convention. 
 
 ```
 3D bounding box coordinate system.
@@ -508,7 +509,7 @@ A 3D bbox annotation file has the following format with {SEQUENCE} being the seq
 
 ## 3D Semantic Segmentation Annotations (3d_semantic)
 
-We annotate points on the environment terrain from the os1's point cloud. We assign each point on the terrain a semantic class and semantic ID. Point that are not on the terrain are labeled as "Unlabeled" and points that cannot be reliably identified from the point cloud/surrounding context are labeled as "Unknown". We use the following topology to organize the semantic segmentation class list. We refer the reader to the annotation protocol document for examples images of all of the semantic classes.
+We annotate points on the environment terrain from the os1's point cloud. We assign each point on the terrain a semantic class and semantic ID. Points that are not on the terrain are labeled as "Unlabeled" and points that cannot be reliably identified from the point cloud/surrounding context are labeled as "Unknown". We use the following topology to organize the semantic segmentation class list. We refer the reader to the annotation protocol document for examples images of all of the semantic classes.
 
 <p align="center">
   <img src="./semseglist.png" width="100%">
