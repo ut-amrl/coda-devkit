@@ -109,30 +109,30 @@ def plot_counts(indir, outdir):
     sns.set_palette(colors)
 
     class_to_type_dict ={
-        'Road Pavement':    'Outdoor', 
-        'Concrete':         'Outdoor', 
-        'Speedway Bricks':  'Outdoor', 
-        'Dirt Paths':       'Outdoor', 
-        'Short Vegetation': 'Outdoor', 
-        'Carpet':           'Indoor', 
-        'Porcelain Tile':   'Indoor', 
-        'Pebble Pavement':  'Outdoor', 
-        'Patterned Tile':   'Indoor', 
-        'Dark Marble Tiling':   'Outdoor', 
-        'Grass':            'Outdoor', 
-        'Red Bricks':       'Outdoor', 
-        'Crosswalk':        'Outdoor', 
-        'Rocks':            'Outdoor',  
-        'Stairs':           'Both', 
-        'Wood Panel':       'Outdoor', 
-        'Light Marble Tiling':  'Indoor', 
-        'Unknown':          'Both',
-        'Metal Grates':     'Outdoor', 
-        'Door Mat':         'Both', 
-        'Dome Mat':         'Outdoor',
-        'Blond Marble Tiling':  'Indoor',
-        'Metal Floor':      'Indoor',
-        'Threshold':        'Indoor'
+        'Road Pavement':    'Road', 
+        'Concrete':         'Walkways', 
+        'Speedway Bricks':  'Walkways', 
+        'Dirt Paths':       'Unstructured', 
+        'Short Vegetation': 'Unstructured', 
+        'Carpet':           'Indoor Floor', 
+        'Porcelain Tile':   'Tiling', 
+        'Pebble Pavement':  'Walkways', 
+        'Patterned Tile':   'Tiling', 
+        'Dark Marble Tiling':   'Tiling', 
+        'Grass':            'Unstructured', 
+        'Red Bricks':       'Walkways', 
+        'Crosswalk':        'Road', 
+        'Rocks':            'Unstructured',  
+        'Stairs':           'Boundary', 
+        'Wood Panel':       'Walkways', 
+        'Light Marble Tiling':  'Tiling', 
+        'Unknown':          'Other',
+        'Metal Grates':     'Metal', 
+        'Door Mat':         'Boundary', 
+        'Dome Mat':         'Boundary',
+        'Blond Marble Tiling':  'Tiling',
+        'Metal Floor':      'Metal',
+        'Threshold':        'Boundary'
     }
     floor_type_list = []
     for floor in keys:
@@ -165,7 +165,8 @@ def plot_counts(indir, outdir):
     # Remove x-ticks
     plt.xticks([])
     # plt.legend(labels=df['Labels'])
-    plt.legend(handles=legend_handles, title='Semantic Class', ncol=2, fontsize=32)
+    # plt.legend(handles=legend_handles,  ncol=2, fontsize=32)
+    plt.legend(handles=legend_handles, title='Terrain Class', bbox_to_anchor=(1.145, 1.17), loc='upper right', ncol=1, fontsize=32)
     # ax.legend(loc='upper right', fontsize=36, ncol=2)
     ax.set(xlabel=None)
     ax.set(ylabel="% Total Annotations")
@@ -178,7 +179,7 @@ def plot_counts(indir, outdir):
 
         plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=40, rotation=90)
         print("counts ", df['Counts'][idx], " idx ", idx)
-    import pdb; pdb.set_trace()
+
     print(labels_dictionary)
     sns.despine()
     #Save locally
