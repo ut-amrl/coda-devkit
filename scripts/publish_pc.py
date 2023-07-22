@@ -110,13 +110,13 @@ if __name__ == '__main__':
     # Set pc publisher
     pc_pub = rospy.Publisher(ouster_topic, PointCloud2, queue_size=5)
     imu_pub = rospy.Publisher(imu_topic, Imu, queue_size=5)
-    pose_sub = rospy.Subscriber("/integrated_to_init", Odometry, pose_handler)
+    # pose_sub = rospy.Subscriber("/integrated_to_init", Odometry, pose_handler)
     
-    pose_path = "laserodomposes/%i.txt"%trajectory
+    # pose_path = "laserodomposes/%i.txt"%trajectory
 
-    # Reset pose file
-    pose_txt = open(pose_path, 'w')
-    pose_txt.close()
+    # # Reset pose file
+    # pose_txt = open(pose_path, 'w')
+    # pose_txt.close()
 
     if not bin_paths:
         rospy.loginfo("No .bin files found in the directory!")

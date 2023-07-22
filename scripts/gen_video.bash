@@ -18,10 +18,10 @@ for dir in "${base_dir}"/*; do
         echo "Video generated: ${output_video}"
 
         # Compress generated video
-        # compressed_output_video="${out_dir}/pp/comp${dir_name}.mp4"
-        # ffmpeg -i "${output_video}" -vcodec libx264 -crf 24 "${compressed_output_video}"
+        compressed_output_video="${out_dir}/pp/comp${dir_name}.mp4"
+        ffmpeg -i "${output_video}" -vcodec libx264 -crf 24 "${compressed_output_video}"
 
-        # echo "Video generated: ${compressed_output_video}"
+        echo "Video generated: ${compressed_output_video}"
     fi
 done
 

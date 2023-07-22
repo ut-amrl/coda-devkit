@@ -29,6 +29,7 @@ TRED_COMP_DIR           = "3d_comp"
 SEMANTIC_LABEL_DIR      = "3d_semantic"
 TRED_BBOX_LABEL_DIR     = "3d_bbox"
 TWOD_BBOX_LABEL_TYPE    = "2d_bbox"
+TWOD_RECT_DIR           = "2d_rect"
 METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
@@ -43,7 +44,7 @@ DATASET_L1_DIR_LIST = [
     CALIBRATION_DIR,
     TIMESTAMPS_DIR,
     TWOD_RAW_DIR,
-    "2d_rect",
+    TWOD_RECT_DIR,
     TRED_RAW_DIR,
     TRED_COMP_DIR,
     TRED_BBOX_LABEL_DIR,

@@ -12,7 +12,7 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', default="/robodata/arthurz/Datasets/CODa_dev",
                     help="CODa directory")
-parser.add_argument('--size', default="sm",
+parser.add_argument('--size', default="tiny",
                     help="CODa dataset size (tiny, sm, md, full)")
 
 # For imports

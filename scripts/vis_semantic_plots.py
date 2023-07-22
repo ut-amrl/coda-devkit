@@ -88,11 +88,25 @@ def plot_counts(indir, outdir):
         labels_dictionary[key] *=100 # conert to percentage
 
     #Sort dictionary in descending order
-    sorted_labels_descending = sorted(labels_dictionary.items(), key=lambda x:x[1], reverse=True)
-    sorted_labels_counts_descending = sorted(labels_counts_dictionary.items(), key=lambda x:x[1], reverse=True)
+    labels_dictionary_keys = np.array(list(labels_dictionary.keys()))
+    labels_dictionary_values = np.array(list(labels_dictionary.values()))
+    sorted_labels_indices = np.argsort(-labels_dictionary_values)
+
+    labels_counts_dictionary_keys = np.array(list(labels_counts_dictionary.keys()))
+    labels_counts_dictionary_values = np.array(list(labels_counts_dictionary.values()))
+
+    labels_dictionary = { labels_dictionary_keys[index]: labels_dictionary_values[index] for index in sorted_labels_indices }
+    labels_counts_dictionary = {labels_counts_dictionary_keys[index]: labels_counts_dictionary_values[index] for index in sorted_labels_indices}
+    colors = np.array([ '#{:02x}{:02x}{:02x}'. format(SEM_ID_TO_COLOR[idx][2], SEM_ID_TO_COLOR[idx][1], SEM_ID_TO_COLOR[idx][0]) for idx in sorted_labels_indices if idx!=0])
+    
+    #  np.array([ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(SEM_ID_TO_COLOR) if i!=0])
+    # sorted_colors_descending = colors[sorted_labels_indices]
+
+    # sorted_labels_descending = 
+    # sorted_labels_counts_descending = sorted(labels_counts_dictionary.items(), key=lambda x:x[1], reverse=True)
     #Clean and get labels and counts 
-    labels_dictionary = dict(sorted_labels_descending)
-    labels_counts_dictionary = dict(sorted_labels_counts_descending)
+    # labels_dictionary = dict(sorted_labels_descending)
+    # labels_counts_dictionary = dict(sorted_labels_counts_descending)
     del labels_dictionary["Unlabeled"]
     del labels_counts_dictionary["Unlabeled"]
     keys = list(labels_dictionary.keys())
@@ -104,9 +118,8 @@ def plot_counts(indir, outdir):
     sns.set(rc={'figure.figsize':(25,25)})
 
     # colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
-    colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(SEM_ID_TO_COLOR) if i!=0]
     sns.set_style("darkgrid")
-    sns.set_palette(colors)
+    # sns.set_palette(colors)
 
     class_to_type_dict ={
         'Road Pavement':    'Road', 
@@ -146,7 +159,8 @@ def plot_counts(indir, outdir):
     df = pd.DataFrame({'Labels': keys,
         'Type': floor_type_list,
         'Proportion': values,
-        'Counts': floor_counts_list})
+        'Counts': floor_counts_list,
+        'Colors': colors})
     df = df.sort_values(by=['Type'], ascending=False, kind='mergesort').reset_index()
     #Plot and set fields.
     print("Plotting")
@@ -156,11 +170,12 @@ def plot_counts(indir, outdir):
 
     # Set the figure size
     # ax = sns.barplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, width=1)
-    ax = sns.barplot(x='Labels', y='Proportion', data=df, palette=colors, width=1)
+    # sns.set_palette(df['Colors'])
+    ax = sns.barplot(x='Labels', y='Proportion', data=df, palette=df['Colors'], width=1)
 
     # # Create legend handles
     import matplotlib.patches as mpatches
-    legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(colors, df['Labels'])]
+    legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(df['Colors'], df['Labels'])]
 
     # Remove x-ticks
     plt.xticks([])
