@@ -1,163 +1,63 @@
+import requests
 import os
-from os.path import join
-
-import sys
-import json
-import shutil
-
-sys.path.append(os.getcwd())
-
-from helpers.constants import *
-from helpers.sensors import *
-from helpers.metadata import *
-
-from multiprocessing import Pool
-import tqdm
-
-SUBSET_DIR_COPY_LIST = [TWOD_RECT_DIR, TRED_COMP_DIR, TRED_BBOX_LABEL_DIR, SEMANTIC_LABEL_DIR]
-
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--size', default="tiny",
-                    help="CODa size to package for downloads (tiny, sm, md, full)")
+parser.add_argument('--download_url', default="https://dataverse.tdl.org/api/access/datafile/288159",
+                    help="Download url for dataset files, defaults to CODa_tiny")
+parser.add_argument('--output_dir', default="CODa",
+                    help="Download url for dataset files, defaults to CODa_tiny")
+parser.add_argument('--api_token', default="DEFAULT_API_TOKEN",
+                    help="Paste API Token used to download file")
 
-def task_files(meta_path, task, return_frames=True):
-    json_dict = json.load(open(meta_path, 'r'))
+CHUNK_SIZE = 1024 * 1024  # 1 MB chunk size (adjust as needed)
 
-    files_list = []
-    splits = ["training", "validation", "testing"]
-    for split in splits:
-        files_list.extend(json_dict[task][split])
-    
-    frames_list = []
-    if return_frames:
-        for subpath in files_list:
-            annofile = subpath.split('/')[-1]
-            _, _, traj, frame = get_filename_info(annofile)
-            frames_list.append(frame)
+def get_remote_file_size(url):
+    try:
+        response = requests.head(url)
+        response.raise_for_status()  # Raise an exception for 4xx and 5xx status codes
+        return int(response.headers.get("Content-Length", 0))
+    except requests.exceptions.RequestException:
+        return 0
 
-    return files_list, frames_list
+def download_file(url, output_path):
+    try:
+        # Get the filename from the URL
+        filename = os.path.basename(url)
+        # Construct the output file path
+        file_path = os.path.join(output_path, filename)
 
-def set_permissions_recursively(directory_path, mode):
-    for root, dirs, files in os.walk(directory_path):
-        for file in files:
-            if os.path.isdir(file):
-                set_permissions_recursively(directory_path, mode)
-            else:
-                file_path = os.path.join(root, file)
-                os.chmod(file_path, mode)
+        # Check if the file already exists and if it's complete
+        remote_file_size = get_remote_file_size(url)
+        if os.path.exists(file_path) and os.path.getsize(file_path) == remote_file_size:
+            print("File already exists and matches the size on the server. Skipping download.")
+            return
 
-def copy_single_traj_files(args):
-    indir, outdir, meta_path, split = args
-    json_dict = json.load(open(meta_path, 'r'))
+        # Send an HTTP GET request to the URL with streaming enabled
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for 4xx and 5xx status codes
 
-    traj = str(json_dict['trajectory'])
+        # Download the file in chunks and save to disk
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+                f.write(chunk)
 
-    frames_dict = {}
-    # Object List
-    obj_files_list, obj_frames_list = task_files(meta_path, OBJECT_DETECTION_TASK)
-
-    # Semantic List
-    sem_files_list, sem_frames_list = task_files(meta_path, SEMANTIC_SEGMENTATION_TASK)
-
-    # Ensures all frames are unique
-    full_frames_list = list(set(obj_frames_list + sem_frames_list))
-    full_frames_list = sorted(full_frames_list, key=lambda frame: int(frame))
-
-    print("Start copying %i files from traj %s to %s" % (len(full_frames_list), traj, outdir))
-
-    # Copy 2d_raw, 3d_comp, 3d bbox, 3d semantic files
-    for subset_dir in SUBSET_DIR_COPY_LIST:
-        modality= subset_dir
-        # Default to downloading cam0, cam1, and os1 for now
-        if subset_dir==TWOD_RAW_DIR or subset_dir==TWOD_RECT_DIR:
-            sensor_list = ["cam0", "cam1"]
-        else:
-            sensor_list = ["os1"]
-        
-        subset_frames_list = full_frames_list
-        if subset_dir == TRED_BBOX_LABEL_DIR:
-            subset_frames_list = obj_frames_list
-        elif subset_dir == SEMANTIC_LABEL_DIR:
-            subset_frames_list = sem_frames_list
-
-        # Copy all subdirectory files for outdir
-        for sensor in sensor_list:
-            for frame in subset_frames_list:
-                frame_in_path = set_filename_dir(indir, modality, sensor, traj, frame, include_name=True)
-                frame_out_path = set_filename_dir(outdir, modality, sensor, traj, frame, include_name=True)
-                shutil.copyfile(frame_in_path, frame_out_path)
-
-    print("Finished coping %i files from traj %s to %s" % (len(full_frames_list), traj, outdir))
-
-
-def copy_split_files(indir, outdir, split="sm"):
-    
-    meta_dir = join(indir, "metadata_%s"%split)
-    meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
-    meta_files = sorted(meta_files, key=lambda mfile: int(mfile.split('.')[0]))
-
-    meta_path_list = [join(meta_dir, meta_file) for meta_file in meta_files]
-    indir_list = [indir] * len(meta_files)
-    outdir_list = [outdir] * len(meta_files)
-    split_list =  [split] * len(meta_files)
-    for meta_file in meta_files:
-        meta_path = join(meta_dir, meta_file)
-        json_dict = json.load(open(meta_path, 'r'))
-
-        traj = str(json_dict['trajectory'])
-
-        # Make subset directories
-
-        for subset_dir in SUBSET_DIR_COPY_LIST:
-            if subset_dir==TWOD_RECT_DIR:
-                sensor_list = ["cam0", "cam1"]
-            else:
-                sensor_list = ["os1"]
-            
-            for sensor in sensor_list:
-                traj_path = join(outdir, subset_dir, sensor, traj)
-                if not os.path.exists(traj_path):
-                    print("Subdirectory %s dne, creating..."%traj_path )
-                    os.makedirs(traj_path)
-
-        # copy_single_traj_files((indir, outdir, meta_path, split))
-    pool = Pool(processes=32)
-    for _ in tqdm.tqdm(pool.imap_unordered(copy_single_traj_files, \
-        zip(indir_list, outdir_list, meta_path_list, split_list)), total=len(meta_files)):
-        pass
-
-    # Copy smaller files separately
-    metadata_dir = METADATA_DIR if split=="full" else METADATA_DIR + "_%s"%split
-    input_full_dir = [metadata_dir, TIMESTAMPS_DIR, DENSE_POSES_FULL_DIR, CALIBRATION_DIR]
-    output_full_dir = [METADATA_DIR, TIMESTAMPS_DIR, DENSE_POSES_FULL_DIR, CALIBRATION_DIR]
-
-    for dir_idx in range(len(input_full_dir)):
-        input_subdir = input_full_dir[dir_idx]
-        output_subdir = output_full_dir[dir_idx]
-        src_dir = join(indir, input_subdir)
-        out_dir = join(outdir, output_subdir)
-
-        # Copy file 
-        print("SRC ", src_dir, " OUT ", out_dir)
-
-        shutil.copytree(src_dir, out_dir, dirs_exist_ok=True)
-        set_permissions_recursively(out_dir, 0o775)  # Set directory permission to 755 (rwxr-xr-x)
+        print(f"File downloaded successfully: {file_path}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading file: {e}")
 
 def main(args):
-    split = args.size
-    valid_splits = ["tiny", "sm", "md", "full"]
-    assert split in valid_splits, "Split %s not in valid splits" % (split)
+    download_url = args.download_url
+    output_dir = args.output_dir
 
-    indir="/robodata/arthurz/Datasets/CODa_dev"
-    outdir="/scratch/arthurz/Datasets/CODa_%s" % split
-    if not os.path.exists(outdir):
-        print("Making outdir if only one additional folder needed %s"%outdir)
-        os.mkdir(outdir)
+    if not os.path.exists(output_dir):
+        print(f'Making output dir here {output_dir}')
+        os.makedirs(output_dir)
+    
+    print(f'Downloading dataset from url {download_url}')
+    download_file(download_url, output_dir)
 
-    copy_split_files(indir, outdir, split=split)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Replace the URL and output_path with your desired value
     args = parser.parse_args()
     main(args)
