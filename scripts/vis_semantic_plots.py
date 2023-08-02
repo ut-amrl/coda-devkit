@@ -195,6 +195,7 @@ def plot_counts(indir, outdir):
         plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=40, rotation=90)
         print("counts ", df['Counts'][idx], " idx ", idx)
 
+    plt.grid(color='gray', linestyle='solid', axis='both')
     print(labels_dictionary)
     sns.despine()
     #Save locally
@@ -431,6 +432,7 @@ def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"
     ax.set(xlabel="")
     ax.set(ylabel="# Labels (Log Scale)")
     ax.set_xticklabels([])
+    plt.grid(color='gray', linestyle='solid')
     plt.subplots_adjust(top=0.55)
     # plt.subplots_adjust(top=0.1)
     plt.savefig("%s/%s.png"%(outdir, name), format='png', dpi=300)
@@ -525,12 +527,27 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
     sns.set_style('whitegrid')
     plot_idx = 0
     plot_paths = []
+
+    class_abbr_map = {
+        "Freestanding Plant": "Plant",
+        "Newspaper Dispenser": "News. Disp.",
+        "Informational Sign": "Info. Sign",
+        "Emergency Phone": "Emer. Phone",
+        "Sanitizer Dispenser": "Sani. Disp",
+        "Fire Extinguisher": "Fire Extin.",
+        "Emergency Aid Kit": "Emer. Aid Kit"
+    }
     while start_class_index < end_class_index:
         data_list = []
         colors = []
 
         class_idx = 0
         for cls_name, weather_dict in sorted_counts_dict.items():
+            short_cls_name = cls_name
+            if cls_name.replace('\n', ' ', 1) in class_abbr_map.keys():
+                short_cls_name = class_abbr_map[cls_name.replace('\n', ' ', 1)]
+                short_cls_name = short_cls_name.replace(' ', '\n', 1)
+            
             if class_idx >= start_class_index and class_idx < end_class_index:
                 weather_counts_list = list(weather_dict.values())
                 df = pd.DataFrame(
@@ -538,7 +555,7 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
                     'Counts': list(weather_dict.values()),
                     'Weather': list(weather_dict.keys())
                     }
-                ).assign(Location=cls_name)
+                ).assign(Location=short_cls_name)
                 single_line_cls_name = cls_name.replace('\n', ' ', 1)
                 colors.append(BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[single_line_cls_name]])
                 data_list.append(df)
@@ -553,11 +570,12 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
         colors = [ '#{:02x}{:02x}{:02x}'. format(c[2], c[1], c[0]) for i, c in enumerate(colors)]
 
         plt.figure(figsize=(19, 5))  # Adjust the width and height as needed
-        plt.subplots_adjust(bottom=0.35)  # Adjust the margin bottom as needed
+        plt.subplots_adjust(bottom=0.30, top=0.97)  # Adjust the margin bottom as needed
         sns.set(style='white', font_scale=1.5)
         ax = sns.barplot(x="Location", y="Counts", hue="Weather", data=mdf, 
             errwidth=0
         )
+
         ax.set_xticklabels(ax.get_xticklabels(), rotation=90, ha="right")
         num_locations = len(mdf.Location.unique())
 
@@ -578,6 +596,7 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
         ax.set(xlabel="")
         ax.set(ylabel="# Labels (Log Scale)")
         ax.legend(loc='upper right', bbox_to_anchor=(1.0, 1.0), ncol=4, fancybox=True, shadow=False)
+        plt.grid(color='gray', linestyle='solid')
 
         name="GEN_object_weather_plot%i" % plot_idx
         plot_path = "%s/%s.png"%(outdir, name)
@@ -627,7 +646,7 @@ def convert_ts_to_military(ts_np):
     time_ints = [int(dt.strftime("%H%M%S")) for dt in ts_local]
     return time_ints
 
-def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
+def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", do_time=False):
     meta_dir = join(indir, METADATA_DIR)
     meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
 
@@ -679,12 +698,7 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
 
     # Plotting
     locations = list(locations_densities_dict.keys())
-    # data = [
-    #     [1, 2, 3, 4, 5],
-    #     [2, 4, 6, 8, 10],
-    #     [3, 6, 9, 12, 15],
-    #     [4, 8, 12, 16, 20]
-    # ]
+
     # Create a grid of subplots
     fig, axes = plt.subplots(5, 1, figsize=(10, 11), sharex=True)
 
@@ -692,59 +706,123 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
     weather_color_palette = {
         weather: color_palette[weather_idx] for weather_idx, weather in enumerate(weather_list)
     }
-    # Plot KDEs in each subplot
-    sns.set(font_scale=1.2)
-    decimal_places = 0
-    for i, ax in enumerate(axes):
-        location = locations[i]
-        print("Plotting location %s"%location)
-        # for weather, times in locations_densities_dict[location].items():
-            # if len(times) == 0:
-            #     continue
 
-        all_times = []
-        all_weather = []
-        for weather, times in locations_densities_dict[location].items():
-            ds_times = times
+    if not do_time:         
+        # fig, axes = plt.subplots(5, 1, figsize=(8, 12), sharex=True)
+        fig, axes = plt.subplots(1, 5, figsize=(30, 6), sharex=True)
+        weather_label_count_dict = { weather: [0]*3 for weather in weather_list }
+        weather_label_count_dict['Time of Day'] = ['Morning', 'Afternoon', 'Evening']
+        discrete_location_densities_dict = {location: copy.deepcopy(weather_label_count_dict) for location in locations}
 
-            all_times.extend([time/10000 for time in ds_times])
-            all_weather.extend([weather]*len(ds_times))
-        data = pd.DataFrame({
-            'Time': np.array(all_times),
-            'Weather': np.array(all_weather, dtype=str)
-        })
-        custom_palette = [weather_color_palette[weather] for weather in data['Weather'].unique()]
-        # Use low bandwidth to show all spots
-        # sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.2, palette=custom_palette, legend=True)
-        sns.histplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, palette=custom_palette, legend=True, multiple='stack')
-            # Normalize times to be in hours insetad of seconds
-            # times = [t/10000 for t in times]
-            # sns.kdeplot(data=times, fill=True, ax=ax, bw_method=0.5)
+        morning_thres, afternoon_thres = 123000, 170000, 
+        # Process weather into morning, afternoon evening categories
+        for location in locations_densities_dict.keys():
+            for weather, times in locations_densities_dict[location].items():
+                times_np = np.array(times)
 
-        ax.set_title(location, fontsize=18)
-        ax.set_ylabel('   ', fontsize=18)
-        ax.set_xlabel('Time (HH:MM:SS)', fontsize=20)
-        legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(custom_palette, data['Weather'].unique())]
-        ax.legend(handles=legend_patches, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=18)
-        y_min, y_max = ax.get_ylim()
-        ax.set_yticks(np.linspace(start=int(y_min), stop=math.ceil(y_max), num=4).tolist())
-        ax.yaxis.set_major_formatter(FormatStrFormatter(f'%.{decimal_places}f'))
-        ax.tick_params(axis='both', which='major', labelsize=18)
-        # legend_handles, legend_labels = ax.get_legend_handles_labels()
-        # ax.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5))
+                counts_np = [0]*3
+                counts_np[0] = np.sum(times_np<morning_thres)
+                counts_np[1] = np.sum(np.logical_and(times_np>=morning_thres, times_np<afternoon_thres))
+                counts_np[2] = np.sum(times_np>=afternoon_thres)
 
-    xtick_times = [str(int(t)).rjust(2, '0').ljust(6, '0') for t in ax.get_xticks()]
-    xtick_times = [f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}" for time_str in xtick_times]
-    # plt.yticks(fontsize=18)
-    plt.xticks(ax.get_xticks(), xtick_times, rotation=45)
+                for time_idx in range(len(counts_np)):
+                    discrete_location_densities_dict[location][weather][time_idx] += counts_np[time_idx]
+    
+        sns.set(font_scale=1.3)
+        # sns.set(font_scale=1.2)
+        decimal_places = 0
+        for i, ax in enumerate(axes):
+            location = locations[i]
+            print("Plotting location %s"%location)
 
-    # Set common x label for the entire figure
-    # fig.text(0.5, 0.01, 'Time (HH:MM:SS)', ha='center')
-    fig.text(0.02, 0.5, '# Frames', va='center', rotation='vertical', fontsize=20)
-    # Adjust spacing between subplots
-    plt.tight_layout()
+            df = pd.DataFrame(discrete_location_densities_dict[location])
 
-    plt.savefig(join(outdir, 'GEN_location_counts.png'), format='png', dpi=300)
+            # Set seaborn style
+            sns.set(style="whitegrid")
+
+            # Melt the DataFrame to transform it into long format for stacked bar plot
+            df_melted = df.melt(id_vars='Time of Day', var_name='Weather Condition', value_name='Count')
+
+            # Plot the stacked barplot
+            sns.barplot(data=df_melted, x='Time of Day', y='Count', hue='Weather Condition', ax=ax, palette="pastel", dodge=False)
+
+            axes[i].set_title(location, fontsize=24)
+            ax.set_ylabel('   ', fontsize=18)
+            ax.set_xlabel('   ', fontsize=18)
+            ax.tick_params(axis='both', which='major', labelsize=20)
+            axes[i].get_legend().remove()
+
+            axes[i].set_axisbelow(True)
+            axes[i].grid(color='gray', linestyle='solid')
+            # axes[i].grid(True, zorder=0)
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=24)
+        # Add labels and title
+        # ax.set_xlabel('Time of Day', fontsize=20)
+        # ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        # plt.ylabel('# Frames')
+        # plt.title('Weather Conditions by Time of Day')
+
+        # fig.text(0.02, 0.5, '# Frames', va='center', rotation='vertical', fontsize=20)
+        fig.text(0.5, 0.03, 'Time of Day', va='center', rotation='horizontal', fontsize=30)
+        fig.text(0.001, 0.5, '# Frames', va='center', rotation='vertical', fontsize=30)
+        # Adjust spacing between subplots
+        plt.tight_layout()
+
+        plt.savefig(join(outdir, 'GEN_location_counts.png'), format='png', dpi=300)
+
+    else: # Plot KDEs with time based x axis
+        sns.set(font_scale=1.2)
+        decimal_places = 0
+        for i, ax in enumerate(axes):
+            location = locations[i]
+            print("Plotting location %s"%location)
+            # for weather, times in locations_densities_dict[location].items():
+                # if len(times) == 0:
+                #     continue
+
+            all_times = []
+            all_weather = []
+            for weather, times in locations_densities_dict[location].items():
+                ds_times = times
+
+                all_times.extend([time/10000 for time in ds_times])
+                all_weather.extend([weather]*len(ds_times))
+            data = pd.DataFrame({
+                'Time': np.array(all_times),
+                'Weather': np.array(all_weather, dtype=str)
+            })
+            custom_palette = [weather_color_palette[weather] for weather in data['Weather'].unique()]
+            # Use low bandwidth to show all spots
+            # sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.2, palette=custom_palette, legend=True)
+            sns.histplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, palette=custom_palette, legend=True, multiple='stack')
+                # Normalize times to be in hours insetad of seconds
+                # times = [t/10000 for t in times]
+                # sns.kdeplot(data=times, fill=True, ax=ax, bw_method=0.5)
+
+            ax.set_title(location, fontsize=18)
+            ax.set_ylabel('   ', fontsize=18)
+            ax.set_xlabel('Time (HH:MM:SS)', fontsize=20)
+            legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(custom_palette, data['Weather'].unique())]
+            ax.legend(handles=legend_patches, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=18)
+            y_min, y_max = ax.get_ylim()
+            ax.set_yticks(np.linspace(start=int(y_min), stop=math.ceil(y_max), num=4).tolist())
+            ax.yaxis.set_major_formatter(FormatStrFormatter(f'%.{decimal_places}f'))
+            ax.tick_params(axis='both', which='major', labelsize=18)
+            # legend_handles, legend_labels = ax.get_legend_handles_labels()
+            # ax.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5))
+
+        xtick_times = [str(int(t)).rjust(2, '0').ljust(6, '0') for t in ax.get_xticks()]
+        xtick_times = [f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}" for time_str in xtick_times]
+        # plt.yticks(fontsize=18)
+        plt.xticks(ax.get_xticks(), xtick_times, rotation=45)
+
+        # Set common x label for the entire figure
+        # fig.text(0.5, 0.01, 'Time (HH:MM:SS)', ha='center')
+        fig.text(0.02, 0.5, '# Frames', va='center', rotation='vertical', fontsize=20)
+        # Adjust spacing between subplots
+        plt.tight_layout()
+
+        plt.savefig(join(outdir, 'GEN_location_counts.png'), format='png', dpi=300)
 
 def main(args):
     #Get file paths and loop throught to sum each label

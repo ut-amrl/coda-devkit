@@ -24,9 +24,6 @@ import tqdm
 class BagDecoder(object):
     """
     Decodes directory of bag files into dataset structure defined in README.md
-    
-    This decoder requires the bag files to contain /ouster/lidar_packets and
-    two compressed image topics to be published within 50 milliseconds of each other.
     """
     def __init__(self, config, is_config_dict=False):
         self._is_config_dict = is_config_dict
@@ -237,7 +234,10 @@ class BagDecoder(object):
             #Create frame to timestamp map
             frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%self._trajectory)
             if self._gen_data:
-                self._frame_to_ts     = open(frame_to_ts_path, 'w+')
+                if len(self._sync_topics)>0:
+                    self._frame_to_ts     = open(frame_to_ts_path, 'w+')
+                else:
+                    self._frame_to_ts     = None
                 for topic in self._sensor_topics:
                     if "vectornav" in topic or "husky" in topic:
                         topic_type_subpath = SENSOR_DIRECTORY_SUBPATH[topic]
@@ -274,17 +274,15 @@ class BagDecoder(object):
                             if topic=="/camera/depth/image_raw/compressed":
                                 pub_img(self._async_pubs[topic], msg.header, filepath, -1)
                             else:
-                                # if "vectornav" in topic: #Vnav to sensor frame
-                                #     proc_msg, _ = self.process_topic(topic, msg, msg.header.stamp)
-                                #     msg = proc_msg
                                 self._async_pubs[topic].publish(msg)
+
             print("Completed processing bag ", bag_fp)
 
-            if self._gen_data:
+            if self._gen_data and self._frame_to_ts!=None:
                 self._frame_to_ts.close()
 
     def rectify_images(self, num_workers):
-        cam0_dir = os.path.join(self._outdir, '2d_raw', 'cam0')
+        cam0_dir = os.path.join(self._outdir, TWOD_RAW_DIR, 'cam0')
         assert os.path.isdir(cam0_dir), "Camera 0 directory not found at %s " % cam0_dir
         trajectories = sorted([int(traj) for traj in next(os.walk(cam0_dir))[1]])
 
@@ -340,8 +338,8 @@ class BagDecoder(object):
         outdir, traj, cam_calibration = args
         cams = ['cam0', 'cam1']
         for cam in cams:
-            cam_dir = os.path.join(outdir, '2d_raw', cam)
-            cam_out_dir = os.path.join(outdir, '2d_rect', cam)
+            cam_dir = os.path.join(outdir, TWOD_RAW_DIR, cam)
+            cam_out_dir = os.path.join(outdir, TWOD_RECT_DIR, cam)
             if not os.path.exists(cam_out_dir):
                 print("Creating %s rectified dir at %s " % (cam, cam_dir))
                 os.mkdir(cam_out_dir)
@@ -355,7 +353,7 @@ class BagDecoder(object):
             for img_file in img_dir_files:
                 _, _, _, frame = get_filename_info(img_file)
                 img_path = os.path.join(img_dir, img_file)
-                rect_img_file   = set_filename_by_prefix('2d_rect', cam, traj, frame)
+                rect_img_file   = set_filename_by_prefix(TWOD_RECT_DIR, cam, traj, frame)
 
                 if not os.path.exists(rect_img_dir):
                     os.makedirs(rect_img_dir)
@@ -371,7 +369,7 @@ class BagDecoder(object):
 
     @staticmethod
     def load_cam_calibrations(outdir, trajectory):
-        calibrations_path = os.path.join(outdir, "calibrations", str(trajectory))
+        calibrations_path = os.path.join(outdir, CALIBRATION_DIR, str(trajectory))
         calibration_fps = [os.path.join(calibrations_path, file) for file in os.listdir(calibrations_path) if file.endswith(".yaml")]
 
         cam_calibrations = {}
@@ -449,7 +447,7 @@ class BagDecoder(object):
         return latest_sync_timestamp
 
     def save_frame_ts(self, timestamp):
-        if self._gen_data:
+        if self._gen_data and self._frame_to_ts!=None:
             # if self._verbose:
             print("Saved frame %i timestamp %10.6f" % (self._curr_frame, timestamp.to_sec()))
             self._frame_to_ts.write("%10.6f\n" % timestamp.to_sec())
@@ -557,10 +555,10 @@ class BagDecoder(object):
             pc_to_bin(data, filepath)
         elif topic_type=="sensor_msgs/Image":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-            img_to_file(proc_data, filepath)
+            img_to_file(proc_data, filepath, depth=True)
         elif topic_type=="sensor_msgs/CompressedImage":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
-            img_to_file(proc_data, filepath)
+            img_to_file(proc_data, filepath, depth=False)
         elif topic_type=="sensor_msgs/Imu":
             proc_data, _ = self.process_topic(topic, data, data.header.stamp)
 

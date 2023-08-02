@@ -21,6 +21,8 @@ from helpers.constants import *
 from helpers.sensors import read_sem_label
 from helpers.geometry import *
 
+# def pub_depth_pc_to_rviz(depth, depth_pub, ts, frame_id="zed", publish=True):
+
 def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
     if not isinstance(ts, rospy.Time):
         ts = rospy.Time.from_sec(ts)
@@ -271,14 +273,12 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         valid_z_map = np.clip(valid_z_map, 1, 40)
         # color_map = cm.get_cmap("viridis")(np.linspace(0.2, 0.7, len(valid_z_map))) * 255 # [0,1] to [0, 255]]
         norm_valid_z_map = valid_z_map / max(valid_z_map)
-        # import pdb; pdb.set_trace()
         color_map = cm.get_cmap("turbo")(norm_valid_z_map) * 255 # [0,1] to [0, 255]]
         color_map = color_map[:, :3]
     else:
         color_map = apply_semantic_cmap(colormap, valid_point_mask)
 
     for pt_idx, pt in enumerate(valid_points):
-        # import pdb; pdb.set_trace()
         image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=SEM_POINT_SIZE, color=color_map[pt_idx].tolist(), thickness=-1)
     return image_np
 

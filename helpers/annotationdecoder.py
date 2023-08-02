@@ -22,7 +22,6 @@ from multiprocessing import Pool
 import tqdm
 
 class AnnotationDecoder(object):
-
     def __init__(self):
         
         settings_fp = join(os.getcwd(), "config/decoder.yaml")
