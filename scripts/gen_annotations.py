@@ -3,6 +3,7 @@ from os.path import join
 import sys
 import pdb
 import json
+import random
 
 import rospy
 from sensor_msgs.msg import PointCloud2, Image
@@ -24,7 +25,7 @@ import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mod', default="3d_bbox", help="Visualize annotation type")
-parser.add_argument('--gen_all', default=True, help="Generate all annotations")
+parser.add_argument('--gen_all', default=False, help="Generate all annotations")
 parser.add_argument('--cfg_file', default='config/checker_annotation.yaml', help="Config file to use for input files")
 parser.add_argument('--cam_id', default="cam0", help="Camera id to generate calibration for")
 
@@ -117,8 +118,11 @@ def generate_single_anno_file(args):
     # Set IO paths
     calibextr_path  = join( indir, CALIBRATION_DIR, traj, "calib_os1_to_%s.yaml"%cam_list[0])
     calibintr_path  = join( indir, CALIBRATION_DIR, traj, "calib_%s_intrinsics.yaml"%cam_list[0])
-    tred_anno_path  = set_filename_dir(indir, modality, sensor, traj, frame)
-    twod_img_path   = set_filename_dir(indir, TWOD_RAW_DIR, cam_list[0], traj, frame)
+    tred_anno_path  = set_filename_dir(indir, modality, sensor, traj, frame, include_name=True)
+    twod_img_path   = set_filename_dir(indir, TWOD_RAW_DIR, cam_list[0], traj, frame, include_name=True)
+    if not os.path.exists(twod_img_path):
+        print("Could not find unrectified images, using rectified images instead...")
+        twod_img_path   = set_filename_dir(indir, TWOD_RECT_DIR, cam_list[0], traj, frame, include_name=True)
     
     # Project 3D anno to 2D
     image_np = cv2.imread(twod_img_path)
@@ -130,7 +134,14 @@ def generate_single_anno_file(args):
         pc_np   = read_bin(pc_path, keep_intensity=False)
         tred_anno_image = project_3dpoint_image(image_np, pc_np, calibextr_path, calibintr_path, tred_anno_path)
 
-    dump_calibration_img(outdir, traj, frame, cam_list[0], tred_anno_image)
+    if os.environ.get("DISPLAY", "")!="":
+        cv2.imshow(f'CODa {modality} annotation check', tred_anno_image)
+        # Wait for a key press and then close the window
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    else:
+        print(f'No display available, dumping image to file {tred_anno_path}')
+        dump_calibration_img(outdir, traj, frame, cam_list[0], tred_anno_image)
 
 def generate_annotation_visualization(args):
     cfg, traj, frame = args
@@ -183,8 +194,11 @@ def main(args):
     checker_fp = os.path.join(os.getcwd(), cfg_path)
     with open(checker_fp, 'r') as checker_file:
         checker_cfg = yaml.safe_load(checker_file)
-        indir       = checker_cfg["indir"]
-        outdir       = checker_cfg["outdir"]
+
+        env_indir = os.environ.get("CODA_INDIR", "")
+        env_outdir = os.environ.get("CODA_OUTDIR", "")
+        indir       = checker_cfg["indir"] if env_indir=="" else env_indir
+        outdir      = checker_cfg["outdir"] if env_outdir=="" else env_outdir
 
         if gen_all:
             for trajectory in np.arange(23):
@@ -228,6 +242,25 @@ def main(args):
                 for _ in tqdm.tqdm(pool.imap_unordered(generate_single_anno_file, \
                     zip(indir_list, outdir_list, modality_list, sensor_list, traj_list, frame_list, cam_list)), total=num_annos):
                     pass
+        else:
+            # Select random lidar frame to check calibrations for
+            metadata_dir = join(indir, METADATA_DIR)
+
+            metadata_files = [f for f in os.listdir(metadata_dir) if f.endswith(".json")]
+
+            random_index = random.choice(range(len(metadata_files)))
+
+            metadata_file = metadata_files[random_index]
+            metadata_path = join(metadata_dir, metadata_file)
+            anno_subpaths = read_metadata_anno(metadata_path, modality=modality)
+            num_annos = len(anno_subpaths)
+
+            random_index = random.choice(range(len(anno_subpaths)))
+            anno_file = os.path.basename(anno_subpaths[random_index])
+            _, sensor_name, trajectory, frame = get_filename_info(anno_file)
+            print('Visualizing annotation type {modality} for trajectory {trajectory} frame {frame}')
+            generate_single_anno_file((indir, outdir, modality, sensor_name, trajectory, frame, [cam_id]))
+
 
 if __name__ == "__main__":
     args = parser.parse_args()

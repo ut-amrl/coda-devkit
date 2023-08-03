@@ -1,6 +1,7 @@
 # indir: "/robodata/arthurz/Datasets/CODa"
 indir: "/robodata/arthurz/Datasets/CODa_dev"
-outdir: "/robodata/arthurz/Datasets/CODa_bbox_full"
+outdir: "."
+# outdir: "/robodata/arthurz/Datasets/CODa_bbox_full"
 # outdir: "/robodata/arthurz/Datasets/CODa_sem_full"
 # outdir: "/robodata/arthurz/Datasets/CODa_sem_nocomp_full"
 
