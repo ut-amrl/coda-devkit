@@ -1,5 +1,6 @@
 # import pdb; pdb.set_trace()
 import os
+import shutil
 from os.path import join
 import sys
 import argparse
@@ -58,32 +59,6 @@ def apply_hom_mat(pose_np, homo_mat, non_origin):
         corrected_pose_np = np.matmul(homo_mat, xyz1)[:, :3, 0]
     return corrected_pose_np
 
-def correct_pose(pose_np, trajectory):
-    dir = './json'
-    fpath = os.path.join(dir, 'pose_correction.json')
-    f = open(fpath, "r")
-    pose_correction = json.load(f)
-    f.close()
-
-    JSON_NAMES = ["start_arr", "end_arr", "yaw_arr"]
-    start_arr, end_arr, yaw_arr = [], [], []
-
-    if trajectory in pose_correction.keys():
-        traj_dict = pose_correction[trajectory]
-        start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
-
-    corrected_pose = np.copy(pose_np)
-    
-    # handles multiple rotation
-    for i in range(len(start_arr)): 
-        start, end, yaw = start_arr[i], end_arr[i], yaw_arr[i]
-        non_origin = False
-        if start != 0:
-            non_origin = True
-        homo_mat = yaw_to_homo(corrected_pose[start:end, :], yaw)
-        corrected_pose[start:end, 1:4] = apply_hom_mat(corrected_pose[start:end, :], homo_mat, non_origin)
-    return corrected_pose
-
 def get_pose(pose_np, n_pcs):
     _, x, y, z, qw, qx, qy, qz = pose_np.transpose()
     yaw = calc_yaw(qw, qx, qy, qz)
@@ -104,6 +79,40 @@ def correct_obs(homo_mat, obs):
     obs = np.concatenate( (obs, np.ones((len(obs), 1))), axis=-1 ).transpose()
     corrected_obs = np.matmul(homo_mat, obs)[:3, :].transpose()
     return corrected_obs # (# of scans, 3)
+
+# def apply_manual_correction_obs(trajectory, frame, pc_np_filtered):
+#     dir = './json'
+#     fpath = os.path.join(dir, 'pose_correction.json')
+#     f = open(fpath, "r")
+#     pose_correction = json.load(f)
+#     f.close()
+
+#     JSON_NAMES = ["start_arr", "end_arr", "yaw_arr"]
+#     start_arr, end_arr, yaw_arr = [], [], []
+
+#     if trajectory in pose_correction.keys():
+#         traj_dict = pose_correction[trajectory]
+#         start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
+    
+#     rot_mat = None
+    
+#     # handles multiple rotation
+#     for i in range(len(start_arr)): 
+#         start, end, yaw = start_arr[i], end_arr[i], yaw_arr[i]
+        
+#         r = R.from_euler('z', yaw, degrees=True)
+#         rot_mat_i = r.as_matrix()
+
+#         if i == 0:
+#             rot_mat = rot_mat_i
+#         else:
+#             if frame >= start and frame < end:
+#                 rot_mat = rot_mat_i @ rot_mat_i
+
+#     manual_corrected_pc_np = rot_mat @ np.transpose(pc_np_filtered)
+#     manual_corrected_pc_np = np.transpose(manual_corrected_pc_np)
+    
+#     return manual_corrected_pc_np
 
 def get_normal(pcs, knn=32):
     obs = o3d.geometry.PointCloud()
@@ -127,44 +136,48 @@ def cov_gen(n_of_bin, n_pcs, xxyy_sigma=0.0007, thth_sigma=0.000117, xyth_sigma=
 
 def z_filter(pc_np):
     LIDAR_HEIGHT = 0.8 # meters
-    ZBAND_HEIGHT = 0.5 # meters
-    ZMIN_OFFSET  = 1.9 # meters
+    ZBAND_HEIGHT = 0.3 # meters
+    # ZMIN_OFFSET  = 1.9 # meters
+    ZMIN_OFFSET  = 2.5 # meters
     zmin = ZMIN_OFFSET - LIDAR_HEIGHT
-    zmax = zmin+ZBAND_HEIGHT
+    zmax = zmin + ZBAND_HEIGHT
     z_mask = np.logical_and( (pc_np[:, 2] > zmin), (pc_np[:, 2] < zmax) )
     pc_np_filtered = np.copy(pc_np) # copy original pc. o.w. overwrite pc_np
     pc_np_filtered = pc_np_filtered[z_mask]
     return pc_np_filtered
 
 def r_filter(pc_np_filtered):
-    rmin, rmax = 10.0, 100.0
+    rmin, rmax = 5.0, 100.0
     pc_np_norm_2d  = np.linalg.norm(pc_np_filtered[:, :2], axis=-1) # x-y Euc. dist.    
     r_mask = np.logical_and( (pc_np_norm_2d > rmin), (pc_np_norm_2d < rmax) )   
     pc_np_filtered = pc_np_filtered[r_mask]
     return pc_np_filtered
     
 def process_pc(args):
-    pose_of_frame, frame, bin_path, outdir = args
+
+    pose_of_frame, frame, bin_path, outdir, traj = args
     pc_np = read_bin(bin_path)
     
     pc_np = pc_np.reshape(128, 1024, 3)
     pc_np = np.transpose(pc_np, [1, 0, 2]) # result (1024, 128, 3)
-    pc_np = pc_np[:, ::8, :] # downsample: 1024 -> 512 and 128 -> 32
+    pc_np = pc_np[::, ::8, :] # downsample: 1024 -> 512 and 128 -> 32
     pc_np = pc_np.reshape(-1, 3)
     
     # 1.1) filter Z Channel based on thresholds
     pc_np_filtered = z_filter(pc_np)
     # 1.2) filter based on range (x-y Euc. dist.) thresholds
-    # pc_np_filtered = r_filter(pc_np_filtered)
+    pc_np_filtered = r_filter(pc_np_filtered)
     
-    obs_xy  = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_filtered)
+    # manual_corrected_pc_np = apply_manual_correction_obs(traj, frame, pc_np_filtered)
+    # obs_xy = correct_obs(pose_to_homo_mat(pose_of_frame), manual_corrected_pc_np)
+    obs_xy = correct_obs(pose_to_homo_mat(pose_of_frame), pc_np_filtered)
+    if len(obs_xy) == 0:
+        print(f"Issue. Frame: {frame}")
 
     # Dump frame to npy file
     np_bin_path = join(outdir, "np_bin_%i.npy"%frame)
     np.save(np_bin_path, obs_xy)
     
-    # print(f"Processed frame {str(frame)}")
-
 def find_closest_frame(pose_np, timestamp_np, indir, trajectory):
     bin_path_list, frame_list = [], []
     for _, pose in enumerate(pose_np):
@@ -200,66 +213,158 @@ def get_obs(frame_list, outdir):
 
     return obs, n_pcs
 
-def main(trajectory):
-    trajectory = trajectory
-    indir = "/home/jihwan98/coda/HitL/poses_cor"
-    pose_path = os.path.join(indir, f"{trajectory}_cor.txt")
-    indir = "/robodata/arthurz/Datasets/CODa_dev"
-    # pose_path = f"{indir}/poses/{trajectory}.txt"
-    ts_path   = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
-    outdir   = f"./cloud_to_laser/%s" % trajectory
-    save_dir = os.path.join("./", "HitL", "Corrected_GDC")
+def save_txt(trajectory, np_bin, route, hitl_corrected=False):
+    save_dir = os.path.join("./", "HitL", f"Raw_{route}")
+    # if hitl_corrected:
+    #     save_dir = os.path.join("./", "HitL", f"HitL_corrected_{route}")
+    # else:
+    #     save_dir = os.path.join("./", "HitL", f"Manual_corrected_{route}")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    fpath_out = os.path.join(save_dir, trajectory + ".txt")
+    header = 'StarterMap\n1455656519.379815'
+    np.savetxt(fpath_out, np_bin, delimiter=',', header=header, comments='')
+    print(f"Saved in {save_dir}")
 
+def apply_manual_correction_obs(trajectory, pc_np_filtered, n_pcs, pose_np):
+    
+    dir = './json'
+    fpath = os.path.join(dir, 'pose_correction.json')
+    f = open(fpath, "r")
+    pose_correction = json.load(f)
+    f.close()
+
+    JSON_NAMES = ["start_arr", "end_arr", "yaw_arr"]
+    start_arr, end_arr, yaw_arr = [], [], []
+
+    if trajectory in pose_correction.keys():
+        traj_dict = pose_correction[trajectory]
+        start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
+    
+    rot_mat = None
+    manual_corrected_pc_np = None
+    manual_pose_np = None
+
+    # handles multiple rotation
+    for i in range(len(start_arr)): 
+        start, end, yaw = start_arr[i], end_arr[i], yaw_arr[i]
+        r = R.from_euler('z', yaw, degrees=True)
+        rot_mat = r.as_matrix()
+        # print(f"Yaw Rotation: {yaw}")
+        if i == 0:
+            manual_corrected_pc_np = rot_mat @ np.transpose(pc_np_filtered)
+            manual_corrected_pc_np = np.transpose(manual_corrected_pc_np)
+            manual_pose_np = rot_mat @ np.transpose(pose_np)
+            manual_pose_np = np.transpose(manual_pose_np)
+        else:
+            start_sum = np.sum(n_pcs[:start])
+            end_sum = np.sum(n_pcs[:end+1]) + 1
+            # import pdb; pdb.set_trace()
+
+            # observations
+            offset = manual_pose_np[start, :2] # (x, y) of offset
+            temp_np = manual_corrected_pc_np[start_sum:end_sum]
+            temp_np[:, :2] -= offset
+            temp_np = np.transpose(rot_mat @ np.transpose(temp_np)) 
+            temp_np[:, :2] += offset
+            manual_corrected_pc_np[start_sum:end_sum] = temp_np
+
+            # poses
+            offset = manual_pose_np[start, :2] # (x, y) of offset
+            temp_np = manual_pose_np[start_sum:end_sum]
+            temp_np[:, :2] -= offset
+            temp_np = np.transpose(rot_mat @ np.transpose(temp_np)) 
+            temp_np[:, :2] += offset
+            manual_pose_np[start_sum:end_sum] = temp_np
+
+            # manual_corrected_pc_np[start_sum:end_sum] = np.transpose(rot_mat @ np.transpose(manual_corrected_pc_np[start_sum:end_sum]))
+
+    return manual_corrected_pc_np
+
+def save_hitl_input(trajectory, route, hitl_corrected=False):
+    pose_np = None
+    indir = "/robodata/arthurz/Datasets/CODa_dev/poses"
+    pose_path = os.path.join(indir, f"{trajectory}.txt")
+    pose_np = np.loadtxt(pose_path).reshape(-1, 8)
+    # if hitl_corrected:
+    #     indir = f"/home/jihwan98/coda/HitL/poses_cor/{route}"
+    #     pose_path = os.path.join(indir, f"{trajectory}_cor.txt")
+    #     pose_np = np.loadtxt(pose_path).reshape(-1, 8)
+    # else:
+    #     indir = f"/home/jihwan98/coda/HitL/poses_manual/{route}"
+    #     pose_path = os.path.join(indir, f"{trajectory}.txt")
+    #     pose_np = np.loadtxt(pose_path).reshape(-1, 8)
+    # print(f"Length: {len(pose_np)}")
+
+    # Get timestamp array
+    CODa_dev_dir = "/robodata/arthurz/Datasets/CODa_dev"
+    ts_path  = f"{CODa_dev_dir}/timestamps/{trajectory}_frame_to_ts.txt"
+    timestamp_np = np.loadtxt(ts_path).reshape(-1)
+    
+    outdir   = f"./cloud_to_laser/%s" % trajectory
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    bin_path_list, frame_list = find_closest_frame(pose_np, timestamp_np, CODa_dev_dir, trajectory)
 
-    pose_np = np.loadtxt(pose_path).reshape(-1, 8)
-    timestamp_np = np.loadtxt(ts_path).reshape(-1)
-
-    bin_path_list, frame_list = find_closest_frame(pose_np, timestamp_np, indir, trajectory)
-
-    # pose_np = correct_pose(pose_np, trajectory)
-    
     pose_of_frame_list, outdir_list = [], []
     for frame in range(len(frame_list)):
         pose_of_frame_list.append(pose_np[frame, :])
         outdir_list.append(outdir)
 
-    pool = Pool(processes=96)
-    pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list), chunksize=32)
-    pool.close() 
-    pool.join()
-    
-    # print("\nAggregating all pcs.\n")
-    
-    obs, n_pcs = get_obs(frame_list, outdir)
+    assert len(pose_of_frame_list) == len(frame_list) == len(bin_path_list) == len(outdir_list)
 
-    np_bin = np.zeros((len(obs), 16))
-    np_bin[:, :3]  = get_pose(pose_np, n_pcs)
-    np_bin[:, 3:6] = obs
+    traj_list = [trajectory] * len(pose_of_frame_list)
+
+    # pool = Pool(processes=96)
+    # pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list, traj_list), chunksize=32)
+    # pool.close() 
+    # pool.join()
+
+    print("Pool process done.")
+
+    obs_xyz, n_pcs = get_obs(frame_list, outdir)
+    obs_xyz_man = apply_manual_correction_obs(trajectory, obs_xyz, n_pcs, pose_np[:, 1:4])
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(obs_xyz)
+    fpath = f"./obs_xyz/{route}/{trajectory}_org.pcd"
+    o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(obs_xyz_man)
+    fpath = f"./obs_xyz/{route}/{trajectory}_man.pcd"
+    o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+
+    # np_bin = np.zeros((len(obs_xyz), 16))
+    # np_bin[:, :3]  = get_pose(pose_np, n_pcs)
+    # np_bin[:, 3:6] = obs_xyz
     # print("Normal vectors start.")
-    # np_bin[:, 5:7] = get_normal(obs)
+    # np_bin[:, 5:7] = get_normal(obs_xyz)
     # print("Normal vectors done.")
-    np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
+    # np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
     
-    np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
-    np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 5)
+    # # Round up values
+    # np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
+    # np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 6)
 
-    print("Saving text")
-    fpath_out = os.path.join(save_dir, trajectory + ".txt")
-    header = 'StarterMap\n1455656519.379815'
-    np.savetxt(fpath_out, np_bin, delimiter=',', header=header, comments='')
+    # n_unique = len(np.unique(np_bin[:, :2], axis=0))
+    # print(f"Unique: {n_unique}")
 
+    # print("\nSaving text")
+    # save_txt(trajectory, np_bin, route, hitl_corrected)
 
 if __name__ == "__main__":
+    
     GDC  = [0,1,3,4,5,18,19]
     GUAD = [2,7,12,16,17,21]
     WCP  = [6,9,10,11,13,20,22]
-    for i in GDC[:2]:
-        print(f"Started Trajectory {i}")
+
+    route = "GUAD"
+    # trajs = [1,3,4,5]
+    trajs = [21]
+    for i in trajs:
+        print(f"\nStarted Trajectory {i}")
         trajectory = str(i)
-        main(trajectory)
+        save_hitl_input(trajectory, route, hitl_corrected=False)
         print("Done.\n")

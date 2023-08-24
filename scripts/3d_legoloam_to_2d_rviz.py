@@ -13,6 +13,8 @@ from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped
 
+import open3d as o3d
+
 # For imports
 sys.path.append(os.getcwd())
 from helpers.sensors import set_filename_dir, read_bin
@@ -22,7 +24,10 @@ from helpers.visualization import pub_pc_to_rviz, pub_pose
 parser = argparse.ArgumentParser()
 parser.add_argument('--traj', default="0",
                     help="number of trajectory, e.g. 1")
-
+parser.add_argument('--pub', default=1,
+                    help="Publish global poses to rviz for visualization, set to 0 to stop publishing")
+parser.add_argument('--save_to_file', default="-1",
+                    help="Saves entire map to PCD file format, set to -1 if you don't want to save. Otherwise, specify directory to save pcd file to")
 
 def yaw_to_homo(pose_np, yaw):
     trans = pose_np[:, 1:4]
@@ -76,24 +81,32 @@ def correct_pose(pose_np, trajectory):
 
 
 def main(args):
-    trajectory = args.traj
+    trajectory  = args.traj
+    pub_rviz    = int(args.pub)
+    save_pcd    = str(args.save_to_file)!="-1"
+
+    # trajectory = traj
     indir = "/robodata/arthurz/Datasets/CODa_dev"
     pose_path = f"{indir}/poses/{trajectory}.txt"
     # pose_path = f"{trajectory}.txt"
     ts_path = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
     bin_dir   = f"{indir}/3d_comp/os1/{trajectory}/"
-    outdir    = f"./cloud_to_laser/%s" % args.traj
+    outdir    = f"./cloud_to_laser/%s" % {trajectory}
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-
-    # Initialize ros publishing
-    rospy.init_node('bin_publisher', anonymous=True)
-    pc_pub = rospy.Publisher('/coda/ouster/lidar_packets', PointCloud2, queue_size=10)
-    pose_pub = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
+            
+    if pub_rviz:
+        print("pub rviz ", pub_rviz)
+        print("Starting publisher...")
+        # Initialize ros publishing
+        rospy.init_node('bin_publisher', anonymous=True)
+        pc_pub = rospy.Publisher('/coda/ouster/lidar_packets', PointCloud2, queue_size=10)
+        pose_pub = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
+        rate = rospy.Rate(100)
 
     pose_np = np.loadtxt(pose_path).reshape(-1, 8)
-    pose_np = correct_pose(pose_np, trajectory)
+    # pose_np = correct_pose(pose_np, trajectory)
     timestamp_np = np.loadtxt(ts_path).reshape(-1)
     
     print("\n" + "---"*15)
@@ -103,11 +116,12 @@ def main(args):
     LIDAR_HEIGHT = 0.8 # meters
     ZBAND_HEIGHT = 0.5 # meters
     ZMIN_OFFSET = 1.9 # meters
-
-    rate = rospy.Rate(100)
+    # ZMIN_OFFSET = 2.5 # meters
 
     dense_pose_np = densify_poses_between_ts(pose_np, timestamp_np)
     last_pose = None
+
+    xyz = np.empty((0,3))
 
     for pose_idx, pose in enumerate(pose_np):
         pose_ts = pose[0]
@@ -120,7 +134,7 @@ def main(args):
         # Filter all point between zmin and zmax, downsample angular to 1/4 original size
         lidar_np = lidar_np.reshape(128, 1024, -1)
         lidar_np = np.transpose(lidar_np, [1, 0, 2]) # result (1024, 128, 3)
-        lidar_np = lidar_np[::, ::8, :] # downsample: 1024 -> 512 and 128 -> 32
+        lidar_np = lidar_np[::8, ::8, :] # downsample: 1024 -> 512 and 128 -> 32
         lidar_np = lidar_np.reshape(-1, 3)
 
         zmin = ZMIN_OFFSET - LIDAR_HEIGHT
@@ -133,22 +147,45 @@ def main(args):
         trans_homo_lidar_np = (LtoG @ homo_lidar_np.T).T
         trans_lidar_np      = trans_homo_lidar_np[:, :3] #.reshape(128, 1024, -1)
         trans_lidar_np      = trans_lidar_np.reshape(-1, 3).astype(np.float32)
-
-        pub_pc_to_rviz(trans_lidar_np, pc_pub, lidar_ts)
-        pub_pose(pose_pub, pose, pose[0])
-
+        
+        if save_pcd is not True and pub_rviz:
+            print(f'Publishing pose {pose_idx}')
+            pub_pc_to_rviz(trans_lidar_np, pc_pub, lidar_ts)
+            pub_pose(pose_pub, pose, pose[0])
+        else:
+            if len(xyz) == 0:
+                xyz = trans_lidar_np
+            else:
+                xyz = np.vstack([xyz, trans_lidar_np])
+                
         if last_pose is None:
             last_pose = pose
         else:
             # print("check is last poses are similar")
             # print(np.allclose(last_pose[1:], pose[1:], rtol=1e-5) )
             last_pose = pose
-        rate.sleep()
+
+        if pub_rviz:
+            rate.sleep()
+    
+    if save_pcd:
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(xyz)
+        fpath = f"./raw_map/{trajectory}.pcd"
+        o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+        
 
 if __name__ == "__main__":
     start_time = time.time()
     args = parser.parse_args()
-    main(args)
-    print("--- Final: %s seconds ---" % (time.time() - start_time))
+    # main(args)
 
-# python -W ignore scripts/3d_legoloam_to_2d_rviz.py --traj 0
+    GDC  = [0,1,3,4,5,18,19]
+
+    for i in [0]:
+        args.traj = str(i)
+        args.pub = '0'
+        args.save_to_file = './raw_map'
+        main(args)
+
+    print("--- Final: %s seconds ---" % (time.time() - start_time))
