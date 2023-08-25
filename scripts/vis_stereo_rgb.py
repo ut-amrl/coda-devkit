@@ -48,7 +48,7 @@ def main(args):
     target_frame = args.frame
 
     sync_img_dir = "%s/2d_raw/cam0/%s" % (indir, traj)
-    unsync_img_dir = "%s/3d_raw/cam3/%s" % (indir, traj)
+    unsync_img_dir = "%s/3d_raw/cam2/%s" % (indir, traj)
     sync_ts_file = join(indir, TIMESTAMPS_DIR, "%s_frame_to_ts.txt"%traj)
     unsync_img_files = np.array([img_file for img_file in os.listdir(unsync_img_dir) if img_file.endswith('.png')])
     unsync_img_ts = np.array([extract_ts(img_file) for img_file in unsync_img_files])

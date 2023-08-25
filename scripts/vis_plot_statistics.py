@@ -10,8 +10,9 @@ import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 import matplotlib.dates as mdates
+import matplotlib.colors as colors
 import matplotlib.patches as mpatches
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import ScalarFormatter, LogLocator, MultipleLocator, FormatStrFormatter, LogFormatter, FuncFormatter
 import numpy as np
 
 import math
@@ -31,6 +32,10 @@ import datetime
 import argparse
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--indir', default="/robodata/arthurz/Datasets/CODa_dev",
+                    help="Select an input directory to use")
+parser.add_argument('--outdir', default="%s/plots" % os.getcwd(),
+                    help="Select an input directory to use")
 parser.add_argument('--plot_type', default="semantichist",
                     help="Select a histogram type to show: semantichit,  ")
 
@@ -115,7 +120,7 @@ def plot_counts(indir, outdir):
     #Plot data in bargraph (Using Seaborn)
     #Run export DISPLAY=:0.0 before plotting.
 
-    sns.set(rc={'figure.figsize':(25,25)})
+    sns.set(rc={'figure.figsize':(30,25)})
 
     # colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
     sns.set_style("darkgrid")
@@ -179,8 +184,6 @@ def plot_counts(indir, outdir):
 
     # Remove x-ticks
     plt.xticks([])
-    # plt.legend(labels=df['Labels'])
-    # plt.legend(handles=legend_handles,  ncol=2, fontsize=32)
     plt.legend(handles=legend_handles, title='Terrain Class', bbox_to_anchor=(1.145, 1.17), loc='upper right', ncol=1, fontsize=32)
     # ax.legend(loc='upper right', fontsize=36, ncol=2)
     ax.set(xlabel=None)
@@ -432,7 +435,15 @@ def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"
     ax.set(xlabel="")
     ax.set(ylabel="# Labels (Log Scale)")
     ax.set_xticklabels([])
-    plt.grid(color='gray', linestyle='solid')
+
+    # Customize major tick labels
+    plt.gca().yaxis.set_major_formatter(LogFormatter())
+    plt.gca().yaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0e}'.format(x)))  # Formats as scientific notation
+
+    # # Add minor gridlines
+    plt.gca().grid(which='minor', linestyle=':', linewidth='0.5', color='black')
+    plt.gca().grid(which='major', linestyle='-', linewidth='0.75', color='black', axis='y')
+
     plt.subplots_adjust(top=0.55)
     # plt.subplots_adjust(top=0.1)
     plt.savefig("%s/%s.png"%(outdir, name), format='png', dpi=300)
@@ -592,11 +603,20 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
             # Set the same color for each group
             patch.set_facecolor(colors[index_within_group])    
 
+        # Format axes
+
         plt.yscale('log')
         ax.set(xlabel="")
         ax.set(ylabel="# Labels (Log Scale)")
         ax.legend(loc='upper right', bbox_to_anchor=(1.0, 1.0), ncol=4, fancybox=True, shadow=False)
-        plt.grid(color='gray', linestyle='solid')
+
+        # Customize major tick labels
+        ax.yaxis.set_major_formatter(LogFormatter())
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0e}'.format(x)))  # Formats as scientific notation
+
+        # # Add minor gridlines
+        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='grey')
+        ax.grid(which='major', linestyle='-', linewidth='0.75', color='grey', axis='y')
 
         name="GEN_object_weather_plot%i" % plot_idx
         plot_path = "%s/%s.png"%(outdir, name)
@@ -620,6 +640,9 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
 
 def check_num_annotations(indir, task=SEMANTIC_SEGMENTATION_TASK):
     meta_dir = join(indir, METADATA_DIR)
+    if not os.path.exists(meta_dir):
+        print("No metadata directory found, skipping annotations check!")
+        return
     meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
 
     annotation_files = {}
@@ -646,7 +669,7 @@ def convert_ts_to_military(ts_np):
     time_ints = [int(dt.strftime("%H%M%S")) for dt in ts_local]
     return time_ints
 
-def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", do_time=False):
+def load_location_counts_dict(indir, outdir, counts_file="GEN_location_counts.json"):
     meta_dir = join(indir, METADATA_DIR)
     meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
 
@@ -695,6 +718,130 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", d
             json.dump(locations_densities_dict, counts_cache_file)
     else:
         locations_densities_dict = json.load(open(cache_path, 'r'))
+    return locations_densities_dict, weather_list
+
+def plot_clustered_stacked(dfall, labels=None, title="multiple stacked bar plot",  H="/", **kwargs):
+    """ Given a list of dataframes, with identical columns and index, create a clustered stacked bar plot. 
+        labels is a list of the names of the dataframe, used for the legend
+        title is a string for the title of the plot
+        H is the hatch used for identification of the different dataframe
+        Source: https://stackoverflow.com/questions/22787209/how-to-have-clusters-of-stacked-bars
+    """
+    n_df = len(dfall)
+    n_col = len(dfall[0].columns) 
+    n_ind = len(dfall[0].index)
+    axe = plt.subplot(111)
+
+    for df in dfall : # for each data frame
+        axe = df.plot(kind="bar",
+                      linewidth=0,
+                      stacked=True,
+                      ax=axe,
+                      legend=False,
+                      grid=True,
+                      **kwargs)  # make bar plots
+    matplotlib.rcParams['legend.fontsize'] = 20
+
+    h,l = axe.get_legend_handles_labels() # get the handles we want to modify
+    for i in range(0, n_df * n_col, n_col): # len(h) = n_col * n_df
+        for j, pa in enumerate(h[i:i+n_col]):
+            for rect in pa.patches: # for each index
+                rect.set_x(rect.get_x() + 1 / float(n_df + 1) * i / float(n_col))
+                rect.set_hatch(H * int(i / n_col)) #edited part     
+                rect.set_width(1 / float(n_df + 1))
+
+    axe.set_xticks((np.arange(0, 2 * n_ind, 2) + 1 / float(n_df + 1)) / 2.)
+    axe.set_xticklabels(df.index, rotation = 0, fontsize=20)
+    ytick_ints = [int(y) for y in axe.get_yticks()]
+    axe.set_yticklabels(ytick_ints, rotation = 0, fontsize=20)
+    axe.set_ylabel('# Frames', fontsize=24)
+    axe.set_xlabel('Location', fontsize=24)
+    axe.set_title(title)
+    axe.set_axisbelow(True)
+    # axe.grid(color='gray', linestyle='solid')
+    # Add invisible data to add another legend
+    n=[]        
+    for i in range(n_df):
+        n.append(axe.bar(0, 0, color="gray", hatch=H * i))
+
+    l1 = axe.legend(h[:n_col], l[:n_col], loc=[0.67, 0.77])
+    if labels is not None:
+        l2 = plt.legend(n, labels, loc=[0.67, 0.6]) 
+    axe.add_artist(l1)
+
+    # Adjust the layout to prevent y-axis label from being cut off
+    plt.subplots_adjust(left=0.15, right=0.9, top=0.95, bottom=0.1)
+
+
+    return axe
+
+def plot_combined_label_location(indir, outdir, counts_file="GEN_location_counts.json"):
+    locations_densities_dict, weather_list = load_location_counts_dict(indir, outdir, counts_file)
+
+    # Plotting
+    locations = list(locations_densities_dict.keys())
+
+    # Create a grid of subplots
+    # fig, axes = plt.subplots(5, 1, figsize=(10, 11), sharex=True)
+
+    color_palette = ['#FD8F0F', '#0157E9', '#88E910', '#E11846', '#CC8899'] # currently only support four weather types
+    weather_color_palette = {
+        weather: color_palette[weather_idx] for weather_idx, weather in enumerate(weather_list)
+    }
+
+    weather_label_count_dict = { weather: [0]*3 for weather in weather_list }
+    weather_label_count_dict['Time of Day'] = ['Morning', 'Afternoon', 'Evening']
+    discrete_location_densities_dict = {location: copy.deepcopy(weather_label_count_dict) for location in locations}
+
+    morning_thres, afternoon_thres = 123000, 170000, 
+    # Process weather into morning, afternoon evening categories
+    for location in locations_densities_dict.keys():
+        for weather, times in locations_densities_dict[location].items():
+            times_np = np.array(times)
+
+            counts_np = [0]*3
+            counts_np[0] = np.sum(times_np<morning_thres)
+            counts_np[1] = np.sum(np.logical_and(times_np>=morning_thres, times_np<afternoon_thres))
+            counts_np[2] = np.sum(times_np>=afternoon_thres)
+
+            for time_idx in range(len(counts_np)):
+                discrete_location_densities_dict[location][weather][time_idx] += counts_np[time_idx]
+
+    # Reformat location densities dict
+    num_times = len(weather_label_count_dict['Time of Day'])
+    num_locations = len(locations)
+    num_weather = len(weather_list)
+    labelloc_np = np.zeros((num_times, num_locations, num_weather))
+    for location_idx, location in enumerate(discrete_location_densities_dict.keys()):
+        locations = list(discrete_location_densities_dict.keys())
+
+        for weather_idx, weather in enumerate(discrete_location_densities_dict[location].keys()):
+            if weather not in weather_list:
+                continue
+            for time_idx, labelcount in enumerate(discrete_location_densities_dict[location][weather]):
+                labelloc_np[time_idx, location_idx, weather_idx] = labelcount
+
+    # Generate dataframes
+    df_list = []
+    for location_weather_np in labelloc_np:
+        df = pd.DataFrame(location_weather_np,
+            index=locations,
+            columns=weather_list)
+        df_list.append(df)
+
+    fig, axes = plt.subplots(1, 1, figsize=(10, 11), sharex=True)
+    sns.set(style="whitegrid")
+    weather_cmap = colors.ListedColormap(list(weather_color_palette.values()))
+    subplt = plot_clustered_stacked(df_list, 
+        weather_label_count_dict['Time of Day'], title="", cmap=weather_cmap)
+    
+    plt_path = join(outdir, 'GEN_location_counts.png')
+    print("Saving Label Location Counts Plot to ", plt_path)
+    fig.savefig(plt_path, format='png', dpi=300)
+  
+
+def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", do_time=False):
+    locations_densities_dict, weather_list = load_location_counts_dict(indir, outdir, counts_file)
 
     # Plotting
     locations = list(locations_densities_dict.keys())
@@ -756,11 +903,6 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", d
             axes[i].grid(color='gray', linestyle='solid')
             # axes[i].grid(True, zorder=0)
         ax.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=24)
-        # Add labels and title
-        # ax.set_xlabel('Time of Day', fontsize=20)
-        # ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-        # plt.ylabel('# Frames')
-        # plt.title('Weather Conditions by Time of Day')
 
         # fig.text(0.02, 0.5, '# Frames', va='center', rotation='vertical', fontsize=20)
         fig.text(0.5, 0.03, 'Time of Day', va='center', rotation='horizontal', fontsize=30)
@@ -795,9 +937,6 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", d
             # Use low bandwidth to show all spots
             # sns.kdeplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, bw_method=0.2, palette=custom_palette, legend=True)
             sns.histplot(data=data, x='Time', hue='Weather', fill=True, ax=ax, palette=custom_palette, legend=True, multiple='stack')
-                # Normalize times to be in hours insetad of seconds
-                # times = [t/10000 for t in times]
-                # sns.kdeplot(data=times, fill=True, ax=ax, bw_method=0.5)
 
             ax.set_title(location, fontsize=18)
             ax.set_ylabel('   ', fontsize=18)
@@ -824,29 +963,141 @@ def plot_label_location(indir, outdir, counts_file="GEN_location_counts.json", d
 
         plt.savefig(join(outdir, 'GEN_location_counts.png'), format='png', dpi=300)
 
+def plot_jrdb_graph(indir, outdir, counts_file="jrdbft.json"):
+    jrdb_path = join(os.getcwd(), "helpers", "helper_utils", counts_file)
+    jrdb_dict = json.load(open(jrdb_path, 'r'))
+
+    # import pdb; pdb.set_trace()
+
+    datasets = jrdb_dict.keys()
+
+    # for dataset in datasets:
+    #     # Extract data for plotting
+    #     coda32_data = jrdb_dict["coda32"]["3d"]
+    #     waymo_data = jrdb_dict["waymo"]["3d"]
+    #     epoch_size_coda32 = jrdb_dict["coda32"]["EPOCH_SIZE"]
+    #     epoch_size_waymo = jrdb_dict["waymo"]["EPOCH_SIZE"]
+    #     annos_per_epoch_coda32 = jrdb_dict["coda32"]["ANNOS_PER_EPOCH"]
+    #     annos_per_epoch_coda32 = jrdb_dict["coda32"]["ANNOS_PER_EPOCH"]
+
+    # Create x values for plotting
+    # x_values_coda32 = [epoch_size_coda32 * i for i in range(len(coda32_data))]
+    # x_values_waymo = [epoch_size_waymo * i for i in range(len(waymo_data))]
+
+    # Plot using Seaborn
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(10, 6))
+
+    for dataset_name, dataset_values in jrdb_dict.items():
+        print(f'Adding dataset {dataset_name}')
+        data_tred = dataset_values["3d"]
+        epoch_size = dataset_values["EPOCH_SIZE"]
+        annos_per_epoch = dataset_values["ANNOS_PER_EPOCH"]
+# epoch_size * annos_per_epoch * 
+        num_training_examples = [i*annos_per_epoch for i in range(len(data_tred))]
+    
+        sns.lineplot(x=num_training_examples, y=data_tred, marker='o', label=dataset_name)
+
+    plt.title("Zero Shot 3D Bbx Detection on JRDB Validation")
+    plt.xlabel("# Training Examples")
+    plt.ylabel("3D Bbx AP40 (0.3 mIoU)")
+    plt.legend()
+
+    plt.savefig(join(outdir, "GEN_jrdb_benchmark.png"), format='png', dpi=300)
+
+def plot_coda_image(indir, outdir):
+    """
+    indir - directory of trajectory folders and images. Expects 8 images per trajectory
+    outdir - directory to output images to 
+    """
+    subdirs = [subdir for subdir in os.listdir(indir) if os.path.isdir(join(indir, subdir)) ]
+    subdirs = sorted(subdirs, key=lambda x: int(x)) # Sort the subdirectories
+
+    final_images = []
+
+    for subdir in subdirs:
+        subdir_path = os.path.join(indir, subdir)
+        if os.path.isdir(subdir_path):
+            image_files = np.array([img_file for img_file in os.listdir(subdir_path) if os.path.exists(join(subdir_path, img_file)) ])
+            image_frames_np = np.array([image_file.split('.')[0].split('_')[-1] for image_file in image_files])
+            image_sorted_idx = np.argsort(image_frames_np)
+            image_files = image_files[image_sorted_idx]
+
+            images = []
+            for image_file in image_files:
+                image_path = os.path.join(subdir_path, image_file)
+                if os.path.isfile(image_path):
+                    image = cv2.imread(image_path)
+                    images.append(image)
+
+            if images:
+                concat_image = np.concatenate(images, axis=1)
+                final_images.append(concat_image)
+
+    keep_rows = [2, 6, 7, 13, 15, 17, 18, 20] # for no bounding box
+    # keep_rows = [0, 2, 6, 8, 12, 14, 16, 20] # for bounding box
+    # keep_rows = np.arange(23).tolist()
+    if final_images:
+        filtered_final_images = [image for index, image in enumerate(final_images) if index in keep_rows]
+        final_concatenated_image = np.concatenate(filtered_final_images, axis=0)
+        
+        out_img_path = join(outdir, 'GEN_coda_images.png')
+        cv2.imwrite(out_img_path, final_concatenated_image)
+
+def print_route_distance(indir):
+    """
+    Iterate through all poses and compute distance between poses as L2 Norm
+    """
+    poses_dir = join(indir, POSES_DIR)
+    pose_files = file_paths = [file_name for file_name in os.listdir(poses_dir) if file_name.endswith(".txt")]
+    pose_files = sorted(pose_files, key=lambda x: int(x.split('.')[0]) )
+
+    print("Computing distances (m) for each sequence in order")
+    total_distances = np.zeros(len(pose_files))
+    for pose_file in pose_files:
+        seq_idx = int(pose_file.split('.')[0])
+        pose_path = join(poses_dir, pose_file)
+        pose_np = np.loadtxt(pose_path, usecols=(1,2,3)).reshape(-1, 3) #Load only xyz
+
+        prev_pose = np.array([0,0,0]) # Assume start at origin
+        for pose in pose_np:
+            curr_distance = np.linalg.norm(pose - prev_pose) # Compute L2 distance
+            prev_pose = pose
+            total_distances[seq_idx] += curr_distance
+
+        print(f'Sequence {seq_idx} has distance {total_distances[seq_idx]}')
+    print(f'Done computing distances for {len(pose_files)} trajectories')
+
 def main(args):
     #Get file paths and loop throught to sum each label
-    indir = "/robodata/arthurz/Datasets/CODa_dev"
-    outdir = "%s/plots" % os.getcwd()
+    indir = args.indir
+    outdir = args.outdir
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
     check_num_annotations(indir)
 
-    if args.plot_type=="semantichist":
+    if args.plot_type=="semantichist": # Figure 9
         #List of labels to use to get label name from index, Dictionary to keep track of total for each label
         plot_counts(indir, outdir)
-    elif args.plot_type=="objheatmap":
+    elif args.plot_type=="objheatmap": # Figure 6
         # broken fix later
         plot_object_heatmap(indir, outdir)
-    elif args.plot_type=="weathertime":
+    elif args.plot_type=="weathertime":  
         plot_weather_time_frequency(indir, outdir)
-    elif args.plot_type=="labelcounts":
+    elif args.plot_type=="labelcounts": # Figure 
         plot_label_counts(indir, outdir)
-    elif args.plot_type=="labelweather":
+    elif args.plot_type=="labelweather": # Figure 8
         plot_label_weather(indir, outdir)
-    elif args.plot_type=="labellocation":
-        plot_label_location(indir, outdir)
+    elif args.plot_type=="labellocation": # Figure 5
+        # plot_label_location(indir, outdir) # Use for sparser individual plot
+        plot_combined_label_location(indir, outdir) # Use for combined plot
+    elif args.plot_type=="jrdbperformance":
+        plot_jrdb_graph(indir, outdir)
+    elif args.plot_type=="codaimages":
+        plot_coda_image(indir, outdir)
+    elif args.plot_type=="routedistance":
+        print_route_distance(indir)
 
 if __name__ == "__main__":
     args = parser.parse_args()
