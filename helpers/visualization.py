@@ -144,6 +144,11 @@ def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
 
     return pc_msg
 
+def pub_waypoint_to_rviz(marker_publisher, waypoint, waypoint_ts):
+    marker = Marker(type=Marker.CUBE, id=waypoint_ts, pose=Pose(Point(waypoint[0], waypoint[1], waypoint[2]), Quaternion(waypoint[3], waypoint[4], waypoint[5], waypoint[6])), scale = Vector3(1, 1, 1), color = stdmsgs.msg.ColorRGBA(0.0, 1.0, 1.0, 1.0))
+    marker_publisher.publish(marker)
+
+
 def pub_imu_to_rviz(imu_np, imu_pub, frame_id="vectornav", publish=True):
     """
     IMU data assummed to be in the same frame as LiDAR for coordinate axes

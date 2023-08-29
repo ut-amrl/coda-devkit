@@ -734,12 +734,17 @@ def plot_clustered_stacked(dfall, labels=None, title="multiple stacked bar plot"
 
     for df in dfall : # for each data frame
         axe = df.plot(kind="bar",
-                      linewidth=0,
+                      linewidth=1,
                       stacked=True,
                       ax=axe,
                       legend=False,
                       grid=True,
+                      edgecolor='black',
                       **kwargs)  # make bar plots
+        # Set black edges for each bar patch
+        # for container_idx, container in enumerate(axe.containers):
+        #     for bar_idx, bar in enumerate(container):
+        #         axe.containers[container_idx][bar_idx].set_edgecolor('black')
     matplotlib.rcParams['legend.fontsize'] = 20
 
     h,l = axe.get_legend_handles_labels() # get the handles we want to modify
@@ -762,16 +767,15 @@ def plot_clustered_stacked(dfall, labels=None, title="multiple stacked bar plot"
     # Add invisible data to add another legend
     n=[]        
     for i in range(n_df):
-        n.append(axe.bar(0, 0, color="gray", hatch=H * i))
+        n.append(axe.bar(0, 0, color="gray", hatch=H * i, edgecolor='black'))
 
-    l1 = axe.legend(h[:n_col], l[:n_col], loc=[0.67, 0.77])
+    l1 = axe.legend(h[:n_col], l[:n_col], loc=[0.67, 0.7])
     if labels is not None:
-        l2 = plt.legend(n, labels, loc=[0.67, 0.6]) 
+        l2 = plt.legend(n, labels, loc=[0.67, 0.45]) 
     axe.add_artist(l1)
 
     # Adjust the layout to prevent y-axis label from being cut off
     plt.subplots_adjust(left=0.15, right=0.9, top=0.95, bottom=0.1)
-
 
     return axe
 
@@ -821,6 +825,10 @@ def plot_combined_label_location(indir, outdir, counts_file="GEN_location_counts
             for time_idx, labelcount in enumerate(discrete_location_densities_dict[location][weather]):
                 labelloc_np[time_idx, location_idx, weather_idx] = labelcount
 
+    # Hacky map Speedway to SWY
+    locations = ["SWY" if loc=="Speedway" else loc for loc in locations]
+    discrete_location_densities_dict = {"SWY" if loc == "Speedway" else loc: val for loc, val in discrete_location_densities_dict.items()}
+
     # Generate dataframes
     df_list = []
     for location_weather_np in labelloc_np:
@@ -829,7 +837,7 @@ def plot_combined_label_location(indir, outdir, counts_file="GEN_location_counts
             columns=weather_list)
         df_list.append(df)
 
-    fig, axes = plt.subplots(1, 1, figsize=(10, 11), sharex=True)
+    fig, axes = plt.subplots(1, 1, figsize=(10, 7), sharex=True)
     sns.set(style="whitegrid")
     weather_cmap = colors.ListedColormap(list(weather_color_palette.values()))
     subplt = plot_clustered_stacked(df_list, 
