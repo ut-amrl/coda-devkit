@@ -1,3 +1,23 @@
+"""
+Copyright (c) 2023 Arthur King Zhang arthurz@cs.utexas.edu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following condition
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Softwar
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 from sensor_msgs.msg import PointField
 
 """
@@ -22,7 +42,7 @@ OS1_PACKETS_PER_FRAME = 64
 OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
 
 """
-DATASET PARAMETER CONSTANTS
+DATASET DIRECTORY DEFINITIONS
 """
 TRED_RAW_DIR            = "3d_raw"
 TRED_COMP_DIR           = "3d_comp"
@@ -359,101 +379,9 @@ BBOX_ID_TO_COLOR = [
     (48, 49, 20)            #58 WAter Fountain 
 ]
 
-# BBOX_ID_TO_COLOR = [
-#     (255, 0, 0),       #0 Scooter (Red)
-#     (0, 255, 0),       #1 Person (Green)
-#     (0, 0, 255),       #2 Car (Blue)
-#     (255, 128, 0),     #3 Motorcycle (Orange)
-#     (255, 255, 0),     #4 Golf Cart (Yellow)
-#     (128, 0, 128),     #5 Truck (Purple)
-#     (0, 255, 255),     #6 Person (Cyan)
-#     (255, 204, 0),     #7 Tree (Gold)
-#     (204, 0, 0),       #8 Traffic Sign (Dark Red)
-#     (192, 192, 192),   #9 Canopy (Silver)
-#     (255, 255, 51),    #10 Traffic Lights (Lime)
-#     (255, 102, 255),   #11 Bike Rack (Pink)
-#     (128, 128, 128),   #12 Bollard (Gray)
-#     (255, 153, 102),   #13 Construction Barrier (Light Orange)
-#     (0, 0, 204),       #14 Parking Kiosk (Dark Blue)
-#     (0, 51, 204),      #15 Mailbox (Royal Blue)
-#     (255, 0, 0),       #16 Fire Hydrant (Red)
-#     (0, 204, 0),       #17 Freestanding Plant (Green)
-#     (255, 167, 49),     #18 Pole (Texan Orange)
-#     (255, 255, 0),     #19 Informational Sign (Yellow)
-#     (204, 51, 0),      #20 Door (Dark Orange)
-#     (102, 51, 0),      #21 Fence (Brown)
-#     (204, 102, 0),     #22 Railing (Orange)
-#     (255, 153, 51),    #23 Cone (Light Orange)
-#     (0, 204, 204),     #24 Chair (Turquoise)
-#     (0, 51, 0),        #25 Bench (Dark Green)
-#     (102, 102, 0),     #26 Table (Olive)
-#     (255, 87, 51),      #27 Trash Can (Bright Blue)
-#     (255, 204, 153),   #28 Newspaper Dispenser (Light Orange)
-#     (255, 51, 255),    #29 Room Label (Magenta)
-#     (224, 224, 224),   #30 Stanchion (Light Gray)
-#     (51, 255, 255),    #31 Sanitizer Dispenser (Turquoise)
-#     (76, 153, 0),      #32 Condiment Dispenser (Dark Green)
-#     (51, 152, 255),    #33 Vending Machine (Sky Blue)
-#     (255, 204, 204),   #34 Emergency Aid Kit (Light Pink)
-#     (255, 102, 102),   #35 Fire Extinguisher (Light Red)
-#     (0, 153, 76),      #36 Computer (Dark Green)
-#     (32, 32, 32),      #37 Television (Black)
-#     (255, 255, 255),   #38 Other (White)
-#     # Temp new classes
-#     (255, 102, 0),     #39 Horse (Orange)
-#     (0, 204, 255),     #40 Pickup Truck (Sky Blue)
-#     (255, 16, 240),    #41 Delivery Truck (Neon Pink)
-#     (255, 255, 51),    #42 Service Vehicle (Lime)
-#     (0, 128, 0),       #43 Utility Vehicle (Green)
-#     (51, 0, 204),      #44 Fire Alarm (Blue)
-#     (255, 204, 204),   #45 ATM (Light Pink)
-#     (255, 102, 102),   #46 Cart (Light Red)
-#     (0, 153, 76),      #47 Couch (Dark Green)
-#     (32, 32, 32),      #48 Traffic Arm (Black)
-#     (255, 255, 255),   #49 Wall Sign (White)
-#     (255, 102, 102),   #50 Floor Sign (Light Red)
-#     (0, 153, 76),      #51 Door Switch (Dark Green)
-#     (32, 32, 32),      #52 Emergency Phone (Light Black)
-#     (255, 255, 255),   #53 Dumpster (White)
-#     (200, 200, 200),   #54 Vacuum Cleaner (Dark Gray)
-#     (223, 32, 32),     #55 Segway
-#     (255, 200, 255),   #56 Bus
-#     (200, 200, 105),    #57 Scooter,
-#     (100, 200, 90)      #58 WAter Fountain 
-#     #TODO ADD ADDITIONAL COLORS FOR NEW CLASSES
-# ]
-
-# Maps for each trajectory the overall weather condition for that trajectory
-TRAJECTORY_TO_WEATHER_MAP =[
-    "Cloudy"  ,
-    "Cloudy"  ,
-    "Dark"    ,
-    "Sunny"   ,
-    "Dark"    ,
-    "Dark"    ,
-    "Sunny"   ,
-    "Sunny"   ,
-    "Cloudy"  ,
-    "Dark"    ,
-    "Cloudy"  ,
-    "Sunny"   ,
-    "Cloudy"  ,
-    "Rainy"   ,
-    "Cloudy"  ,
-    "Rainy"   ,
-    "Rainy"   ,
-    "Sunny"   ,
-    "Sunny"   ,
-    "Sunny"   ,
-    "Sunny"   ,
-    "Cloudy"  ,
-    "Sunny"
-]
-
 """
-TERRAIN SEMANTIC CLASS CONSTANTS
+TERRAIN SEMANTIC CLASS MAPPINGS
 """
-
 SEM_CLASS_TO_ID = {
     "Unlabeled":            0,
     "Concrete":             1,
@@ -607,6 +535,9 @@ SENSOR_TO_BASE_LINK = {
     ]
 }
 
+"""
+TODO: DEPRECATE IN THE FUTURE AND USE PROVIDED CAM0 CALIBRATIONS IN CODa
+"""
 CAM0_CALIBRATIONS = {
     "distortion": [-0.071430, 0.036078, -0.004514, -0.000722, 0.000000],
     "camera": [
@@ -883,5 +814,23 @@ CODA_ANNOTATION_OBJECT_DICT = {
     "y": 0.0,
     "labelCategoryAttributes": {
         "isOccluded": "No"
+    }
+}
+
+"""
+ZED DEPTH SETTINGS (CAM3/CAM4)
+"""
+STEREO_SETTINGS = {
+    "cam2": {
+        "min_depth": 0.25,
+        "max_depth": 2.88 #m
+    },
+    "cam3": { # HD720
+        "min_depth": 0.7,
+        "max_depth": 10 # m
+    },
+    "cam4": { # HD720
+        "min_depth": 0.7,
+        "max_depth": 10 # m
     }
 }

@@ -202,7 +202,10 @@ def odom_to_txt(odom, filename):
         np.savetxt(odom_file, odom_np, fmt='%6.8f', delimiter=" ")
     odom_file.close()
 
-def img_to_file(img_np, filename):
+def img_to_file(img_np, filename, depth=False):
+    if depth: # Convert depth from m to mm before saving
+        img_np = img_np * 1000
+        img_np = img_np.astype(np.uint16)
     cv2.imwrite(filename, img_np)
 
 def bin_to_ply(bin_np, ply_path):
@@ -234,11 +237,14 @@ def process_image(img_data, encoding="passthrough"):
 
 def process_compressed_image(img_data, encoding="bgr8"):
     sensor_ts = img_data.header.stamp
-   
     # Decode mono16 separately due to compressed decoding bug in CvBridge()
+    # import pdb; pdb.set_trace()
     if encoding=="mono16":
-        compressed_image_np = np.frombuffer(img_data.data, np.uint8)
+        import pdb; pdb.set_trace()
+        dt = np.dtype('<B') # little endian
+        compressed_image_np = np.frombuffer(img_data.data, dtype=dt)
         image_np = cv2.imdecode(compressed_image_np, -1)
+        import pdb; pdb.set_trace()
     else:
         cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding=encoding)
         image_np = np.array(cv_image)

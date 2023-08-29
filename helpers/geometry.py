@@ -1,30 +1,56 @@
-from fileinput import close
+"""
+Copyright (c) 2023 Arthur King Zhang arthurz@cs.utexas.edu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following condition
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Softwar
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import os
-import pdb
+import cv2
 import yaml
 import json
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
-# import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
-
-import cv2
-
 from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR
 
-# # Use this to decode deepen global poses
-# def densify_poses_between_ts(pose_np, ts_np):
-#     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
-#     ts_np = ts_np.reshape(-1,)
-#     for ts in ts_np:
-#         closest_pose = find_closest_pose(pose_np, ts)
-#         out_pose_np = np.vstack((out_pose_np, closest_pose))
-
-#     return out_pose_np
-
 def find_closest_pose(pose_np, target_ts):
+    """
+    Interpolates between two closest poses to the given target timestamp in the pose_np array.
+
+    Parameters:
+        pose_np (numpy.ndarray): An array representing a sequence of poses.
+            Each row should contain pose information with at least two rows
+            The first column should represent the timestamps (time values) of the poses,
+            and the rest of the columns should contain the pose data (e.g., position and orientation).
+            The timestamps in the first column are assumed to be sorted in ascending order.
+
+        target_ts (float): The target timestamp for which the closest pose is to be found.
+            This is the timestamp value at which you want to find the closest pose in the pose_np array.
+
+    Returns:
+        numpy.ndarray: Interpolated pose at the target_ts using the provided poses.
+
+    Notes:
+        This function uses binary search to locate the index of the pose in pose_np with a timestamp closest to target_ts.
+        It then calculates the two nearest poses based on this index (curr_ts_idx and next_ts_idx).
+        If the timestamps of these two nearest poses are not identical, it uses inter_pose function to interpolate a pose at target_ts.
+        Otherwise, if the timestamps are identical, it returns the pose at curr_ts_idx directly.
+    """
     curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right") - 1
 
     if curr_ts_idx>=pose_np.shape[0]:
@@ -44,35 +70,28 @@ def find_closest_pose(pose_np, target_ts):
 
     return pose
 
-# def inter_pose(posea, poseb, sensor_ts):
-#     """
-#     Pose assumed to be in x y z qw qx qy qz
-#     """
-#     tsa = posea[0]
-#     tsb = poseb[0]
-#     if tsa==tsb:
-#         return posea
-#     quata = posea[4:]
-#     quatb = poseb[4:]
-#     transa  = posea[1:4]
-#     transb  = poseb[1:4]
-
-#     tparam = abs(sensor_ts - tsa) / (tsb - tsa)
-#     inter_trans = transa + tparam * (transb - transa)
-#     theta = np.arccos(np.dot(quata, quatb))
-  
-#     # print("tsb ", tsb, " tsa ", tsa, " sensor_ts ", sensor_ts)
-#     # print("tparam ", tparam)
-
-#     inter_quat  =   ( np.sin( (1-tparam) * theta)  / np.sin(theta) ) * quata + \
-#                     ( np.sin( tparam * theta)      / np.sin(theta) ) * quatb
-#     # print("quat a ", quata, " inter_quat ", inter_quat, " quatb ", quatb)
-#     new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
-
-#     return new_pose
-
-
 def densify_poses_between_ts(pose_np, ts_np):
+    """
+    Densify poses between specified timestamps in `pose_np` array.
+
+    Parameters:
+        pose_np : numpy.ndarray
+            Array of poses with timestamps.
+        ts_np : numpy.ndarray or array-like
+            Target timestamps for densification.
+
+    Returns:
+        numpy.ndarray
+            Densified poses with modified timestamps to match `ts_np`.
+
+    .. note::
+        This function loops through each timestamp in `ts_np` and finds the closest pose in `pose_np` to that timestamp
+        using `find_closest_pose` function. The pose timestamp is then modified to be the target timestamp (`ts`),
+        effectively densifying the poses at the desired points in time. The resulting poses are stored in the `out_pose_np` array,
+        which is returned after all timestamps have been processed.
+        The `find_closest_pose` function is used to find the closest pose to a given target timestamp in `pose_np`.
+        Ensure that the `pose_np` array contains timestamps sorted in ascending order for accurate results.
+    """
     out_pose_np = np.empty((0, pose_np.shape[1]), dtype=np.float64)
     ts_np = ts_np.reshape(-1,)
     for ts in ts_np:
@@ -83,36 +102,21 @@ def densify_poses_between_ts(pose_np, ts_np):
 
     return out_pose_np
 
-# def find_closest_pose(pose_np, target_ts, return_idx=False):
-#     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")
-#     # curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="left")
-#     curr_ts_idx = np.searchsorted(pose_np[:, 0], target_ts, side="right")-1
-#     next_ts_idx=curr_ts_idx+1
-
-#     curr_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
-#     next_ts_idx = np.clip(curr_ts_idx, 0, pose_np.shape[0]-1)
-#     # if next_ts_idx>=pose_np.shape[0]:
-#     #     next_ts_idx = pose_np.shape[0]-1
-#     #     print("Reached end of known poses at time %10.6f" % target_ts)
-#     # elif curr_ts_idx < 0:
-#     #     curr_ts_idx = 0
-
-#     # next_ts_idx = curr_ts_idx + 1
-#     # if next_ts_idx>=pose_np.shape[0]:
-#     #     next_ts_idx = pose_np.shape[0] - 1
-
-#     if pose_np[curr_ts_idx][0] != pose_np[next_ts_idx][0]:
-#         # pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
-#         pose = inter_pose(pose_np[curr_ts_idx], pose_np[next_ts_idx], target_ts)
-#     else:
-#         pose = pose_np[next_ts_idx]
-#     if return_idx:
-#         return next_ts_idx
-#     return pose
-
 def inter_pose(posea, poseb, sensor_ts):
     """
-    Pose assumed to be in x y z qw qx qy qz
+    Interpolate pose between `posea` and `poseb` at `sensor_ts`.
+
+    Parameters:
+        posea : numpy.ndarray
+            First pose with timestamp.
+        poseb : numpy.ndarray
+            Second pose with timestamp.
+        sensor_ts : float
+            Sensor timestamp for interpolation.
+
+    Returns:
+        numpy.ndarray
+            Interpolated pose at the sensor timestamp.
     """
     tsa = posea[0]
     tsb = poseb[0]
@@ -147,6 +151,22 @@ def inter_pose(posea, poseb, sensor_ts):
     return new_pose
 
 def load_ext_calib_to_mat(calib_ext_file):
+    """
+    Load extrinsic calibration from file and convert it to a 4x4 homogeneous matrix.
+
+    Parameters:
+        calib_ext_file : str
+            File path to the extrinsic calibration YAML file. See DATA_REPORT.md for expected structure
+
+    Returns:
+        numpy.ndarray
+            4x4 homogeneous matrix representing the extrinsic calibration.
+
+    Notes:
+        The function reads the YAML file at `calib_ext_file` and extracts the extrinsic matrix information.
+        If the matrix is represented with 'R' (rotation) and 'T' (translation) keys, it constructs the 4x4 matrix.
+        Otherwise, it constructs the matrix directly from the 'data' field in the YAML file.
+    """
     calib_ext = open(calib_ext_file, 'r')
     calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
     if "R" in calib_ext.keys() and "T" in calib_ext.keys():
@@ -161,9 +181,25 @@ def load_ext_calib_to_mat(calib_ext_file):
         )
     return ext_homo_mat
 
-def bbox_transform(annotation, trans):
-    use_quat = False
+def bbox_transform(annotation, trans, use_quat=False):
+    """
+    Transform the bounding box coordinates of an annotation using the given transformation matrix.
 
+    Parameters:
+        annotation : dict
+            Dictionary containing bounding box information. (Described in DATA_REPORT.md)
+        trans : numpy.ndarray
+            4x4 transformation matrix.
+        use_quat : bool
+            determines whether the orientation is represented using Euler angles or quaternion 
+    Returns:
+        dict
+            Updated annotation dictionary with transformed bounding box coordinates.
+
+    Notes:
+        The function takes the annotation dictionary and applies the transformation matrix `trans`
+        to update the bounding box coordinates accordingly.
+    """
     if "r" not in annotation.keys():
         use_quat = True
     center  = np.array([annotation['cX'], annotation['cY'], annotation['cZ']])
@@ -191,14 +227,23 @@ def bbox_transform(annotation, trans):
             new_coords[:3, :3]).as_euler("xyz", degrees=False)
     return annotation
 
-def wcs_mat(angles):
-    """
-    assumes angles order is zyx degrees
-    """
-    r = R.from_euler('zyx', angles, degrees=True)
-    return r
-
 def pose_to_homo(pose):
+    """
+    Convert pose information to a 4x4 homogeneous transformation matrix.
+
+    Parameters:
+        pose : numpy.ndarray
+            Array representing the pose with timestamp and pose data.
+
+    Returns:
+        numpy.ndarray
+            4x4 homogeneous transformation matrix.
+
+    Notes:
+        The function extracts the translation and quaternion rotation information from the input pose array.
+        It constructs the 3x3 rotation matrix from the quaternion and combines it with the translation to form
+        the 4x4 homogeneous transformation matrix.
+    """
     trans = pose[1:4]
     quat = np.array([pose[5], pose[6], pose[7], pose[4]])
     rot_mat = R.from_quat(quat).as_matrix()
@@ -209,6 +254,26 @@ def pose_to_homo(pose):
     return homo_mat
 
 def get_points_in_bboxes(pc, anno_filepath, verbose=True):
+    """
+    Identify points from a point cloud (pc) that fall within bounding boxes defined in the annotation file.
+
+    Parameters:
+        pc : numpy.ndarray
+            Point cloud as a 2D array with (x, y, z) coordinates in columns.
+        anno_filepath : str
+            File path to the annotation JSON file containing bounding box information.
+        verbose : bool, optional
+            Whether to print messages about file not found. Defaults to True.
+
+    Returns:
+        numpy.ndarray
+            Boolean mask representing points within bounding boxes (True) and points outside (False).
+
+    Notes:
+        The function reads bounding box information from the annotation file and processes each bounding box.
+        It checks each point in the point cloud (pc) and determines whether it falls within any bounding box.
+        The function returns a boolean mask indicating points within bounding boxes (True) and points outside (False).
+    """
     if not os.path.exists(anno_filepath):
         if verbose:
             print("File %s not found, not printing"%anno_filepath)
@@ -241,6 +306,32 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
     return output_mask
 
 def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None):
+    """
+    Project 3D points from lidar space to 2D image space using camera calibration information.
+
+    Parameters:
+        pc_np : numpy.ndarray
+            Point cloud as a 2D array with (x, y, z) coordinates in columns.
+        calib_ext_file : str or numpy.ndarray
+            File path or 4x4 homogeneous matrix representing the extrinsic calibration information.
+        calib_intr_file : str
+            File path to the camera calibration YAML file containing intrinsic matrix and distortion coefficients.
+        wcs_pose : numpy.ndarray, optional
+            4x4 homogeneous matrix representing the World Coordinate System (WCS) pose.
+            If provided, the point cloud (pc_np) is first transformed from WCS to ego lidar space. Defaults to None.
+
+    Returns:
+        numpy.ndarray
+            2D image points (x, y) obtained by projecting 3D points onto the image plane.
+        numpy.ndarray
+            Boolean mask indicating valid points within the camera field of view (True) and points outside (False).
+
+    Notes:
+        The function first transforms the point cloud from WCS to ego lidar space (if wcs_pose is provided).
+        It then projects the 3D points onto the image plane using camera calibration matrices.
+        The function returns 2D image points and a boolean mask indicating valid points within the camera field of view.
+    """
+
     #Compute ego lidar to ego camera coordinate systems (Extrinsic)
     if isinstance(calib_ext_file, str):
         calib_ext = open(calib_ext_file, 'r')
@@ -275,7 +366,30 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None)
 
 def get_safe_projs(rmat, tvec, distCoeffs, obj_pts):
     """
-    Vectorize this for more efficiency (Slow on large point clouds)
+    Efficiently check safe points for projection from point cloud to image
+    TODO: Vectorize this for more efficiency (Slow on large point clouds)
+
+    Parameters:
+        rmat : numpy.ndarray
+            Rotation matrix (3x3) representing camera extrinsic calibration.
+        tvec : numpy.ndarray
+            Translation vector (3x1) representing camera extrinsic calibration.
+        distCoeffs : numpy.ndarray
+            Distortion coefficients of the camera.
+        obj_pts : numpy.ndarray
+            3D points (n x 3) to be projected.
+
+    Returns:
+        numpy.ndarray
+            Indices of points (in obj_pts) that are safe to project.
+
+    Notes:
+        The function vectorizes the process to efficiently check if the 3D points (obj_pts) are safe for projection.
+        It first computes the location of the points relative to the camera using the rotation matrix (rmat) and
+        translation vector (tvec). Then, it calculates the homogenous coordinates (x and y) and distortion terms
+        for vectorized polynomial evaluation. Finally, it determines the bounds on x and y coordinates using polynomial roots
+        and returns the indices of safe points that can be safely projected onto the image plane.
+    
     """
     # Define a list of booleans to denote if a variable is safe
     obj_pts_safe = np.array([True] * len(obj_pts))
@@ -368,8 +482,34 @@ def get_safe_projs(rmat, tvec, distCoeffs, obj_pts):
 
 def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
     """
-    Custom point projection function to fix OpenCV distortion issue for out of bound points:
+    Custom point projection function with handling for OpenCV distortion issue for out of bound points.
     https://github.com/opencv/opencv/issues/17768
+
+    Parameters:
+        points_3d : numpy.ndarray
+            3D points (n x 3) to be projected.
+        R : numpy.ndarray
+            Rotation matrix (3x3) representing camera extrinsic calibration.
+        T : numpy.ndarray
+            Translation vector (3x1) representing camera extrinsic calibration.
+        K : numpy.ndarray
+            Camera intrinsic matrix (3x3).
+        d : numpy.ndarray
+            Distortion coefficients of the camera.
+        use_dist : bool, optional
+            Whether to use distortion in projection. Defaults to True.
+
+    Returns:
+        numpy.ndarray
+            Projected 2D image points (n x 2).
+
+    Notes:
+        The function handles the distortion issue present in OpenCV for out-of-bounds points during projection.
+        It first projects the points with distortion using cv2.projectPoints. If use_dist is True, it checks if the
+        projected points are out of bounds and replaces them with corresponding undistorted points. This ensures
+        that all points are safely projected onto the image plane, even when some points fall outside the bounds.
+        The safe_image_points_mask is used to identify safe points to project with distortion, and unsafe points
+        are replaced with undistorted points.
     """
     assert points_3d.shape[1]==3, "Error points_3d input is not dimension 3, it is %i"%points_3d.shape[1]
     points_3d = points_3d[:, :3]
@@ -398,7 +538,23 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
 
 def get_3dbbox_corners(bbox_dict):
     """
-    Converts 3d bbox annotation from CODa format to 3d corners
+    Converts 3D bounding box annotation from CODa format to 3D corners.
+
+    Parameters:
+        bbox_dict : dict
+            Dictionary containing 3D bounding box annotation in CODa format.
+
+    Returns:
+        numpy.ndarray
+            Array containing 3D corners of the bounding box.
+
+    Notes:
+        The function takes the bounding box annotation in CODa format and computes the 3D corners of the bounding box.
+        It extracts the center coordinates (cX, cY, cZ) and dimensions (l, w, h) from the dictionary.
+        If rotation angles (r, p, y) are provided, it uses Euler angles to construct the orientation transformation matrix.
+        Otherwise, it uses the quaternion (qx, qy, qz, qw) to construct the orientation transformation matrix.
+        The corners are then computed in axis-aligned coordinates and transformed to the 3D bounding box's local coordinate system
+        using the orientation transformation matrix and translation vector (cX, cY, cZ).
     """
     tred_corners = np.zeros((8, 3), dtype=np.float32)
     cX, cY, cZ, l, w, h = bbox_dict['cX'], bbox_dict['cY'], bbox_dict['cZ'],\
@@ -467,9 +623,6 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file, check_
         d   = np.array(intr_ext['distortion_coefficients']['data'])
         P   = np.array(intr_ext['projection_matrix']['data']).reshape(3, 4)
         Re  = np.array(intr_ext['rectification_matrix']['data']).reshape(3, 3)
-
-        # if annotation["instanceId"]!="Service Vehicle:3":
-        #     continue
 
         image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
        
@@ -587,12 +740,6 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, im
                 image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
     except Exception as e:
         print(e)
-        import pdb; pdb.set_trace()
-    # print("valid points ", valid_points)
-    # import pdb; pdb.set_trace()
-    #Draw
-    # image = cv2.drawContours(image, np.array([contour_top]), 0, color, thickness)
-    # image = cv2.drawContours(image, np.array([contour_bottom]), 0, color, thickness)
 
     return image
 
@@ -611,11 +758,3 @@ def get_pointsinfov_mask(points):
     in_fov_mask = np.abs(angles_vec[:,0]) <= 1.57 #0.785398
 
     return in_fov_mask
-
-# def matplot_3d_points(points, title="coda 3d plot"):
-#     fig = plt.figure()
-#     ax = plt.axes(projection='3d')
-#     ax.scatter3D(points[:, 0], points[:, 1], points[:, 2], cmap='Greens')
-#     ax.set_title(title)
-#     plt.show()
-#     return ax

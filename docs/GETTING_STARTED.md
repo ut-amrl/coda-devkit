@@ -1,38 +1,47 @@
 # Getting Started
 
-The CODa package provides tools for converting rosbag files into individual files organized using the CODA file structure. For instance, the script will synchronize any number of topics provided, assign these synchronized topics to a unified frame number, and save each topic (LiDAR, camera, audio, inertial) to its own data file. Furthermore, the script will also republish specified topics in the bag file over ROS to work in conjunction with packages with ROS interfaces. Beyond this, the package also provides visualization, LiDAR camera calibration, and annotation workflow tools.
+The CODa package provides tools for converting your own rosbag files into individual files organized using the CODa file structure. For instance, the script will synchronize any number of topics provided, assign these synchronized topics to a unified frame number, and save each topic (LiDAR, camera, audio, inertial) to its own data file. Furthermore, the script will also republish specified topics in the bag file over ROS to work in conjunction with packages with ROS interfaces. Beyond this, the package also provides visualization, LiDAR camera calibration, and annotation workflow tools.
 
 ## CODA File Structure
 
+We describe the CODa file structure in the [data report](DATA_REPORT.md) in detail.
+
+## API Features
+
+### Ground Truth Visualization 
+- Visualize 3D annotations on LiDAR point clouds in open3d. See vis_open3d.py
+- Generate 3D bounding box and semantic segmentation annotations on 2D images. See check_lidar_annos.py
+- Visualize reconstructed point cloud using pseudo-ground truth LiDAR poses. See pub_3d_legoloam_to_2d_rviz.py
+
+### Calibration Visualization
+- Visualize RGB image next to corresponding stereo depth image. See viz_stereo_rgb.py
+- Visualize stereo depth cloud and closest LiDAR point cloud on rviz. See check_stereo_pc.py
+- Generate 3D point cloud projection to camera image visualizations. See gen_lidar_egocomp.py
+
+### Data Processing
+- Convert rosbag file to CODa file structure. See decode_multiday.py
+
+## API Documentation
+
+### Visualize on Open3D (vis_open3d.py)
+
+
+### Visualize Offline on 2D Images (check_lidar_annos.py)
+
+This script can be used to project the point cloud annotations to RGB images for offline visualization when open3d is not available. This script requires settings the config/checker_annotation.yaml file to work properly. You will only need to configure this file once.
+
 ```
-CODa
-|_metadata
-	|_{trajectory}.json
-		…
-	|_028.json
-|__calibration
-	|_{trajectory}
-		|_calib_cam0_intrinsics.yaml
-		|_calib_cam0_to_os1.yaml
-		|_calib_cam0_to_cam1.yaml
-	|_{trajectory}
-		|_calib_cam0_intrinsics.yaml
-		|_calib_cam0_to_os1.yaml
-|_calib_cam0_to_cam1.yaml
-	|_timestamps
-		|_{sensor_name}
-			|_{trajectory}_frame_to_ts.txt
-	|_{modality}_raw
-		|_{sensor_name}
-			|_{trajectory}
-|_{modality}_raw_{sensor_name}_{trajectory}_{frame_no}.{filetype}
-	|_{modality}_label
-		|_{sensor_name}
-			|_{trajectory}
-|_{modality}_label_{sensor_name}_{trajectory}_{frame_no}.{filetype}
-	|_poses
-		|_{trajectory}.txt
+indir - Set this to the absolute filepath to where CODa is downloaded. If you downloaded the dataset using pip, this can be determined by running `echo $PATH`. 
+outdir - Directory where the annotated images will be written to.
 ```
+
+The script accepts arguments to visualize either 3D bounding box or 3D semantic segmentation annotations. It can also be used to view
+
+Example:
+```
+python check_lidar_annos.py --mod 3d_bbox --cfg_file config/checker_annotation.yaml
+```
+
 
 ## Convert Rosbag to CODa Dataset
 
