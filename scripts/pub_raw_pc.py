@@ -20,7 +20,7 @@ from helpers.sensors import *
 from helpers.geometry import *
 from helpers.constants import TRED_RAW_DIR
 
-from scripts.egomotion_comp import compensate_frame
+from scripts.gen_lidar_egocomp import compensate_frame
 
 pose_q = queue.Queue()
 
@@ -60,7 +60,7 @@ def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor", do_frame
         ts = rospy.Time.now()
 
     # Publish pc to rviz
-    pub_pc_to_rviz(full_bin_np, pc_pub, ts, frame_id)
+    pub_pc_to_rviz(full_bin_np, pc_pub, ts, point_type="xyz", frame_id=frame_id)
 
 def pose_handler(data):
     print("Received LeGO-LOAM pose message")
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     frame_to_ts_np = np.fromfile(frame_to_ts_path, sep=' ').reshape(-1,)
 
     pc_pub_rate = rospy.Rate(2)
-    imu_pub_rate = rospy.Rate(20)
+    imu_pub_rate = rospy.Rate(4)
     # Set pc publisher
     pc_pub = rospy.Publisher(ouster_topic, PointCloud2, queue_size=5)
     imu_pub = rospy.Publisher(imu_topic, Imu, queue_size=5)
@@ -123,25 +123,27 @@ if __name__ == '__main__':
     else:
         rospy.loginfo("Found {} .bin files in the directory.".format(len(bin_paths)))
 
-        imu_index = 0
+        start_frame = 0
+        lidar_ts = frame_to_ts_np[start_frame]
+        # imu_index = max(np.searchsorted(imu_np[:, 0], lidar_ts)-1, 0) # Start one frame before
+
         # Publish all .bin files in the directory + imu data
-        for frame in range(len(bin_paths)):
+        for frame in range(start_frame, len(bin_paths)):
             lidar_ts = frame_to_ts_np[frame]
 
-            # Publish all imu messages earlier than this frame
-            imu_ts = imu_np[imu_index][0]
-            while imu_ts < lidar_ts and imu_index < len(imu_np):
-                pub_imu_to_rviz(imu_np[imu_index], imu_pub)
-                imu_index += 1
-                imu_ts = imu_np[imu_index][0]
-                imu_pub_rate.sleep()
-            
+            # # Publish all imu messages earlier than this frame
+            # imu_ts = imu_np[imu_index][0]
+            # while imu_ts < lidar_ts and imu_index < len(imu_np):
+            #     pub_imu_to_rviz(imu_np[imu_index], imu_pub)
+            #     imu_index += 1
+            #     imu_ts = imu_np[imu_index][0]
+            #     imu_pub_rate.sleep()
+
             # Publish latest lidar message
             bin_path = bin_paths[frame]
             rospy.loginfo("Publishing file: " + bin_path)
             publish_single_bin(bin_path, pc_pub, lidar_ts)
             pc_pub_rate.sleep()
-                
             while not pose_q.empty():
                 pose_txt = open(pose_path, 'a')
                 pose = pose_q.get()

@@ -4,6 +4,8 @@ import json
 
 #Libraries
 import numpy as np
+from scipy.spatial.transform import Rotation as R
+import matplotlib.cm as cm
 
 import cv2
 from cv_bridge import CvBridge
@@ -13,24 +15,30 @@ import rospy
 import std_msgs.msg
 from sensor_msgs.msg import PointCloud2, Imu
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import PoseStamped
-import matplotlib.cm as cm
+from geometry_msgs.msg import Point, PoseStamped
+import sensor_msgs.point_cloud2 as pc2
 
 #Custom
 from helpers.constants import *
 from helpers.sensors import read_sem_label
 from helpers.geometry import *
+from helpers.calibration import load_extrinsic_matrix
 
-# def pub_depth_pc_to_rviz(depth, depth_pub, ts, frame_id="zed", publish=True):
-
-def pub_pc_to_rviz(pc, pc_pub, ts, frame_id="os_sensor", publish=True):
+def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publish=True):
     if not isinstance(ts, rospy.Time):
         ts = rospy.Time.from_sec(ts)
-    is_intensity    = pc.shape[-1]>=4
-    is_time         = pc.shape[-1]>=5
-    is_ring         = pc.shape[-1]>=6
-    is_rf           = pc.shape[-1]>=7
-    is_all          = pc.shape[-1]>=8
+    
+    is_intensity, is_time, is_ring, is_rf, is_all = False, False, False, False, False
+    if "i" in point_type:
+        is_intensity = True
+    if "t" in point_type:
+        is_time = True
+    if "r" in point_type:
+        is_ring = True
+    if "f" in point_type:
+        is_rf = True
+    if is_intensity and is_time and is_ring and is_rf:
+        is_all = True
 
     if is_rf:
         rf_start_offset   = 5
@@ -270,7 +278,7 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
 
     color_map = [(0, 0, 255)] * valid_points.shape[0]
     if colormap=="camera" or colormap==None:
-        os1_to_cam = load_ext_calib_to_mat(calib_ext_file)
+        os1_to_cam = load_extrinsic_matrix(calib_ext_file)
         bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
         bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
         valid_z_map = bin_homo_cam[:, 2][valid_point_mask]
@@ -357,13 +365,23 @@ def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):
 
     return bbox_coords
 
-def pub_pose(pose_pub, pose, frame_time):
+def pub_pose(pose_pub, pose, frame_time, frame_id="os_sensor"):
+    """
+    Create a PoseStamped msg
+    
+    Args:
+        pose_pub: ros publisher handle
+        pose: a Pose [ts, x, y, z, qw, qx, qy, qz]
+        frame_time: frame time of header msgs
+    Returns:
+        pose_msg: a PoseStamped msg
+    """
     if not isinstance(frame_time, rospy.Time):
         frame_time = rospy.Time.from_sec(frame_time)
 
     p = PoseStamped()
     p.header.stamp = frame_time
-    p.header.frame_id = "os_sensor"
+    p.header.frame_id = frame_id
     p.pose.position.x = pose[1]
     p.pose.position.y = pose[2]
     p.pose.position.z = pose[3]
@@ -384,3 +402,88 @@ def pub_img(img_pub, img_header, img_path, read_type=cv2.IMREAD_COLOR):
 
     img_msg.header = img_header
     img_pub.publish(img_msg)
+
+def clear_marker_array(publisher):
+    """
+    Clear previous bbox markers
+    """
+    bbox_markers = MarkerArray()
+    bbox_marker = Marker()
+    bbox_marker.id = 0
+    bbox_marker.ns = "delete_markerarray"
+    bbox_marker.action = Marker.DELETEALL
+
+    bbox_markers.markers.append(bbox_marker)
+    publisher.publish(bbox_markers)
+
+def create_3d_bbox_marker(cx, cy, cz, l, w, h, roll, pitch, yaw,
+                          frame_id, time_stamp, namespace='', marker_id=0,
+                          r=1.0, g=0.0, b=0.0, a=1.0, scale=0.1):
+    """
+    Create a 3D bounding box marker
+
+    Args:
+        cx, cy, cz: center of the bounding box
+        l, w, h: length, width, and height of the bounding box
+        roll, pitch, yaw: orientation of the bounding box
+        frame_id: frame id of header msgs
+        time_stamp: time stamp of header msgs
+        namespace: namespace of the bounding box
+        marker_id: id of the bounding box
+        scale: scale of line width
+        r, g, b, a: color and transparency of the bounding box
+    
+    Returns:
+        marker: a 3D bounding box marker
+    """
+
+    # Create transformation matrix from the given roll, pitch, yaw
+    rot_mat = R.from_euler("xyz", [roll, pitch, yaw], degrees=False).as_matrix()
+
+    # Half-length, half-width, and half-height
+    hl, hw, hh = l / 2.0, w / 2.0, h / 2.0
+
+    # Define 8 corners of the bounding box in the local frame
+    local_corners = np.array([
+        [hl, hw, hh],  [hl, hw, -hh],  [hl, -hw, hh],  [hl, -hw, -hh],
+        [-hl, hw, hh], [-hl, hw, -hh], [-hl, -hw, hh], [-hl, -hw, -hh]
+    ]).T
+
+    # Transform corners to the frame
+    frame_corners = rot_mat.dot(local_corners)
+    frame_corners += np.array([[cx], [cy], [cz]])
+    
+    # Define lines for the bounding box (each line by two corner indices)
+    lines = [
+        [0, 1], [0, 2], [1, 3], [2, 3],
+        [4, 5], [4, 6], [5, 7], [6, 7],
+        [0, 4], [1, 5], [2, 6], [3, 7]
+    ]
+
+    # Create the LineList marker
+    marker = Marker()
+    marker.header.frame_id = frame_id
+    if type(time_stamp) is not rospy.Time:
+        time_stamp = rospy.Time.from_sec(time_stamp)
+    marker.header.stamp = time_stamp
+    marker.ns = namespace
+    marker.id = marker_id
+    marker.type = Marker.LINE_LIST
+    marker.action = Marker.ADD
+    marker.scale.x = scale
+    marker.color.a = a
+    marker.color.r = r 
+    marker.color.g = g
+    marker.color.b = b 
+    marker.pose.orientation.w = 1.0
+    marker.pose.orientation.x = 0.0
+    marker.pose.orientation.y = 0.0
+    marker.pose.orientation.z = 0.0
+    marker.lifetime = rospy.Duration(0)
+
+    for start, end in lines:
+        start_pt = Point(*frame_corners[:, start])
+        end_pt = Point(*frame_corners[:, end])
+        marker.points.extend([start_pt, end_pt])
+
+    return marker

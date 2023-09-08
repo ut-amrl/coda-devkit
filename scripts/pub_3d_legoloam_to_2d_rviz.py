@@ -22,6 +22,7 @@ sys.path.append(os.getcwd())
 from helpers.sensors import set_filename_dir, read_bin
 from helpers.geometry import pose_to_homo, find_closest_pose, densify_poses_between_ts
 from helpers.visualization import pub_pc_to_rviz, pub_pose
+from helpers.constants import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--traj', default="0",
@@ -61,19 +62,19 @@ def main(args):
     ZBAND_HEIGHT = 0.5 # meters
     ZMIN_OFFSET = 1.9 # meters
 
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(100)
 
     dense_pose_np = densify_poses_between_ts(pose_np, timestamp_np)
     last_pose = None
 
     for pose_idx, pose in enumerate(pose_np):
         pose_ts = pose[0]
-        # if pose_idx < 1000:
+        # if pose_idx > 1150:
         #     continue
         print("pose ", pose_idx)
         closest_lidar_frame = np.searchsorted(timestamp_np, pose_ts, side='left')
         lidar_ts = timestamp_np[closest_lidar_frame]
-        bin_path = set_filename_dir(indir, "3d_raw", "os1", trajectory, closest_lidar_frame, include_name=True)
+        bin_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", trajectory, closest_lidar_frame, include_name=True)
         lidar_np = read_bin(bin_path, keep_intensity=False)
 
         # Filter all point between zmin and zmax, downsample angular to 1/4 original size
@@ -100,7 +101,7 @@ def main(args):
             print(np.allclose(last_pose[1:], pose[1:], rtol=1e-5) )
             last_pose = pose
         # import pdb; pdb.set_trace()
-        # rate.sleep()
+        rate.sleep()
 
 if __name__ == "__main__":
     start_time = time.time()

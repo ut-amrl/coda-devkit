@@ -8,7 +8,7 @@ import numpy as np
 # For imports
 sys.path.append(os.getcwd())
 
-from helpers.geometry import load_ext_calib_to_mat
+from helpers.calibration import load_extrinsic_matrix
 
 OS1_CAM0_FILENAME = "calib_os1_to_cam0.yaml"
 OS1_CAM1_FILENAME = "calib_os1_to_cam1.yaml"
@@ -57,8 +57,8 @@ def process_single_trajectory(indir, outdir, trajectory):
     os1_cam0_path = osp.join(calib_dir, OS1_CAM0_FILENAME)
     cam0_cam1_path = osp.join(calib_dir, CAM0_CAM1_FILENAME)
 
-    os1_cam0_mat = load_ext_calib_to_mat(os1_cam0_path)
-    cam0_cam1_mat = load_ext_calib_to_mat(cam0_cam1_path)
+    os1_cam0_mat = load_extrinsic_matrix(os1_cam0_path)
+    cam0_cam1_mat = load_extrinsic_matrix(cam0_cam1_path)
 
     os1_cam1_mat = cam0_cam1_mat @ os1_cam0_mat
     
