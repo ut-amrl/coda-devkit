@@ -463,7 +463,7 @@ class AnnotationEncoder(object):
                             ply_path = bin_file.replace(".bin", ".pcd")
                             try:
                                 bin_np  = read_bin(bin_file, False)
-                                pub_pc_to_rviz(bin_np, self._pc_pub, rospy.get_rostime())
+                                pub_pc_to_rviz(bin_np, self._pc_pub, rospy.get_rostime(), "xyzi")
                             except Exception as e:
                                 pdb.set_trace()
                             bin_to_ply(bin_np, ply_path)

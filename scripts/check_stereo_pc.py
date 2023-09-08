@@ -123,7 +123,7 @@ def main(args):
         depth_ts =  float(ts_str_dec)
 
         depth_pc_np = process_stereo_to_pointcloud(file_path, calib_intr_path, calib_extr_path, depth_range=depth_range)
-        pub_pc_to_rviz(depth_pc_np, depth_pc_pub, depth_ts)
+        pub_pc_to_rviz(depth_pc_np, depth_pc_pub, depth_ts, point_type="xyz")
 
         # Find closest point cloud to ts
         closest_lidar_frame = np.searchsorted(ts_np, depth_ts, side='left')
@@ -131,7 +131,7 @@ def main(args):
         lidar_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", str(traj), closest_lidar_frame, include_name=True)
         lidar_np = read_bin(lidar_path, keep_intensity=False)
 
-        pub_pc_to_rviz(lidar_np, lidar_pc_pub, lidar_ts)
+        pub_pc_to_rviz(lidar_np, lidar_pc_pub, lidar_ts, point_type="xyzi")
         rate.sleep()
 
 if __name__ == '__main__':

@@ -504,7 +504,7 @@ class BagDecoder(object):
                     self.save_frame_ts(ts)
                     topic_name = self._async_pubs[topic]
 
-                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, publish=self._viz_topics)
+                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, point_type="xyzi", publish=self._viz_topics)
                 if self._viz_topics: 
                     self._pub_rate.sleep() #Limit publish rate of point clouds for LeGO-LOAM
 

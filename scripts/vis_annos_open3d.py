@@ -1,6 +1,7 @@
 import open3d as o3d
 import matplotlib
 import numpy as np
+import argparse
 
 import os
 import sys
@@ -11,6 +12,14 @@ sys.path.append(os.getcwd())
 from helpers.geometry import get_3dbbox_corners
 from helpers.constants import BBOX_ID_TO_COLOR, BBOX_CLASS_TO_ID, SEM_ID_TO_COLOR
 from helpers.visualization import apply_semantic_cmap
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--indir', default="/home/arthur/Downloads/CODa",
+                    help="Directory path with files downloaded from CODa")
+parser.add_argument('--traj', default="0",
+                    help="number of trajectory, e.g. 1")
+parser.add_argument('--frame', default="0",
+                    help="number of frame, e.g. 42")
 
 def align_vector_to_another(a=np.array([0, 0, 1]), b=np.array([1, 0, 0])):
     """
@@ -23,7 +32,6 @@ def align_vector_to_another(a=np.array([0, 0, 1]), b=np.array([1, 0, 0])):
     angle = np.arccos(np.dot(a, b))
 
     return axis_, angle
-
 
 def normalized(a, axis=-1, order=2):
     """Normalizes a numpy array of points"""
@@ -157,15 +165,16 @@ def draw_open3d_pc(vis, bin_path, sem_path=None):
         pts.colors = o3d.utility.Vector3dVector(np.ones((bin_np.shape[0], 3)))
     return vis
 
-def main():
-
-    # Read annotation file
-    # bbox_path = "/media/arthur/ExtremePro/CODa/3d_bbox/os1/0/3d_bbox_os1_0_4781.json"
-    # sem_path = "/media/arthur/ExtremePro/CODa/3d_semantic/os1/0/3d_semantic_os1_0_4781.bin"
-    # bin_path  = "/media/arthur/ExtremePro/CODa/3d_raw/os1/0/3d_raw_os1_0_4781.bin"
-    indir="/home/arthur/Downloads/CODa"
-    traj=13
-    frame=1875
+def main(args):
+    """
+    Expects the semantic segmentation, bounding box annotation, and point cloud files to 
+    be in the same directory. This is meant to be used to evaluation individual frames
+    from CODa. For those interested in viewing all annotations in a video format, use the 
+    vis_annos_rviz.py script.
+    """
+    indir=args.indir
+    traj=int(args.traj)
+    frame=int(args.frame)
     bbox_path = "%s/3d_bbox_os1_%i_%i.json"%(indir, traj, frame)
     sem_path = "%s/3d_semantic_os1_%i_%i.bin"%(indir, traj, frame)
     bin_path  = "%s/3d_raw_os1_%i_%i.bin" % (indir, traj, frame)
@@ -184,4 +193,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parser.parse_args()
+    main(args)
