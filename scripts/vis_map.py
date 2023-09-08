@@ -37,7 +37,7 @@ def add_marker(x, y, z, m, color):
     latitude, longitude, altitude = convert_xyz_to_latlon(x, y, z)
     # folium.Marker(location=[latitude, longitude]).add_to(m)
     folium.CircleMarker(location=[latitude, longitude],
-                        radius=1, weight=1, color=color).add_to(m)
+                        radius=0.5, weight=1, color=color).add_to(m)
     return m
 
 def yaw_to_homo(pose_np, yaw):
@@ -73,18 +73,20 @@ def correct_pose(pose_np, start_arr, end_arr, yaw_arr):
         if start != 0:
             non_origin = True
         homo_mat = yaw_to_homo(corrected_pose[start:end, :], yaw)
+        # update poses
         corrected_pose[start:end, 1:4] = apply_hom_mat(corrected_pose[start:end, :], homo_mat, non_origin)
     return corrected_pose
 
 def find_overlapping_pc(pose_np, pc):
     tree = KDTree(pose_np, leaf_size=2) # for an efficient closest points search
-    _, ind = tree.query(pc.reshape(1, -1), k=10)
+    _, ind = tree.query(pc.reshape(1, -1), k=30)
     print(ind)
 
 def main():
     TRAJ_name = list(TRAJECTORY.keys())[1]
     trajectory_list = TRAJECTORY[TRAJ_name]
-    # trajectory_list = [7]
+    
+    trajectory_list =  [2, 12]
 
     outdir = './json'
     fpath = os.path.join(outdir, 'pose_correction.json')
@@ -99,9 +101,11 @@ def main():
     for i in range(len(trajectory_list)):
         trajectory = str(trajectory_list[i])
         print("---"*10 + f"\nTrajectory {trajectory}")
-        pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/dense/{trajectory}.txt"
+        pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/{trajectory}.txt"
         pose_np = np.loadtxt(pose_path).reshape(-1, 8)
-        
+
+        # pose_np = pose_np[:1000]
+
         start_arr, end_arr, yaw_arr = [], [], []
 
         if trajectory in pose_correction.keys():
@@ -117,8 +121,8 @@ def main():
         corrected_pose_np = correct_pose(pose_np, start_arr, end_arr, yaw_arr)
         # import pdb; pdb.set_trace()
 
-        # find_overlapping_pc(corrected_pose_np[:, 1:3], corrected_pose_np[5100, 1:3])
-
+        find_overlapping_pc(corrected_pose_np[:, 1:3], corrected_pose_np[1000, 1:3])
+        # corrected_pose_np = corrected_pose_np[1340:5592]
         for pose in corrected_pose_np:
             # if cnt > start_arr[1]:
             #     _, x, y, z, _, _, _, _ = pose
@@ -134,26 +138,7 @@ def main():
     m.save(map_filename)
     print("-"*20 + "\nMap saved as HTML:", map_filename)
 
+
+
 if __name__ == '__main__':
     main()
-
-    # if not os.path.exists(outdir):
-    #     os.makedirs(outdir)
-    #     print("json directory created")
-
-    # if not os.path.exists(fpath):
-    #     json_object = json.dumps({})
-    #     with open(fpath, "w") as f:
-    #         f.write(json_object)
-    #     f.close()
-    #     print("empty json file created")
-
-        # traj_dict = {JSON_NAMES[0]: [start], JSON_NAMES[1]: [end], JSON_NAMES[2]: [yaw]}
-        # pose_correction[int(trajectory)] = traj_dict
-        # json_object = json.dumps(pose_correction, indent=4)
-
-
-        # with open(fpath, "w+") as f:
-    #     f.write(json_object)
-    # f.close()
-    # print("\njson file successfully saved")

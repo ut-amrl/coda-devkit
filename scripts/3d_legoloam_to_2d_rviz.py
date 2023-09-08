@@ -228,7 +228,12 @@ def main(args):
 
         pose_np = pose.reshape(1, -1)
         pose = correct_pose(pose_np, trajectory)
-        # import pdb; pdb.set_trace()
+
+
+
+        import pdb; pdb.set_trace()
+
+        
         pose = pose.reshape(-1,)
 
 

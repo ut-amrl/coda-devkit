@@ -80,40 +80,6 @@ def correct_obs(homo_mat, obs):
     corrected_obs = np.matmul(homo_mat, obs)[:3, :].transpose()
     return corrected_obs # (# of scans, 3)
 
-# def apply_manual_correction_obs(trajectory, frame, pc_np_filtered):
-#     dir = './json'
-#     fpath = os.path.join(dir, 'pose_correction.json')
-#     f = open(fpath, "r")
-#     pose_correction = json.load(f)
-#     f.close()
-
-#     JSON_NAMES = ["start_arr", "end_arr", "yaw_arr"]
-#     start_arr, end_arr, yaw_arr = [], [], []
-
-#     if trajectory in pose_correction.keys():
-#         traj_dict = pose_correction[trajectory]
-#         start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
-    
-#     rot_mat = None
-    
-#     # handles multiple rotation
-#     for i in range(len(start_arr)): 
-#         start, end, yaw = start_arr[i], end_arr[i], yaw_arr[i]
-        
-#         r = R.from_euler('z', yaw, degrees=True)
-#         rot_mat_i = r.as_matrix()
-
-#         if i == 0:
-#             rot_mat = rot_mat_i
-#         else:
-#             if frame >= start and frame < end:
-#                 rot_mat = rot_mat_i @ rot_mat_i
-
-#     manual_corrected_pc_np = rot_mat @ np.transpose(pc_np_filtered)
-#     manual_corrected_pc_np = np.transpose(manual_corrected_pc_np)
-    
-#     return manual_corrected_pc_np
-
 def get_normal(pcs, knn=32):
     obs = o3d.geometry.PointCloud()
     obs.points = o3d.utility.Vector3dVector(pcs)
@@ -213,7 +179,9 @@ def get_obs(frame_list, outdir):
 
     return obs, n_pcs
 
-def save_txt(trajectory, np_bin, route, hitl_corrected=False):
+def save_txt(np_bin, trajectory, route, hitl_corrected=False):
+    print("Saving txt ...")
+
     save_dir = os.path.join("./", "HitL", f"Raw_{route}")
     # if hitl_corrected:
     #     save_dir = os.path.join("./", "HitL", f"HitL_corrected_{route}")
@@ -277,8 +245,6 @@ def apply_manual_correction_obs(trajectory, pc_np_filtered, n_pcs, pose_np):
             temp_np[:, :2] += offset
             manual_pose_np[start_sum:end_sum] = temp_np
 
-            # manual_corrected_pc_np[start_sum:end_sum] = np.transpose(rot_mat @ np.transpose(manual_corrected_pc_np[start_sum:end_sum]))
-
     return manual_corrected_pc_np
 
 def save_hitl_input(trajectory, route, hitl_corrected=False):
@@ -324,35 +290,46 @@ def save_hitl_input(trajectory, route, hitl_corrected=False):
     print("Pool process done.")
 
     obs_xyz, n_pcs = get_obs(frame_list, outdir)
-    obs_xyz_man = apply_manual_correction_obs(trajectory, obs_xyz, n_pcs, pose_np[:, 1:4])
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(obs_xyz)
-    fpath = f"./obs_xyz/{route}/{trajectory}_org.pcd"
-    o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(obs_xyz_man)
-    fpath = f"./obs_xyz/{route}/{trajectory}_man.pcd"
-    o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
-
-    # np_bin = np.zeros((len(obs_xyz), 16))
-    # np_bin[:, :3]  = get_pose(pose_np, n_pcs)
-    # np_bin[:, 3:6] = obs_xyz
-    # print("Normal vectors start.")
-    # np_bin[:, 5:7] = get_normal(obs_xyz)
-    # print("Normal vectors done.")
-    # np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
     
-    # # Round up values
-    # np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
-    # np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 6)
+    HITL = False
 
-    # n_unique = len(np.unique(np_bin[:, :2], axis=0))
-    # print(f"Unique: {n_unique}")
+    if not HITL:
 
-    # print("\nSaving text")
-    # save_txt(trajectory, np_bin, route, hitl_corrected)
+        print("Applying manual correction and saving")
+
+        # Rotation correction
+        obs_xyz_man = apply_manual_correction_obs(trajectory, obs_xyz, n_pcs, pose_np[:, 1:4])
+        # Trnaslation correction
+        # obs_xyz_man[:, :2] = obs_xyz_man[:, :2] + np.array([-3.5, -0.0])
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(obs_xyz)
+        fpath = f"./obs_xyz/{route}/{trajectory}_org.pcd"
+        o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(obs_xyz_man)
+        fpath = f"./obs_xyz/{route}/{trajectory}_man.pcd"
+        o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+    
+    else:
+        np_bin = np.zeros((len(obs_xyz), 16))
+        np_bin[:, :3]  = get_pose(pose_np, n_pcs)
+        np_bin[:, 3:6] = obs_xyz
+        print("Normal vectors start.")
+        np_bin[:, 5:7] = get_normal(obs_xyz)
+        print("Normal vectors done.")
+        np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
+        
+        # Round up values
+        np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
+        np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 6)
+
+        n_unique = len(np.unique(np_bin[:, :2], axis=0))
+        print(f"Unique: {n_unique}")
+
+        print("\nSaving text")
+        save_txt(np_bin, trajectory, route, hitl_corrected)
 
 if __name__ == "__main__":
     
@@ -360,9 +337,11 @@ if __name__ == "__main__":
     GUAD = [2,7,12,16,17,21]
     WCP  = [6,9,10,11,13,20,22]
 
+    # route = "GDC"
     route = "GUAD"
-    # trajs = [1,3,4,5]
-    trajs = [21]
+    # route = "WCP"
+
+    trajs = [17]
     for i in trajs:
         print(f"\nStarted Trajectory {i}")
         trajectory = str(i)
