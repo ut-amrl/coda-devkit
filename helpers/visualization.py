@@ -1,5 +1,4 @@
 import os
-import pdb
 import json
 
 #Libraries
@@ -24,11 +23,13 @@ from helpers.sensors import read_sem_label
 from helpers.geometry import *
 from helpers.calibration import load_extrinsic_matrix
 
-def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publish=True):
+def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", 
+    sem_color=None, publish=True):
     if not isinstance(ts, rospy.Time):
         ts = rospy.Time.from_sec(ts)
-    
-    is_intensity, is_time, is_ring, is_rf, is_all = False, False, False, False, False
+
+    is_intensity, is_time, is_ring, is_rf, is_rgb, is_all = False, False, False, False, \
+                                                                False, False
     if "i" in point_type:
         is_intensity = True
     if "t" in point_type:
@@ -37,6 +38,8 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publi
         is_ring = True
     if "f" in point_type:
         is_rf = True
+    if "c" in point_type:
+        is_rgb = True
     if is_intensity and is_time and is_ring and is_rf:
         is_all = True
 
@@ -86,6 +89,26 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publi
 
         # Add ambient and range bytes
         all_bytes_np = all_bytes_np.reshape(-1, 1)
+    elif is_rgb:
+        # ROS expects rgb to in a single uint32
+        # BIT_MOVE_16 = 2**16
+        # BIT_MOVE_8 = 2**8
+
+        # sem_color = sem_color.astype(np.uint32)
+        # sem_color_ros = sem_color[:,0] * BIT_MOVE_16 +sem_color[:,1] * BIT_MOVE_8 + sem_color[:,2] 
+        # sem_color_ros = sem_color_ros.reshape(-1, 1)
+
+        # xyz_bytes_np = np.frombuffer(pc.reshape(-1, 1).tobytes(), dtype=np.uint8).reshape(-1, 12)
+        # rgb_bytes_np = np.frombuffer(sem_color_ros.tobytes(), dtype=np.uint8).reshape(-1, 4)
+        # sem_color_alpha = np.hstack((sem_color, np.ones((sem_color.shape[0], 1))))
+
+        # all_bytes_np = np.hstack((xyz_bytes_np, rgb_bytes_np)).reshape(-1, 1)
+        sem_color = sem_color.astype(np.float32) / 255.0
+        
+        pc_xyzrgb = np.hstack((pc, sem_color))
+
+        pc_xyzrgb_bytes = pc_xyzrgb.reshape(-1, 1).tobytes()
+        all_bytes_np = np.frombuffer(pc_xyzrgb_bytes, dtype=np.uint8).reshape(-1, 24)
 
     pc_flat = pc.reshape(-1, 1)
 
@@ -124,6 +147,13 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publi
         fields.append(PointField('ambient', 28, PointField.UINT16, 1))
         fields.append(PointField('range', 32, PointField.UINT32, 1))
         # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
+    elif is_rgb:
+        pc_msg.point_step   = pc.itemsize*6
+        # fields.append(PointField('rgb', pc.itemsize*pc_item_position, PointField.UINT32, 1))
+        fields.append(PointField('r', 12, DATATYPE, 1))
+        fields.append(PointField('g', 16, DATATYPE, 1))
+        fields.append(PointField('b', 20, DATATYPE, 1))
+        # fields.append(PointField('a', pc.itemsize*(pc_item_position+3), DATATYPE, 1))
     elif is_ring:
         pc_msg.point_step   = pc.itemsize*5 + 2 + 2 # for actual values, 2 for padding
         fields.append(PointField('intensity', 16, DATATYPE, 1))
@@ -138,10 +168,10 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publi
         fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
     else:
         pc_msg.point_step   = pc.itemsize*3
-
+    
     pc_msg.row_step     = pc_msg.width * pc_msg.point_step
-    pc_msg.fields   = fields
-    if is_rf:
+    pc_msg.fields       = fields
+    if is_rf or is_rgb:
         pc_msg.data     = all_bytes_np.tobytes()
     else:
         pc_msg.data     = pc_flat.tobytes()
@@ -183,78 +213,6 @@ def pub_imu_to_rviz(imu_np, imu_pub, frame_id="vectornav", publish=True):
 
     return imu_msg
 
-def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
-    """
-    Annotation filepath may not be valid, double check before publishing
-    """
-    if not os.path.exists(anno_filepath):
-        if verbose:
-            print("File %s not found, not printing"%anno_filepath)
-        return
-
-    anno_file   = open(anno_filepath, 'r')
-    anno_json   = json.load(anno_file)
-
-    # Clear previous bbox markers
-    bbox_markers = MarkerArray()
-    bbox_marker = Marker()
-    bbox_marker.id = 0
-    bbox_marker.ns = "delete_markerarray"
-    bbox_marker.action = Marker.DELETEALL
-    bbox_markers.markers.append(bbox_marker)
-    m_pub.publish(bbox_markers)
-
-    bbox_markers = MarkerArray()
-    for idx, annotation in enumerate(anno_json["3dbbox"]):
-        #Pose processing
-        px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
-        instanceId, classId = annotation["instanceId"], annotation["classId"]
-        # if classId=='Tree':
-        #     continue
-        
-        rot_mat = R.from_euler('xyz', [annotation['r'], annotation['p'], annotation['y']], degrees=False)
-        quat_orien = R.as_quat(rot_mat)
-
-        bbox_marker = Marker()
-        bbox_marker.header.frame_id = "os_sensor"
-        bbox_marker.header.stamp = ts
-        bbox_marker.ns = instanceId # Keep ns same for the same object
-        bbox_marker.id = int(instanceId.split(':')[-1])
-        bbox_marker.type = bbox_marker.CUBE
-        bbox_marker.action = bbox_marker.ADD
-        bbox_marker.pose.position.x = px
-        bbox_marker.pose.position.y = py
-        bbox_marker.pose.position.z = pz
-        bbox_marker.pose.orientation.x = quat_orien[0]
-        bbox_marker.pose.orientation.y = quat_orien[1]
-        bbox_marker.pose.orientation.z = quat_orien[2]
-        bbox_marker.pose.orientation.w = quat_orien[3]
-        bbox_marker.scale.x = annotation["l"]
-        bbox_marker.scale.y = annotation["w"]
-        bbox_marker.scale.z = annotation["h"]
-        bbox_marker.color.a = 0.4
-        
-        if track:
-            # TODO Figure out how to do instance tracking
-            bbox_marker.color.r = 100 / 255.0;
-            bbox_marker.color.g = 100 /255.0;
-            bbox_marker.color.b = 100 / 255.0;
-        else:
-            class_color = BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[classId]]
-            bbox_marker.color.r = class_color[0] / 255.0;
-            bbox_marker.color.g = class_color[1] /255.0;
-            bbox_marker.color.b = class_color[2] / 255.0;
-
-            if instanceId=="Person:1":
-                bbox_marker.color.r = 50 / 255.0;
-                bbox_marker.color.g = 205 /255.0;
-                bbox_marker.color.b = 50 / 255.0;
-
-
-        bbox_markers.markers.append(bbox_marker)
-
-    m_pub.publish(bbox_markers)
-
 def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
     sem_labels = read_sem_label(semantic_anno_path).astype(np.int32)
     # dt=np.dtype('int,int,int')
@@ -265,12 +223,31 @@ def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
 
     return color_map
 
+def apply_rgb_cmap(img_path, bin_np, calib_ext_file, calib_intr_file, return_pc_mask=False):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
+        )
+
+    valid_point_mask = in_bounds & pts_mask
+    valid_point_indices = np.where(valid_point_mask)[0]
+    valid_points = image_pts[valid_point_mask, :]
+    pt_color_map = np.array([(255, 255, 255)] * bin_np.shape[0], dtype=np.uint32)
+
+    image_np = cv2.imread(img_path, cv2.IMREAD_COLOR)
+
+    pt_color_map[valid_point_indices, :3] = image_np[valid_points[:, 1], valid_points[:, 0]]
+    pt_color_map = np.stack((pt_color_map[:, 2], pt_color_map[:, 1], pt_color_map[:, 0]), axis=-1)
+    return pt_color_map, valid_point_mask
+
 def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
 
     in_bounds = np.logical_and(
-            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
-            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
         )
 
     valid_point_mask = in_bounds & pts_mask
