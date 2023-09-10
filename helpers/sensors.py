@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from helpers.constants import *
 import sensor_msgs
 
-def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
+def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="xyz i t"):
     #Process Header
     packets = client.Packets(packet_arr, os1_info)
     scans = client.Scans(packets)
@@ -57,8 +57,19 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts):
     rg          = np.expand_dims(rg, axis=-1)
     nr          = np.expand_dims(nr, axis=-1)
     ring        = np.expand_dims(ring, axis=-1)
+    
+    pc = np.empty((xyz_points.shape[0], xyz_points.shape[1], 0))
+    point_type_list = point_types.split(' ')
+    for point_type in point_type_list:
+        if point_type=="xyz":
+            pc = np.dstack((pc, xyz_points))
+        elif point_type=="i":
+            pc = np.dstack((pc, rf))
+        elif point_type=="t":
+            pc = np.dstack((pc, ts_points))
+    pc = pc.astype(np.float32)
 
-    pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
+    # pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
 
     return pc, sensor_ts
 
@@ -85,7 +96,7 @@ def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
 
 def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=False):
     assert (frame is not None and include_name) or (frame is None and not include_name), \
-        "Invalid frame and include name argument combination..."
+        f'Invalid frame {frame} and include name argument {include_name} combination...'
     trajectory = str(trajectory)
 
     filepath = os.path.join(indir, modality, sensor_name, trajectory)

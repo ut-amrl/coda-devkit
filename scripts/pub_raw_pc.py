@@ -102,7 +102,7 @@ if __name__ == '__main__':
     bin_paths.sort(
         key=lambda binpath: int(binpath.split("/")[-1].split(".")[0].split("_")[-1])
     )
-    frame_to_ts_path = join(indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+    frame_to_ts_path = join(indir, "timestamps", "%i.txt"%trajectory)
     frame_to_ts_np = np.fromfile(frame_to_ts_path, sep=' ').reshape(-1,)
 
     pc_pub_rate = rospy.Rate(2)

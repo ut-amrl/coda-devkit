@@ -17,6 +17,10 @@ from sensor_msgs.msg import PointCloud2, Image
 from visualization_msgs.msg import  Marker, MarkerArray
 from geometry_msgs.msg import PoseStamped, Point
 
+# For imports
+import sys
+sys.path.append(os.getcwd())
+
 from helpers.visualization import (clear_marker_array, create_3d_bbox_marker, pub_pose,
                                     project_3dbbox_image, pub_pc_to_rviz, apply_semantic_cmap,
                                     apply_rgb_cmap)
@@ -31,14 +35,13 @@ import sys
 import termios
 import tty
 
-parser = argparse.ArgumentParser(description="CODa path and sequence.")
-parser.add_argument("-d", "--dataset_path", default="/robodata/arthurz/Datasets/CODa_dev",
-                    type=str,
-                    help="Path to the dataset")
-parser.add_argument("-s", "--sequence", type=str, default="0", nargs="+",
-                    help="Sequence number")
-parser.add_argument("-c", "--color_type", type=str, default="classId", nargs="+",
-                    help="Color map to use for coloring boxes (isOccluded, classId")
+parser = argparse.ArgumentParser(description="CODa rviz visualizer")
+parser.add_argument("-s", "--sequence", type=str, default="0", 
+                    help="Sequence number (Default 0)")
+parser.add_argument("-f", "--start_frame", type=str, default="0",
+                    help="Frame to start at (Default 0)")
+parser.add_argument("-c", "--color_type", type=str, default="classId", 
+                    help="Color map to use for coloring boxes Options: [isOccluded, classId] (Default classId)")
 
 def get_key():
     old_settings = termios.tcgetattr(sys.stdin)
@@ -50,7 +53,9 @@ def get_key():
     return ch
 
 def main(args):
-    indir, sequences, color_type = args.dataset_path, args.sequence, args.color_type
+    indir = os.getenv(ENV_CODA_ROOT_DIR)
+    assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
+    sequences, start_frame, color_type = args.sequence, int(args.start_frame), args.color_type
     rospy.init_node('CODa_publisher')
 
     # Define Frames
@@ -79,13 +84,13 @@ def main(args):
 
     # Define TF Broadcaster
     tf_broadcaster = tf2_ros.TransformBroadcaster()
-    rate = rospy.Rate(100)
+    rate = rospy.Rate(200)
     
     for sequence in sequences:
         # Path to the data
         calib_dir       = join(indir, CALIBRATION_DIR, sequence)
         lidar_ts_dir    = join(indir, TIMESTAMPS_DIR,
-                                        f"{sequence}_frame_to_ts.txt")
+                                        f"{sequence}.txt")
         poses_dir       = join(indir, POSES_DIR)
         
         # Pose DATA
@@ -138,6 +143,9 @@ def main(args):
             lidar_ts = rospy.Time.from_sec(lidar_ts_np[frame])
             last_frame = frame
 
+            if frame < start_frame:
+                continue
+
             # Broadcast TF (odom -> os1)
             tf_msg = tf2_ros.TransformStamped()
             tf_msg.header.stamp = lidar_ts
@@ -158,15 +166,14 @@ def main(args):
             
             # Get the path to the data
             pc_file   = set_filename_dir(indir, TRED_COMP_DIR, "os1", sequence, frame, include_name=True)
-            cam0_file = set_filename_dir(indir, TWOD_RAW_DIR, "cam0", sequence, frame, include_name=True)
-            cam1_file = set_filename_dir(indir, TWOD_RAW_DIR, "cam1", sequence, frame, include_name=True)
+            cam0_file = set_filename_dir(indir, TWOD_RECT_DIR, "cam0", sequence, frame, include_name=True)
+            cam1_file = set_filename_dir(indir, TWOD_RECT_DIR, "cam1", sequence, frame, include_name=True)
             bbox_file = set_filename_dir(indir, TRED_BBOX_LABEL_DIR, "os1", sequence, frame, include_name=True)
             sem_file = set_filename_dir(indir, SEMANTIC_LABEL_DIR, "os1", sequence, frame, include_name=True)
 
             # Publish Point Cloud
             if os.path.exists(pc_file):
-                lidar_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", sequence, frame, include_name=True)
-                lidar_np = read_bin(lidar_path, keep_intensity=False)
+                lidar_np = read_bin(pc_file, keep_intensity=False)
 
                 LtoG                = pose_to_homo(pose) # lidar to global frame
                 homo_lidar_np       = np.hstack((lidar_np, np.ones((lidar_np.shape[0], 1))))
@@ -174,23 +181,25 @@ def main(args):
                 trans_lidar_np      = trans_homo_lidar_np[:, :3]
                 trans_lidar_np      = trans_lidar_np.reshape(-1, 3).astype(np.float32)
 
-                point_type = "xyz"
+                point_type = "x y z"
                 sem_color = None
                 if os.path.exists(sem_file):
                     sem_color = apply_semantic_cmap(sem_file)
-                    point_type="xyzc"
+                    point_type="x y z r g b"
+                    trans_lidar_np = np.hstack((trans_lidar_np, sem_color))
                 elif os.path.exists(cam0_file):
                     sem_color, pc_mask = apply_rgb_cmap(cam0_file, lidar_np, os1_to_cam0_ext_file,
                         cam0_intrinsics_file, return_pc_mask=True)
 
                     trans_lidar_np = trans_lidar_np[pc_mask, :]
-                    sem_color = sem_color[pc_mask, :]
-                    point_type="xyzc"
-                
+                    sem_color = sem_color[pc_mask, :].astype(np.float32) / 255.0
+                    point_type="x y z r g b"
+                    trans_lidar_np = np.hstack((trans_lidar_np, sem_color))
+
                 pub_pc_to_rviz(trans_lidar_np, lidar_pub, lidar_ts, 
                     point_type=point_type, 
-                    frame_id=global_frame,
-                    sem_color=sem_color)
+                    frame_id=global_frame)
+
 
             # Publish the 3D Bounding Box
             if os.path.exists(bbox_file):

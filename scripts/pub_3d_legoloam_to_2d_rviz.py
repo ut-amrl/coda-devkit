@@ -36,7 +36,7 @@ def main(args):
     indir = "/robodata/arthurz/Datasets/CODa_dev"
     pose_path = f"{indir}/poses/{trajectory}.txt"
     # pose_path = f"{trajectory}.txt"
-    ts_path = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
+    ts_path = f"{indir}/timestamps/{trajectory}.txt"
     bin_dir   = f"{indir}/3d_comp/os1/{trajectory}/"
     outdir    = f"./cloud_to_laser/%s" % args.traj
 

@@ -20,6 +20,8 @@ SOFTWARE.
 
 from sensor_msgs.msg import PointField
 
+ENV_CODA_ROOT_DIR = 'CODA_ROOT_DIR' 
+
 """
 VISUALIZATION SETTINGS
 """

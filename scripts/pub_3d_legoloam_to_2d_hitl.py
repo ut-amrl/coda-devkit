@@ -155,7 +155,7 @@ def main(args):
     trajectory = args.traj
     indir = "/robodata/arthurz/Datasets/CODa_dev"
     pose_path = f"{indir}/poses/{trajectory}.txt"
-    ts_path   = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
+    ts_path   = f"{indir}/timestamps/{trajectory}.txt"
     outdir   = f"./cloud_to_laser/%s" % args.traj
     save_dir = os.path.join("./", "HitL")
 

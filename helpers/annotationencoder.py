@@ -123,7 +123,7 @@ class AnnotationEncoder(object):
             in_pose_file = os.path.join(self._indir, "poses", "%i.txt"%traj)
             assert os.path.isfile(in_pose_file), '%s does not exist' % in_pose_file
 
-            in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%traj)
+            in_ts_file = os.path.join(self._indir, "timestamps", "%i.txt"%traj)
             assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
 
             in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
@@ -386,7 +386,7 @@ class AnnotationEncoder(object):
         shutil.copytree(in_calib_dir, out_calib_dir)
 
     def copy_ts_by_trajectory(self, trajectory):
-        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i.txt"%trajectory)
         assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
 
         out_ts_dir = os.path.join(self._outdir, "timestamps")
@@ -400,7 +400,7 @@ class AnnotationEncoder(object):
         in_pose_file    = os.path.join(self._indir, "poses", "%i.txt"%trajectory)
         assert os.path.isfile(in_pose_file), '%s does not exist' % in_pose_file
 
-        in_ts_file = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%trajectory)
+        in_ts_file = os.path.join(self._indir, "timestamps", "%i.txt"%trajectory)
         assert os.path.isfile(in_ts_file), '%s does not exist' % in_ts_file
 
         in_pose_np = np.fromfile(in_pose_file, sep=' ').reshape(-1, 8)
@@ -423,7 +423,7 @@ class AnnotationEncoder(object):
         
         # Load pose estimate
         pose_file = os.path.join(self._indir, "poses", "%s.txt" % traj)
-        frame_to_ts_file    = os.path.join(self._indir, "timestamps", "%i_frame_to_ts.txt"%traj)
+        frame_to_ts_file    = os.path.join(self._indir, "timestamps", "%i.txt"%traj)
         assert os.path.isfile(pose_file), "Error: pose file for trajectory %s \
             cannot be found in filepath %s\n Exiting..."%(traj, pose_file)
         assert os.path.isfile(frame_to_ts_file), "Error: pose file for trajectory %s \

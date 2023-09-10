@@ -14,9 +14,7 @@ from helpers.sensors import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_path', default="/robodata/arthurz/Datasets/CODa",
-                    help="Absolute Filepath to CODa directory")
-parser.add_argument('--traj', default="13",
+parser.add_argument('--traj', default="0",
                     help="Select a trajectory to visualize ")
 parser.add_argument('--frame', default="0",
                     help="Select a frame to visualize ")
@@ -43,13 +41,14 @@ def find_closest_frame_idx(sync_img_file, sorted_sync_img_ts, sorted_unsync_img_
     return closest_img_path
 
 def main(args):
-    indir = args.data_path
+    indir = os.getenv(ENV_CODA_ROOT_DIR)
+    assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     traj  = args.traj
     target_frame = args.frame
 
     sync_img_dir = "%s/2d_raw/cam0/%s" % (indir, traj)
-    unsync_img_dir = "%s/3d_raw/cam2/%s" % (indir, traj)
-    sync_ts_file = join(indir, TIMESTAMPS_DIR, "%s_frame_to_ts.txt"%traj)
+    unsync_img_dir = "%s/3d_raw/cam3/%s" % (indir, traj)
+    sync_ts_file = join(indir, TIMESTAMPS_DIR, "%s.txt"%traj)
     unsync_img_files = np.array([img_file for img_file in os.listdir(unsync_img_dir) if img_file.endswith('.png')])
     unsync_img_ts = np.array([extract_ts(img_file) for img_file in unsync_img_files])
     unsync_sort_mask = np.argsort(unsync_img_ts) # low to high
@@ -77,6 +76,8 @@ def main(args):
         max_val = np.max(unsync_img_np)
         unsync_img_np = unsync_img_np * (255.0 / max_val)
         
+        print(f'Writing image to directory {os.getcwd()}/testsync.png')
+        print(f'Writing image to directory {os.getcwd()}/testsunync.png')
         cv2.imwrite("testsync.png", sync_img_np)
         cv2.imwrite("testunsync.png", unsync_img_np)
         import pdb; pdb.set_trace()

@@ -12,18 +12,16 @@ import open3d as o3d
 import sys
 sys.path.append(os.getcwd())
 from helpers.sensors import get_calibration_info, get_filename_info, set_filename_dir, read_bin
-from helpers.constants import TRED_RAW_DIR, CALIBRATION_DIR, TIMESTAMPS_DIR, STEREO_SETTINGS
+from helpers.constants import TRED_RAW_DIR, TRED_COMP_DIR, CALIBRATION_DIR, TIMESTAMPS_DIR, STEREO_SETTINGS, ENV_CODA_ROOT_DIR
 from helpers.visualization import pub_pc_to_rviz
 from scipy.spatial.transform import Rotation as R
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--indir', default="/robodata/arthurz/Datasets/CODa_dev",
-                    help="Provide the path to where CODa is installed")
 parser.add_argument('--traj', default="0",
                     help="Select a trajectory 0-22")
-parser.add_argument('--cam', default="cam3",
-                    help="Select a stereo camera to visualize (cam2, cam3)")
+# parser.add_argument('--cam', default="cam3",
+#                     help="Select a stereo camera to visualize (cam2, cam3)")
 
 def convert_depth_to_pc(depth_img_np, fx, fy, cx, cy, range=[0.4, 25.0]):
     """
@@ -89,12 +87,13 @@ def process_stereo_to_pointcloud(depth_img_path, calib_intr_path, calib_extr_pat
 
 def main(args):
     traj    = args.traj
-    camid   = args.cam
-    indir   = args.indir
+    camid   = "cam3" #args.cam
+    indir   = os.getenv(ENV_CODA_ROOT_DIR)
+    assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     # stereo_dir = "/robodata/arthurz/Datasets/CODa_cal"
-    depth_dir = join(indir, TRED_RAW_DIR, camid, str(traj))
-    pc_dir      = join(indir, TRED_RAW_DIR, "os1", str(traj))
-    ts_path     = join(indir, TIMESTAMPS_DIR, f'{traj}_frame_to_ts.txt')
+    depth_dir   = join(indir, TRED_RAW_DIR, camid, str(traj))
+    pc_dir      = join(indir, TRED_COMP_DIR, "os1", str(traj))
+    ts_path     = join(indir, TIMESTAMPS_DIR, f'{traj}.txt')
     calib_extr_path = join(indir, CALIBRATION_DIR, str(traj), f'calib_os1_to_{camid}.yaml')
     calib_intr_path = join(indir, CALIBRATION_DIR, str(traj), f'calib_{camid}_intrinsics.yaml')
     rospy.init_node('coda_check_stereo')
@@ -104,7 +103,7 @@ def main(args):
 
     # Set up ROS publishers for transformed depth image and point cloud
     depth_pc_pub = rospy.Publisher(f'/coda/{camid}/depth_cloud', PointCloud2, queue_size=10)
-    lidar_pc_pub = rospy.Publisher('/coda/ouster/lidar_packets', PointCloud2, queue_size=10)
+    lidar_pc_pub = rospy.Publisher('/coda/ouster/points', PointCloud2, queue_size=10)
     rate = rospy.Rate(5)
 
     # Read all 3d_files from directory
@@ -123,15 +122,15 @@ def main(args):
         depth_ts =  float(ts_str_dec)
 
         depth_pc_np = process_stereo_to_pointcloud(file_path, calib_intr_path, calib_extr_path, depth_range=depth_range)
-        pub_pc_to_rviz(depth_pc_np, depth_pc_pub, depth_ts, point_type="xyz")
+        pub_pc_to_rviz(depth_pc_np, depth_pc_pub, depth_ts, point_type="x y z")
 
         # Find closest point cloud to ts
         closest_lidar_frame = np.searchsorted(ts_np, depth_ts, side='left')
         lidar_ts = ts_np[closest_lidar_frame]
         lidar_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", str(traj), closest_lidar_frame, include_name=True)
-        lidar_np = read_bin(lidar_path, keep_intensity=False)
+        lidar_np = read_bin(lidar_path, keep_intensity=True)
 
-        pub_pc_to_rviz(lidar_np, lidar_pc_pub, lidar_ts, point_type="xyzi")
+        pub_pc_to_rviz(lidar_np, lidar_pc_pub, lidar_ts, point_type="x y z i")
         rate.sleep()
 
 if __name__ == '__main__':
