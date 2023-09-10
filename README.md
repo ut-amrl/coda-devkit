@@ -31,7 +31,8 @@ the <b>[GETTING STARTED](#GETTING_STARTED)</b> section.
 ## <a name="GETTING_STARTED"></a>Getting Started
 
 The [GETTING_STARTED](./docs/GETTING_STARTED.md) documentation describes how to download CODa programmatically
-and use the visualization scripts.
+and use the visualization scripts. To download the tiny and small splits of CODa by individual files, go to the
+[Texas Data Repository](https://dataverse.tdl.org/dataset.xhtml?persistentId=doi%3A10.18738%2FT8%2FBBOQMV&version=DRAFT).
 
 ## <a name="DATA_REPORT"></a>Data Report
 
@@ -44,7 +45,7 @@ To run the 3D object detection models from CODa, refer to CODa's sister Github r
 <b>model training configurations</b> to reproduce the results in our paper.
 
 # Citation
-If you use our dataset of the tools, we would appreciate if you cite both our paper and dataset
+If you use our dataset of the tools, we would appreciate if you cite both our paper and dataset.
 
 ### Paper Citation
 ```
