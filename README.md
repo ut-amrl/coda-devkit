@@ -48,7 +48,7 @@ If you use our dataset of the tools, we would appreciate if you cite both our pa
 
 ### Paper Citation
 ```
-@inproceedings{zhang2023ijjr,
+@inproceedings{zhangcoda2023,
   author = {A. Zhang, C. Eranki, C. Zhang, R. Hong, P. Kalyani, L. Kalyanaraman, A. Gamare, A. Bagad, M. Esteva, J. Biswas},
   title = {{Towards Robust 3D Robot Perception in Urban Environments: The UT Campus Object Dataset}},
   booktitle = {},
@@ -58,12 +58,12 @@ If you use our dataset of the tools, we would appreciate if you cite both our pa
 
 ### Dataset Citation
 ```
-@data{coda-tdr,
+@data{T8/BBOQMV_2023,
 author = {Zhang, Arthur and Eranki, Chaitanya and Zhang, Christina and Hong, Raymond and Kalyani, Pranav and Kalyanaraman, Lochana and Gamare, Arsh and Bagad, Arnav and Esteva, Maria and Biswas, Joydeep},
 publisher = {Texas Data Repository},
 title = {{UT Campus Object Dataset (CODa)}},
 year = {2023},
-version = {0.1},
+version = {DRAFT VERSION},
 doi = {10.18738/T8/BBOQMV},
 url = {https://doi.org/10.18738/T8/BBOQMV}
 }
