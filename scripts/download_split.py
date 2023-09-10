@@ -18,7 +18,7 @@ parser.add_argument("-t", '--type', required=True,
 parser.add_argument("-sp", '--split', default="tiny", 
                     help="CODa split to download. Only applies when type=split Options: ['tiny', 'small', 'medium', 'full']")
 parser.add_argument("-se", '--sequence', default="0", 
-                    help="CODa sequence to download. Only applies when type=sequence Options: [0 - 22]Options: [0 - 22]")
+                    help="CODa sequence to download. Only applies when type=sequence Options: [0 - 22]")
 
 CHUNK_SIZE = 1024 * 1024  # 1 MB chunk size (adjust as needed)
 

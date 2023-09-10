@@ -52,7 +52,7 @@ def get_key():
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
     return ch
 
-def main(args):
+def vis_annos_rviz(args):
     indir = os.getenv(ENV_CODA_ROOT_DIR)
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     sequences, start_frame, color_type = args.sequence, int(args.start_frame), args.color_type
@@ -268,4 +268,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    main(args)
+    vis_annos_rviz(args)

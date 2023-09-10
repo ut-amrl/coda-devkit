@@ -5,9 +5,9 @@ import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', default="config/bagdecoder.yaml",
+parser.add_argument('-c', '--config', default="config/bagdecoder.yaml",
                     help="decode config file (see config/decode.yaml for example)")
-parser.add_argument('--all_days', default=False, help="decode all sudirs or the one specified in .yaml")
+parser.add_argument('-a', '--all_days', default=False, help="decode all sudirs or the one specified in .yaml")
 
 # For imports
 sys.path.append(os.getcwd())
