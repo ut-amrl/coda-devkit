@@ -1,6 +1,6 @@
 # UT Campus Object Dataset (CODa)
 
-<b>Official dataset development kit for CODa. We strongly recommend using this document to visualize the
+<b>Official dataset development kit for CODa. We strongly recommend using this repository to visualize the
 dataset and understand its contents.</b>
 
 ![Sequence 0 Clip](./docs/CODaComp1000Trim.gif)
