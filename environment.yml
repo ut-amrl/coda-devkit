@@ -491,4 +491,3 @@ dependencies:
     - pyqtwebengine==5.12.1
     - geopy
     - folium
-prefix: /home/arthur/miniconda3/envs/coda

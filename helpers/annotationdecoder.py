@@ -184,7 +184,7 @@ class AnnotationDecoder(object):
         anno_dict["trajectory"] = traj   
         anno_dict["sensor"]     = "os1"
 
-        ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+        ts_to_frame_path = join(self._outdir, "timestamps", "%s.txt"%anno_dict["trajectory"])
         pose_path   = join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
         pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
         ts_np       = np.loadtxt(ts_to_frame_path)
@@ -356,7 +356,7 @@ class AnnotationDecoder(object):
         with open(filepath, 'r') as annos_file:
             annos = yaml.safe_load(annos_file)
 
-            ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
+            ts_to_frame_path = join(self._outdir, "timestamps", "%s.txt"%traj)
             ts_to_poses_path = join(self._outdir, "poses", "%s.txt"%traj)
 
             frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
@@ -493,7 +493,7 @@ class AnnotationDecoder(object):
             anno_dict["trajectory"] = labeling_job_name[1]    
             anno_dict["sensor"]     = labeling_job_name[2]
 
-            ts_to_frame_path = join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%anno_dict["trajectory"])
+            ts_to_frame_path = join(self._outdir, "timestamps", "%s.txt"%anno_dict["trajectory"])
             pose_path   = join(self._outdir, "poses", "%s.txt"%anno_dict["trajectory"])
             pose_np     = np.loadtxt(pose_path, dtype=np.float64).reshape(-1, 8)
             ts_np       = np.loadtxt(ts_to_frame_path)

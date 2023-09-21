@@ -62,7 +62,7 @@ def compensate_frame(pc_path, frame_ts, s0_pose, s2_pose):
 def compensate_single_trajectory_frame(args):
     indir, outdir, trajectory, pc_path, offset, camid, modality = args
 
-    ts_path = join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
+    ts_path = join(indir, "timestamps", "%s.txt"%trajectory)
     pose_path = join(indir, "poses", "%s.txt"%trajectory)
 
     # Load timestamps and dense poses file
@@ -174,7 +174,7 @@ def compensate_trajectory_frames(args):
         pass
         
 def compensate_all_frames(indir, outdir, trajectory, offset_frames, skip_amount=1, camid="cam0", save_modality="2d"):
-    ts_path = join(indir, "timestamps", "%s_frame_to_ts.txt"%trajectory)
+    ts_path = join(indir, "timestamps", "%s.txt"%trajectory)
     frame_ts_np = np.fromfile(ts_path, sep=' ').reshape(-1, 1)
 
     total_frames = frame_ts_np.shape[0]

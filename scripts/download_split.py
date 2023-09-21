@@ -1,15 +1,24 @@
 import requests
 import os
 import tarfile
+import zipfile
 import argparse
 
 from tqdm import tqdm  # Import tqdm for the loading bar
 
+import sys
+sys.path.append(os.getcwd())
+
+from helpers.constants import ENV_CODA_ROOT_DIR
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--download_url', default="https://dataverse.tdl.org/api/access/datafile/288159",
-                    help="Download url for dataset files, defaults to CODa_tiny")
-parser.add_argument('--api_token', default="DEFAULT_API_TOKEN",
-                    help="Paste API Token used to download file")
+parser.add_argument("-d", '--download_parent_dir', required=True, help="Parent directory to download CODa split to")
+parser.add_argument("-t", '--type', required=True,
+                    help="Download by sequence (recommended for visualization) or by split (recommended for experiments) Options: ['sequence', 'split'] ")
+parser.add_argument("-sp", '--split', default="tiny", 
+                    help="CODa split to download. Only applies when type=split Options: ['tiny', 'small', 'medium', 'full']")
+parser.add_argument("-se", '--sequence', default="0", 
+                    help="CODa sequence to download. Only applies when type=sequence Options: [0 - 22]")
 
 CHUNK_SIZE = 1024 * 1024  # 1 MB chunk size (adjust as needed)
 
@@ -68,10 +77,10 @@ def download_file(url, output_path):
         print(f"\nFile downloaded successfully: {file_path}")
 
         # Untar the downloaded file if it's a tar archive]
-        is_compressed = file_path.lower().find(".tar.gz")!=-1
-        if is_compressed:
+        is_tar_compressed = file_path.lower().find(".tar.gz")!=-1
+        if is_tar_compressed:
             print(f"Extracting file: {file_path}")
-            with tarfile.open(file_path, "r:gz" if is_compressed else "r") as tar:
+            with tarfile.open(file_path, "r:gz" if is_tar_compressed else "r") as tar:
                 # Get the total number of members (files and directories) in the tar archive
                 total_members = len(tar.getmembers())
 
@@ -85,23 +94,58 @@ def download_file(url, output_path):
                         # Set permissions for the extracted file
                         extracted_file_path = os.path.join(output_path, member.name)
                         os.chmod(extracted_file_path, 0o755)  # Set permissions to 644 (Owner: RW, Group: R, Others: R)
+            
+            coda_extracted_path = file_path.split('.')[0]
 
-            print("Setting CODA_INDIR to be extracted location %s"%file_path)
-            os.environ["CODA_INDIR"] = file_path
-            print(f"\nFile extracted successfully: {file_path}")
+        is_zip_compressed = file_path.lower().find(".zip")!=-1
+        if is_zip_compressed:
+            print(f"Extracting file: {file_path}")
+            with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                total_files = len(zip_ref.namelist())
+                with tqdm(total=total_files, unit='file') as pbar:
+                    for file in zip_ref.namelist():
+                        zip_ref.extract(file, output_path)
+                        pbar.update(1) 
+
+            coda_extracted_path = output_path
+
+        print(f"\nFile extracted successfully to {output_path}")
+        print(f"REQUIRED: Set the environment variable {ENV_CODA_ROOT_DIR} for scripts to work correctly:")
+        print(f'RUN: export {ENV_CODA_ROOT_DIR}={coda_extracted_path}')
+        print("REQUIRED: Run the following command to add this to your .bashrc file too!")
+        print(f'RUN: echo \'export {ENV_CODA_ROOT_DIR}={coda_extracted_path}\' >> ~/.bashrc ')
+
     except requests.exceptions.RequestException as e:
         print(f"Error downloading file: {e}")
 
 def main(args):
-    download_url = args.download_url
-
-    download_dir = os.environ.get("CODA_DIR", "")
-    assert download_dir!="", 'Download directory {download_dir} environment variable is empty, exiting...'
+    download_dir = args.download_parent_dir
+    download_type       = str(args.type)
+    download_split      = str(args.split)
+    download_sequence   = str(args.sequence)
 
     if not os.path.exists(download_dir):
         print(f'Making output dir here {download_dir}')
         os.makedirs(download_dir)
-    
+
+    split_to_download_url = {
+        'tiny': "https://dataverse.tdl.org/api/access/datafile/288159",
+    }
+
+    sequence_to_download_url = {
+        '0': "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/sequences/0.zip"
+    }
+
+    assert download_type=='sequence' or download_type=='split', f'Invalid download type argument {download_type}'
+    if download_type=='split':
+        valid_splits = list(split_to_download_url.keys())
+        assert download_split in valid_splits, f'Invalid split specified {download_split}'
+        download_url = split_to_download_url[download_split]
+    elif download_type=='sequence':
+        valid_sequences = list(sequence_to_download_url.keys())
+        assert download_sequence in valid_sequences, f'Invalid split specified {download_sequence}'
+        download_url = sequence_to_download_url[download_sequence]
+
     print(f'Downloading dataset from url {download_url}')
     download_file(download_url, download_dir)
 

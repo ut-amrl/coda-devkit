@@ -3,7 +3,7 @@
 #                 UT Austin Campus Object Dataset (CODa)                  #
 #                                                                         #
 #   Principal Investigators                                               #
-#   Arthur Zhang                        Dr. Joydeep Biswas                #
+#   Arthur King Zhang                   Dr. Joydeep Biswas                #
 #   University of Texas at Austin       University of Texas at Austin     #
 #   2317 Speedway, Austin, TX 78712     2317 Speedway, Austin, TX 78712   #
 #   arthurz@cs.utexas.edu               joydeepb@cs.utexas.edu            #
@@ -15,6 +15,7 @@
 #       Pranav Kalyani          (pranavkalyani@cs.utexas.edu)             #
 #       Lochana Kalyanaraman    (lochanakalyan@cs.utexas.edu)             #
 #       Arsh Gamare             (arsh.gamare@utexas.edu)                  #
+#       Arnav Bagad             (arnavb@cs.utexas.edu)                    #
 #       Maria Esteva            (maria@tacc.utexas.edu)                   #
 #                                                                         #
 #   Data Collection Period/Location                                       #
@@ -38,8 +39,8 @@ If you use our dataset of the tools, we would appreciate if you cite both our da
 
 ### Paper Citation
 ```
-@inproceedings{zhang2023ijjr,
-  author = {A. Zhang, C. Eranki, C. Zhang, R. Hong, P. Kalyani, L. Kalyanaraman, A. Gamare, M. Esteva, J. Biswas},
+@inproceedings{zhangcoda2023,
+  author = {A. Zhang, C. Eranki, C. Zhang, R. Hong, P. Kalyani, L. Kalyanaraman, A. Gamare, A. Bagad, M. Esteva, J. Biswas},
   title = {{Towards Robust 3D Robot Perception in Urban Environments: The UT Campus Object Dataset}},
   booktitle = {},
   year = {2023}
@@ -48,23 +49,15 @@ If you use our dataset of the tools, we would appreciate if you cite both our da
 
 ### Dataset Citation
 ```
-@data{coda-tdr,
-author = {Zhang, Arthur and Eranki, Chaitanya and Zhang, Christina and Hong, Raymond and Kalyani, Pranav and Kalyanaraman, Lochana and Gamare, Arsh and Esteva, Maria and Biswas, Joydeep},
+@data{T8/BBOQMV_2023,
+author = {Zhang, Arthur and Eranki, Chaitanya and Zhang, Christina and Hong, Raymond and Kalyani, Pranav and Kalyanaraman, Lochana and Gamare, Arsh and Bagad, Arnav and Esteva, Maria and Biswas, Joydeep},
 publisher = {Texas Data Repository},
 title = {{UT Campus Object Dataset (CODa)}},
 year = {2023},
-version = {0.1},
+version = {DRAFT VERSION},
 doi = {10.18738/T8/BBOQMV},
 url = {https://doi.org/10.18738/T8/BBOQMV}
 }
-```
-
-# Installing the Official CODa Development Kit
-
-The CODa development kit provides scripts for downloading, visualizing, and interfacing with CODa and can be installed from pip using the following command:
-
-```
-pip install coda-devkit
 ```
 
 # Dataset Contents
@@ -92,7 +85,7 @@ We collected CODa from the perspective of a mobile robot (Clearpath Husky) on UT
 - 1 x Vectornav VN-310 Dual GNSS/INS, up to 800 Hz IMU Data. Inertial and GPS data captured @ 40Hz
 
 
-We synchronized the Ouster 3D LiDAR and FLIR cameras using hardware. At the start of each scan, the 3D LiDAR emits a sync pulse to trigger the exposure for the FLIR cameras. We store the original ROS timestamps for the other sensors, but do not guarantee that the timestamps are synchronized with respect to the 3D LiDAR and FLIR cameras. We recorded raw sensor messages from multiple sensors using the Robot Operating System (ROS) and processed these sensor messages into individual files using the `coda-devkit`. We provide this devkit for download from pip and CODa on the Texas Dataverse. 
+We synchronized the Ouster 3D LiDAR and FLIR cameras using hardware. At the start of each scan, the 3D LiDAR emits a sync pulse to trigger the exposure for the FLIR cameras. We store the original ROS timestamps for the other sensors, but do not guarantee that the timestamps are synchronized with respect to the 3D LiDAR and FLIR cameras. We recorded raw sensor messages from multiple sensors using the Robot Operating System (ROS) and processed these sensor messages into individual files using the `coda-devkit`. We provide this devkit for download from Github and CODa on the Texas Dataverse. 
 
 <p align="center">
   <img src="./campusmap.png" width="70%">

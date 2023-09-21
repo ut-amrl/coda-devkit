@@ -697,7 +697,7 @@ def load_location_counts_dict(indir, outdir, counts_file="GEN_location_counts.js
         # Loop through all available trajectories
         for traj in range(23):
             traj = str(traj)
-            timestamp_path = join(timestamp_dir, "%s_frame_to_ts.txt"%traj)
+            timestamp_path = join(timestamp_dir, "%s.txt"%traj)
             timestamp_np = np.loadtxt(timestamp_path).reshape(-1,)
             time_ints = convert_ts_to_military(timestamp_np)
             print("Start processing traj %s"%traj)

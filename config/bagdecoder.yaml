@@ -1,10 +1,10 @@
 repository_root: "/robodata/husky_logs/CODa_bags"
 # repository_root: "/robodata/arthurz/Datasets/CODa_sync_bags"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa_dev"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_test"
 bag_date: "20230116"
 
 #Bag Decoder Settings
-gen_data: False   # Generates data files
+gen_data: True   # Generates data files
 viz_topics: True     # Republish sensor messages
 verbose: True    # Debugging
 

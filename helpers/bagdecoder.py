@@ -232,7 +232,7 @@ class BagDecoder(object):
                     )
                     
             #Create frame to timestamp map
-            frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i_frame_to_ts.txt"%self._trajectory)
+            frame_to_ts_path= os.path.join(self._outdir, "timestamps", "%i.txt"%self._trajectory)
             if self._gen_data:
                 if len(self._sync_topics)>0:
                     self._frame_to_ts     = open(frame_to_ts_path, 'w+')
@@ -315,7 +315,7 @@ class BagDecoder(object):
             traj = pose_file.split(".")[0]
 
             #Locate closest pose from frame
-            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s_frame_to_ts.txt"%traj)
+            ts_to_frame_path = os.path.join(self._outdir, "timestamps", "%s.txt"%traj)
             ts_to_poses_path = os.path.join(poses_dir, pose_file)
             frame_to_poses_np = np.loadtxt(ts_to_poses_path).reshape(-1, 8)
             frame_to_ts_np = np.loadtxt(ts_to_frame_path)
@@ -504,7 +504,7 @@ class BagDecoder(object):
                     self.save_frame_ts(ts)
                     topic_name = self._async_pubs[topic]
 
-                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, point_type="xyzi", publish=self._viz_topics)
+                pc_msg = pub_pc_to_rviz(pc, topic_name, ts, point_type="x y z i t", publish=self._viz_topics)
                 if self._viz_topics: 
                     self._pub_rate.sleep() #Limit publish rate of point clouds for LeGO-LOAM
 

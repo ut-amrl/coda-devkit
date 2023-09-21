@@ -20,6 +20,8 @@ SOFTWARE.
 
 from sensor_msgs.msg import PointField
 
+ENV_CODA_ROOT_DIR = 'CODA_ROOT_DIR' 
+
 """
 VISUALIZATION SETTINGS
 """
@@ -315,9 +317,19 @@ OCCLUSION_TO_ID ={
     "unknown": 5
 }
 
+OCCUSION_ID_TO_COLOR = [
+    (0.0, 1.0, 0.0, 1.0), # Green
+    (0.0, 1.0, 1.0, 1.0), # Cyan
+    (1.0, 1.0, 0.0, 1.0), # Yellow
+    (1.0, 0.0, 1.0, 1.0), # Magenta
+    (1.0, 0.0, 0.0, 1.0), # Red
+    (0.0, 0.0, 0.0, 1.0), # Black
+    (0.0, 0.0, 0.0, 1.0) # Black
+]
+
 NONRIGID_CLASS_IDS = [6, 7]
 
-BBOX_ID_TO_COLOR = [
+BBOX_ID_TO_COLOR = [ # BGR
     (140, 51, 147),         #0 Car (Blue)
     (7, 33, 229),           #1 Person (Green)
     (66, 21, 72),           #2 Bike

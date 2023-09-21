@@ -1,5 +1,4 @@
 import os
-import pdb
 import json
 
 #Libraries
@@ -24,133 +23,238 @@ from helpers.sensors import read_sem_label
 from helpers.geometry import *
 from helpers.calibration import load_extrinsic_matrix
 
-def pub_pc_to_rviz(pc, pc_pub, ts, point_type="xyz", frame_id="os_sensor", publish=True):
+def pub_pc_to_rviz(pc, pc_pub, ts, point_type="x y z", frame_id="os_sensor", publish=True):
     if not isinstance(ts, rospy.Time):
         ts = rospy.Time.from_sec(ts)
-    
-    is_intensity, is_time, is_ring, is_rf, is_all = False, False, False, False, False
-    if "i" in point_type:
-        is_intensity = True
-    if "t" in point_type:
-        is_time = True
-    if "r" in point_type:
-        is_ring = True
-    if "f" in point_type:
-        is_rf = True
-    if is_intensity and is_time and is_ring and is_rf:
-        is_all = True
 
-    if is_rf:
-        rf_start_offset   = 5
-        rf_middle_offset  = rf_start_offset+1
-        rf_end_offset     = 8
+    def add_field(curr_bytes_np, next_pc, field_name, fields):
+        """
+        curr_bytes_np - expect Nxbytes array
+        next_pc - expects Nx1 array
+        datatype - uint32, uint16
+        """
+        field2dtype = {
+            "x":    np.array([], dtype=np.float32),
+            "y":    np.array([], dtype=np.float32),
+            "z":    np.array([], dtype=np.float32),
+            "i":    np.array([], dtype=np.float32),
+            "t":    np.array([], dtype=np.uint32),
+            "re":   np.array([], dtype=np.uint16),
+            "ri":   np.array([], dtype=np.uint16),
+            "am":   np.array([], dtype=np.uint16),
+            "ra":   np.array([], dtype=np.uint32),
+            "r":    np.array([], dtype=np.float32),
+            "g":    np.array([], dtype=np.float32),
+            "b":    np.array([], dtype=np.float32)
+        }
+        field2pftype = {
+            "x": PointField.FLOAT32,  "y": PointField.FLOAT32,  "z": PointField.FLOAT32,
+            "i": PointField.FLOAT32,  "t": PointField.UINT32,  "re": PointField.UINT16,  
+            "ri": PointField.UINT16, "am": PointField.UINT16, "ra": PointField.UINT32,
+            "r": PointField.FLOAT32, "g": PointField.FLOAT32, "b": PointField.UINT32
+        }
+        field2pfname = {
+            "x": "x", "y": "y", "z": "z", 
+            "i": "intensity", "t": "t", 
+            "re": "reflectivity",
+            "ri": "ring",
+            "am": "ambient", 
+            "ra": "range",
+            "r": "r",
+            "g": "g",
+            "b": "b"
+        }
 
-        pc_first    = pc[:, :, :rf_start_offset]
-        pc_time     = pc[:, :, rf_start_offset].astype(np.uint32)
-        pc_middle   = pc[:, :, rf_middle_offset:rf_end_offset].astype(np.uint16)
-        pc_end      = pc[:, :, rf_end_offset:]
+        #1 Populate byte data
+        dtypetemp = field2dtype[field_name]
 
-        first_bytes     = pc_first.reshape(-1, 1).tobytes()
-        time_bytes      = pc_time.reshape(-1, 1).tobytes()
-        middle_bytes    = pc_middle.reshape(-1, 1).tobytes()
-        end_bytes       = pc_end.reshape(-1, 1).tobytes()
+        next_entry_count = next_pc.shape[-1]
+        next_bytes = next_pc.astype(dtypetemp.dtype).tobytes()
+
+        next_bytes_width = dtypetemp.itemsize * next_entry_count
+        next_bytes_np = np.frombuffer(next_bytes, dtype=np.uint8).reshape(-1, next_bytes_width)
+
+        all_bytes_np = np.hstack((curr_bytes_np, next_bytes_np))
+
+        #2 Populate fields
+        pfname  = field2pfname[field_name]
+        pftype  = field2pftype[field_name]
+        pfpos   = curr_bytes_np.shape[-1]
+        fields.append(PointField(pfname, pfpos, pftype, 1))
         
-        first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset*4)
-        time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
-        middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2*2)
+        return all_bytes_np, fields
 
-        end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
-        all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, 
-            middle_bytes_np, end_bytes_np))
+    #1 Populate pc2 fields
+    pc = pc.reshape(-1, pc.shape[-1]) # Reshape pc to N x pc_fields
+    all_bytes_np = np.empty((pc.shape[0], 0), dtype=np.uint8)
+    all_fields_list = []
+    field_names = point_type.split(" ")
+    for field_idx, field_name in enumerate(field_names):
+        next_field_col_np = pc[:, field_idx].reshape(-1, 1)
+        # import pdb; pdb.set_trace()
 
-        # Add ambient and range bytes
-        all_bytes_np = all_bytes_np.reshape(-1, 1)
-    elif is_ring:
-        ring_start_offset   = 4
-        ring_middle_offset  = ring_start_offset+1
-        ring_end_offset     = 6
+        all_bytes_np, all_fields_list = add_field(
+            all_bytes_np, next_field_col_np, field_name, all_fields_list
+        )
 
-        pc_first    = pc[:, :, :ring_start_offset]
-        pc_time     = pc[:, :, ring_start_offset].astype(np.uint32)
-        pc_ring   = pc[:, :, ring_middle_offset:ring_end_offset].astype(np.uint16)
-
-        first_bytes     = pc_first.reshape(-1, 1).tobytes()
-        time_bytes      = pc_time.reshape(-1, 1).tobytes()
-        ring_bytes       = pc_ring.reshape(-1, 1).tobytes()
-        
-        first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, ring_start_offset*4)
-        time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
-        ring_bytes_np = np.frombuffer(ring_bytes, dtype=np.uint8).reshape(-1, 2)
-
-        all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, ring_bytes_np))
-
-        # Add ambient and range bytes
-        all_bytes_np = all_bytes_np.reshape(-1, 1)
-
-    pc_flat = pc.reshape(-1, 1)
-
-    DATATYPE= PointField.FLOAT32
-    if pc.itemsize==4:
-        DATATYPE = PointField.FLOAT32
-    else:
-        DATATYPE = PointField.FLOAT64
-        print("Undefined datatype size accessed, defaulting to FLOAT64...")
-
+    #2 Make pc2 object
     pc_msg = PointCloud2()
-    if pc.ndim>2:
-        pc_msg.width        = pc.shape[1]
-        pc_msg.height       = pc.shape[0]
-    else:
-        pc_msg.width        = 1
-        pc_msg.height       = pc.shape[0]
+    pc_msg.width        = 1
+    pc_msg.height       = pc.shape[0]
 
     pc_msg.header            = std_msgs.msg.Header()
     pc_msg.header.stamp      = ts
     pc_msg.header.frame_id   = frame_id
 
-    fields  = [
-        PointField('x', 0, DATATYPE, 1),
-        PointField('y', pc.itemsize, DATATYPE, 1),
-        PointField('z', pc.itemsize*2, DATATYPE, 1) #
-    ]
-
-    pc_item_position = 4
-    if is_all:
-        pc_msg.point_step   = pc.itemsize*7 + 6 + 2 # for actual values, 2 for padding
-        fields.append(PointField('intensity', 16, DATATYPE, 1))
-        fields.append(PointField('t', 20, PointField.UINT32, 1))
-        fields.append(PointField('reflectivity', 24, PointField.UINT16, 1))
-        fields.append(PointField('ring', 26, PointField.UINT16, 1))
-        fields.append(PointField('ambient', 28, PointField.UINT16, 1))
-        fields.append(PointField('range', 32, PointField.UINT32, 1))
-        # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
-    elif is_ring:
-        pc_msg.point_step   = pc.itemsize*5 + 2 + 2 # for actual values, 2 for padding
-        fields.append(PointField('intensity', 16, DATATYPE, 1))
-        fields.append(PointField('t', 20, PointField.UINT32, 1))
-        fields.append(PointField('ring', 24, PointField.UINT16, 1))
-    elif is_rf:
-        pc_msg.point_step   = pc.itemsize*5 + 2
-        fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
-        fields.append(PointField('ring', pc.itemsize*(pc_item_position+1), PointField.UINT16, 1))
-    elif is_intensity:
-        pc_msg.point_step   = pc.itemsize*4
-        fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
-    else:
-        pc_msg.point_step   = pc.itemsize*3
-
+    pc_msg.point_step = all_bytes_np.shape[-1]
     pc_msg.row_step     = pc_msg.width * pc_msg.point_step
-    pc_msg.fields   = fields
-    if is_rf:
-        pc_msg.data     = all_bytes_np.tobytes()
-    else:
-        pc_msg.data     = pc_flat.tobytes()
-    pc_msg.is_dense = True
+    pc_msg.fields       = all_fields_list
+    pc_msg.data         = all_bytes_np.tobytes()
+    pc_msg.is_dense     = True
 
     if publish:
         pc_pub.publish(pc_msg)
 
     return pc_msg
+
+    # if is_rf:
+    #     rf_start_offset   = 5
+    #     rf_middle_offset  = rf_start_offset+1
+    #     rf_end_offset     = 8
+
+    #     pc_first    = pc[:, :, :rf_start_offset]
+    #     pc_time     = pc[:, :, rf_start_offset].astype(np.uint32)
+    #     pc_middle   = pc[:, :, rf_middle_offset:rf_end_offset].astype(np.uint16)
+    #     pc_end      = pc[:, :, rf_end_offset:]
+
+    #     first_bytes     = pc_first.reshape(-1, 1).tobytes()
+    #     time_bytes      = pc_time.reshape(-1, 1).tobytes()
+    #     middle_bytes    = pc_middle.reshape(-1, 1).tobytes()
+    #     end_bytes       = pc_end.reshape(-1, 1).tobytes()
+        
+    #     first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, rf_start_offset*4)
+    #     time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+    #     middle_bytes_np = np.frombuffer(middle_bytes, dtype=np.uint8).reshape(-1, 2*2)
+
+    #     end_bytes_np = np.frombuffer(end_bytes, dtype=np.uint8).reshape(-1, 8)
+    #     all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, 
+    #         middle_bytes_np, end_bytes_np))
+
+    #     # Add ambient and range bytes
+    #     all_bytes_np = all_bytes_np.reshape(-1, 1)
+    # elif is_ring:
+    #     ring_start_offset   = 4
+    #     ring_middle_offset  = ring_start_offset+1
+    #     ring_end_offset     = 6
+
+    #     pc_first    = pc[:, :, :ring_start_offset]
+    #     pc_time     = pc[:, :, ring_start_offset].astype(np.uint32)
+    #     pc_ring   = pc[:, :, ring_middle_offset:ring_end_offset].astype(np.uint16)
+
+    #     first_bytes     = pc_first.reshape(-1, 1).tobytes()
+    #     time_bytes      = pc_time.reshape(-1, 1).tobytes()
+    #     ring_bytes       = pc_ring.reshape(-1, 1).tobytes()
+        
+    #     first_bytes_np = np.frombuffer(first_bytes, dtype=np.uint8).reshape(-1, ring_start_offset*4)
+    #     time_bytes_np = np.frombuffer(time_bytes, dtype=np.uint8).reshape(-1, 4)
+    #     ring_bytes_np = np.frombuffer(ring_bytes, dtype=np.uint8).reshape(-1, 2)
+
+    #     all_bytes_np= np.hstack((first_bytes_np, time_bytes_np, ring_bytes_np))
+
+    #     # Add ambient and range bytes
+    #     all_bytes_np = all_bytes_np.reshape(-1, 1)
+    # elif is_rgb:
+    #     # ROS expects rgb to in a single uint32
+    #     # BIT_MOVE_16 = 2**16
+    #     # BIT_MOVE_8 = 2**8
+
+    #     # sem_color = sem_color.astype(np.uint32)
+    #     # sem_color_ros = sem_color[:,0] * BIT_MOVE_16 +sem_color[:,1] * BIT_MOVE_8 + sem_color[:,2] 
+    #     # sem_color_ros = sem_color_ros.reshape(-1, 1)
+
+    #     # xyz_bytes_np = np.frombuffer(pc.reshape(-1, 1).tobytes(), dtype=np.uint8).reshape(-1, 12)
+    #     # rgb_bytes_np = np.frombuffer(sem_color_ros.tobytes(), dtype=np.uint8).reshape(-1, 4)
+    #     # sem_color_alpha = np.hstack((sem_color, np.ones((sem_color.shape[0], 1))))
+
+    #     # all_bytes_np = np.hstack((xyz_bytes_np, rgb_bytes_np)).reshape(-1, 1)
+    #     sem_color = sem_color.astype(np.float32) / 255.0
+        
+    #     pc_xyzrgb = np.hstack((pc, sem_color))
+
+    #     pc_xyzrgb_bytes = pc_xyzrgb.reshape(-1, 1).tobytes()
+    #     all_bytes_np = np.frombuffer(pc_xyzrgb_bytes, dtype=np.uint8).reshape(-1, 24)
+
+    # pc_flat = pc.reshape(-1, 1)
+
+    # DATATYPE= PointField.FLOAT32
+    # if pc.itemsize==4:
+    #     DATATYPE = PointField.FLOAT32
+    # else:
+    #     DATATYPE = PointField.FLOAT64
+    #     print("Undefined datatype size accessed, defaulting to FLOAT64...")
+
+    # pc_msg = PointCloud2()
+    # if pc.ndim>2:
+    #     pc_msg.width        = pc.shape[1]
+    #     pc_msg.height       = pc.shape[0]
+    # else:
+    #     pc_msg.width        = 1
+    #     pc_msg.height       = pc.shape[0]
+
+    # pc_msg.header            = std_msgs.msg.Header()
+    # pc_msg.header.stamp      = ts
+    # pc_msg.header.frame_id   = frame_id
+
+    # fields  = [
+    #     PointField('x', 0, DATATYPE, 1),
+    #     PointField('y', pc.itemsize, DATATYPE, 1),
+    #     PointField('z', pc.itemsize*2, DATATYPE, 1) #
+    # ]
+
+    # pc_item_position = 4
+    # if is_all:
+    #     pc_msg.point_step   = pc.itemsize*7 + 6 + 2 # for actual values, 2 for padding
+    #     fields.append(PointField('intensity', 16, DATATYPE, 1))
+    #     fields.append(PointField('t', 20, PointField.UINT32, 1))
+    #     fields.append(PointField('reflectivity', 24, PointField.UINT16, 1))
+    #     fields.append(PointField('ring', 26, PointField.UINT16, 1))
+    #     fields.append(PointField('ambient', 28, PointField.UINT16, 1))
+    #     fields.append(PointField('range', 32, PointField.UINT32, 1))
+    #     # fields.append(PointField('t', int(pc.itemsize*4.5), PointField.UINT32, 1))
+    # elif is_rgb:
+    #     pc_msg.point_step   = pc.itemsize*6
+    #     # fields.append(PointField('rgb', pc.itemsize*pc_item_position, PointField.UINT32, 1))
+    #     fields.append(PointField('r', 12, DATATYPE, 1))
+    #     fields.append(PointField('g', 16, DATATYPE, 1))
+    #     fields.append(PointField('b', 20, DATATYPE, 1))
+    #     # fields.append(PointField('a', pc.itemsize*(pc_item_position+3), DATATYPE, 1))
+    # elif is_ring:
+    #     pc_msg.point_step   = pc.itemsize*5 + 2 + 2 # for actual values, 2 for padding
+    #     fields.append(PointField('intensity', 16, DATATYPE, 1))
+    #     fields.append(PointField('t', 20, PointField.UINT32, 1))
+    #     fields.append(PointField('ring', 24, PointField.UINT16, 1))
+    # elif is_rf:
+    #     pc_msg.point_step   = pc.itemsize*5 + 2
+    #     fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
+    #     fields.append(PointField('ring', pc.itemsize*(pc_item_position+1), PointField.UINT16, 1))
+    # elif is_intensity:
+    #     pc_msg.point_step   = pc.itemsize*4
+    #     fields.append(PointField('intensity', pc.itemsize*pc_item_position, DATATYPE, 1))
+    # else:
+    #     pc_msg.point_step   = pc.itemsize*3
+    
+    # pc_msg.row_step     = pc_msg.width * pc_msg.point_step
+    # pc_msg.fields       = fields
+    # if is_rf or is_rgb:
+    #     pc_msg.data     = all_bytes_np.tobytes()
+    # else:
+    #     pc_msg.data     = pc_flat.tobytes()
+    # pc_msg.is_dense = True
+
+    # if publish:
+    #     pc_pub.publish(pc_msg)
+
+    # return pc_msg
 
 def pub_waypoint_to_rviz(marker_publisher, waypoint, waypoint_ts):
     marker = Marker(type=Marker.CUBE, id=waypoint_ts, pose=Pose(Point(waypoint[0], waypoint[1], waypoint[2]), Quaternion(waypoint[3], waypoint[4], waypoint[5], waypoint[6])), scale = Vector3(1, 1, 1), color = stdmsgs.msg.ColorRGBA(0.0, 1.0, 1.0, 1.0))
@@ -183,78 +287,6 @@ def pub_imu_to_rviz(imu_np, imu_pub, frame_id="vectornav", publish=True):
 
     return imu_msg
 
-def pub_3dbbox_to_rviz(m_pub, anno_filepath, ts, track=False, verbose=False):
-    """
-    Annotation filepath may not be valid, double check before publishing
-    """
-    if not os.path.exists(anno_filepath):
-        if verbose:
-            print("File %s not found, not printing"%anno_filepath)
-        return
-
-    anno_file   = open(anno_filepath, 'r')
-    anno_json   = json.load(anno_file)
-
-    # Clear previous bbox markers
-    bbox_markers = MarkerArray()
-    bbox_marker = Marker()
-    bbox_marker.id = 0
-    bbox_marker.ns = "delete_markerarray"
-    bbox_marker.action = Marker.DELETEALL
-    bbox_markers.markers.append(bbox_marker)
-    m_pub.publish(bbox_markers)
-
-    bbox_markers = MarkerArray()
-    for idx, annotation in enumerate(anno_json["3dbbox"]):
-        #Pose processing
-        px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
-        instanceId, classId = annotation["instanceId"], annotation["classId"]
-        # if classId=='Tree':
-        #     continue
-        
-        rot_mat = R.from_euler('xyz', [annotation['r'], annotation['p'], annotation['y']], degrees=False)
-        quat_orien = R.as_quat(rot_mat)
-
-        bbox_marker = Marker()
-        bbox_marker.header.frame_id = "os_sensor"
-        bbox_marker.header.stamp = ts
-        bbox_marker.ns = instanceId # Keep ns same for the same object
-        bbox_marker.id = int(instanceId.split(':')[-1])
-        bbox_marker.type = bbox_marker.CUBE
-        bbox_marker.action = bbox_marker.ADD
-        bbox_marker.pose.position.x = px
-        bbox_marker.pose.position.y = py
-        bbox_marker.pose.position.z = pz
-        bbox_marker.pose.orientation.x = quat_orien[0]
-        bbox_marker.pose.orientation.y = quat_orien[1]
-        bbox_marker.pose.orientation.z = quat_orien[2]
-        bbox_marker.pose.orientation.w = quat_orien[3]
-        bbox_marker.scale.x = annotation["l"]
-        bbox_marker.scale.y = annotation["w"]
-        bbox_marker.scale.z = annotation["h"]
-        bbox_marker.color.a = 0.4
-        
-        if track:
-            # TODO Figure out how to do instance tracking
-            bbox_marker.color.r = 100 / 255.0;
-            bbox_marker.color.g = 100 /255.0;
-            bbox_marker.color.b = 100 / 255.0;
-        else:
-            class_color = BBOX_ID_TO_COLOR[BBOX_CLASS_TO_ID[classId]]
-            bbox_marker.color.r = class_color[0] / 255.0;
-            bbox_marker.color.g = class_color[1] /255.0;
-            bbox_marker.color.b = class_color[2] / 255.0;
-
-            if instanceId=="Person:1":
-                bbox_marker.color.r = 50 / 255.0;
-                bbox_marker.color.g = 205 /255.0;
-                bbox_marker.color.b = 50 / 255.0;
-
-
-        bbox_markers.markers.append(bbox_marker)
-
-    m_pub.publish(bbox_markers)
-
 def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
     sem_labels = read_sem_label(semantic_anno_path).astype(np.int32)
     # dt=np.dtype('int,int,int')
@@ -265,12 +297,31 @@ def apply_semantic_cmap(semantic_anno_path, valid_point_mask=None):
 
     return color_map
 
+def apply_rgb_cmap(img_path, bin_np, calib_ext_file, calib_intr_file, return_pc_mask=False):
+    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+
+    in_bounds = np.logical_and(
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
+        )
+
+    valid_point_mask = in_bounds & pts_mask
+    valid_point_indices = np.where(valid_point_mask)[0]
+    valid_points = image_pts[valid_point_mask, :]
+    pt_color_map = np.array([(255, 255, 255)] * bin_np.shape[0], dtype=np.uint32)
+
+    image_np = cv2.imread(img_path, cv2.IMREAD_COLOR)
+
+    pt_color_map[valid_point_indices, :3] = image_np[valid_points[:, 1], valid_points[:, 0]]
+    pt_color_map = np.stack((pt_color_map[:, 2], pt_color_map[:, 1], pt_color_map[:, 0]), axis=-1)
+    return pt_color_map, valid_point_mask
+
 def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
 
     in_bounds = np.logical_and(
-            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
-            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
         )
 
     valid_point_mask = in_bounds & pts_mask
