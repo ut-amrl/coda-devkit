@@ -7,13 +7,14 @@ Panels:
         - /Global Options1
         - /Status1
         - /PointCloud21
+        - /PointCloud21/Status1
         - /Pose1
         - /MarkerArray1
         - /MarkerArray1/Status1
         - /Image1
         - /Marker1
         - /Marker1/Status1
-      Splitter Ratio: 0.5
+      Splitter Ratio: 0.6787233948707581
     Tree Height: 1580
   - Class: rviz/Selection
     Name: Selection
@@ -44,7 +45,7 @@ Visualization Manager:
       Cell Size: 1
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -57,18 +58,18 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
-    - Alpha: 0.10000000149011612
+      Value: false
+    - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 23.309438705444336
-        Min Value: -3.2305307388305664
+        Max Value: 27.405675888061523
+        Min Value: -2.817448377609253
         Value: true
       Axis: Z
-      Channel Name: intensity
+      Channel Name: b
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: AxisColor
+      Color Transformer: RGBF32
       Decay Time: 999999995904
       Enabled: true
       Invert Rainbow: false
@@ -79,7 +80,7 @@ Visualization Manager:
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.019999999552965164
+      Size (m): 0.10000000149011612
       Style: Flat Squares
       Topic: /coda/ouster/points
       Unreliable: false
@@ -153,6 +154,107 @@ Visualization Manager:
         Bollard:7: true
         Bollard:8: true
         Bollard:9: true
+        Canopy:1: true
+        Canopy:2: true
+        Canopy:3: true
+        Canopy:4: true
+        Canopy:5: true
+        Canopy:6: true
+        Chair:1: true
+        Chair:10: true
+        Chair:11: true
+        Chair:12: true
+        Chair:13: true
+        Chair:14: true
+        Chair:15: true
+        Chair:16: true
+        Chair:17: true
+        Chair:18: true
+        Chair:19: true
+        Chair:2: true
+        Chair:20: true
+        Chair:21: true
+        Chair:22: true
+        Chair:23: true
+        Chair:24: true
+        Chair:25: true
+        Chair:26: true
+        Chair:27: true
+        Chair:28: true
+        Chair:29: true
+        Chair:3: true
+        Chair:30: true
+        Chair:31: true
+        Chair:32: true
+        Chair:33: true
+        Chair:34: true
+        Chair:35: true
+        Chair:36: true
+        Chair:37: true
+        Chair:38: true
+        Chair:39: true
+        Chair:4: true
+        Chair:40: true
+        Chair:41: true
+        Chair:42: true
+        Chair:43: true
+        Chair:44: true
+        Chair:45: true
+        Chair:46: true
+        Chair:47: true
+        Chair:48: true
+        Chair:49: true
+        Chair:5: true
+        Chair:50: true
+        Chair:51: true
+        Chair:52: true
+        Chair:53: true
+        Chair:54: true
+        Chair:55: true
+        Chair:56: true
+        Chair:57: true
+        Chair:58: true
+        Chair:59: true
+        Chair:6: true
+        Chair:60: true
+        Chair:61: true
+        Chair:62: true
+        Chair:63: true
+        Chair:64: true
+        Chair:65: true
+        Chair:66: true
+        Chair:67: true
+        Chair:68: true
+        Chair:69: true
+        Chair:7: true
+        Chair:70: true
+        Chair:71: true
+        Chair:72: true
+        Chair:73: true
+        Chair:75: true
+        Chair:76: true
+        Chair:77: true
+        Chair:78: true
+        Chair:79: true
+        Chair:8: true
+        Chair:80: true
+        Chair:81: true
+        Chair:82: true
+        Chair:83: true
+        Chair:84: true
+        Chair:85: true
+        Chair:86: true
+        Chair:87: true
+        Chair:88: true
+        Chair:9: true
+        Chair:90: true
+        Door Switch:1: true
+        Door:1: true
+        Door:2: true
+        Door:3: true
+        Door:4: true
+        Door:5: true
+        Door:6: true
         Fence:1: true
         Fence:2: true
         Fence:3: true
@@ -162,11 +264,24 @@ Visualization Manager:
         Fence:7: true
         Fence:8: true
         Fence:9: true
+        Floor Sign:1: true
+        Floor Sign:2: true
+        Freestanding Plant:1: true
+        Freestanding Plant:2: true
+        Horse:1: true
         Informational Sign:1: true
         Other:1: true
         Other:2: true
         Pedestrian:1: true
         Pedestrian:2: true
+        Pedestrian:3: true
+        Pole:1: true
+        Pole:2: true
+        Pole:3: true
+        Pole:4: true
+        Pole:5: true
+        Pole:6: true
+        Pole:7: true
         Railing:1: true
         Railing:2: true
         Railing:3: true
@@ -176,12 +291,50 @@ Visualization Manager:
         Scooter:1: true
         Scooter:2: true
         Service Vehicle:1: true
+        Table:1: true
+        Table:10: true
+        Table:11: true
+        Table:12: true
+        Table:13: true
+        Table:14: true
+        Table:15: true
+        Table:16: true
+        Table:17: true
+        Table:18: true
+        Table:19: true
+        Table:2: true
+        Table:20: true
+        Table:21: true
+        Table:22: true
+        Table:23: true
+        Table:24: true
+        Table:25: true
+        Table:26: true
+        Table:27: true
+        Table:3: true
+        Table:4: true
+        Table:5: true
+        Table:6: true
+        Table:7: true
+        Table:8: true
+        Table:9: true
+        Traffic Arm:1: true
+        Traffic Arm:2: true
+        Traffic Light:1: true
         Trash Can:1: true
+        Trash Can:3: true
+        Trash Can:4: true
+        Trash Can:5: true
         Tree:1: true
+        Tree:2: true
+        Tree:3: true
+        Tree:4: true
+        Tree:5: true
+        Tree:6: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
-      Enabled: true
+      Enabled: false
       Image Topic: /coda/cam1
       Max Value: 1
       Median window: 5
@@ -191,7 +344,7 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/Image
       Enabled: true
       Image Topic: /coda/cam1
@@ -230,7 +383,7 @@ Visualization Manager:
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 255; 255; 255
     Default Light: true
     Fixed Frame: map
     Frame Rate: 30
@@ -256,7 +409,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 48.983619689941406
+      Distance: 360.7646179199219
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -264,27 +417,27 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -42.3676643371582
-        Y: 84.08861541748047
-        Z: 19.653879165649414
-      Focal Shape Fixed Size: true
+        X: -56.483421325683594
+        Y: 116.18805694580078
+        Z: -56.617095947265625
+      Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9797967672348022
+      Pitch: 1.540398359298706
       Target Frame: <Fixed Frame>
-      Yaw: 6.170412063598633
+      Yaw: 6.23492431640625
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
+    collapsed: false
   Height: 1911
-  Hide Left Dock: true
+  Hide Left Dock: false
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000161000006c8fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730000000047000006c8000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c0000026100000001000003d7000006c8fc0200000004fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fc0000004700000372000000e601000023fa000000000100000002fb0000000a0049006d0061006700650100000000ffffffff0000006900fffffffb0000000a0056006900650077007301000009ed0000010f0000010200fffffffb0000000a0049006d00610067006501000003c00000034f0000001900fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000afc00000040fc0100000002fb0000000800540069006d0065010000000000000afc0000045a00fffffffb0000000800540069006d006501000000000000045000000000000000000000071e000006c800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001d8000006c8fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000047000006c8000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c000002610000000100000308000006c8fc0200000004fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fc0000004700000372000000e601000023fa000000010100000002fb0000000a0049006d0061006700650100000000ffffffff0000006900fffffffb0000000a0056006900650077007301000009ed0000010f0000010200fffffffb0000000a0049006d00610067006501000003c00000034f0000001900fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000afc00000040fc0100000002fb0000000800540069006d0065010000000000000afc0000045a00fffffffb0000000800540069006d006501000000000000045000000000000000000000060e000006c800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
