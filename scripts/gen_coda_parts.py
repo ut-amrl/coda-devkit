@@ -33,10 +33,13 @@ SEQUENCE_DIR_COPY_LIST = {
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--download_type', required=True, help="Options: [sequence, split]")
-parser.add_argument('--seq', default="0",
+parser.add_argument('-o', '--outdir', required=True, help="Directory to store generated files")
+# "/scratch/arthurz/Datasets/CODa_seq"
+# /scratch/arthurz/Datasets/CODa_%s
+parser.add_argument('-d', '--download_type', required=True, help="Options: [sequence, split]")
+parser.add_argument('-se', '--seq', default="0",
                     help="CODa sequence to package (0-22)")
-parser.add_argument('--size', default="tiny",
+parser.add_argument('-sz', '--size', default="tiny",
                     help="CODa size to package for downloads (tiny, sm, md, full)")
 
 def task_files(meta_path, task, return_frames=True):
@@ -101,9 +104,14 @@ def copy_single_traj_files(args):
 
         # Copy all subdirectory files for outdir
         for sensor in sensor_list:
+            
             for frame in subset_frames_list:
                 frame_in_path = set_filename_dir(indir, modality, sensor, traj, frame, include_name=True)
                 frame_out_path = set_filename_dir(outdir, modality, sensor, traj, frame, include_name=True)
+                if not os.path.exists(frame_in_path):
+                    print("Skipped {frame_in_path} bc it")
+                    continue
+
                 shutil.copyfile(frame_in_path, frame_out_path)
 
     print("Finished coping %i files from traj %s to %s" % (len(full_frames_list), traj, outdir))
@@ -156,10 +164,11 @@ def copy_sequence_files(args):
 
         if os.path.isfile(src):
             add_file_to_zip(zipf, src, root)
-            print(f'Copied file from {src} to  zip')
+            print(f'Copied file from {src} to zip')
         else:
-            add_directory_to_zip(zipf, src, root)
-            print(f'Copied directory from {src} to  zip')
+            if os.path.exists(src):
+                add_directory_to_zip(zipf, src, root)
+                print(f'Copied directory from {src} to {root}')
     
     def process_copy_list(zipf, current_dict, parent_path, root, seq):
         if not os.path.exists(parent_path):
@@ -195,7 +204,8 @@ def copy_sequence_files(args):
         os.makedirs(outdir)
 
     output_zip_filename = join(outdir, f'{seq}.zip')
-    with zipfile.ZipFile(output_zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    print(f'Copying files to {output_zip_filename}')
+    with zipfile.ZipFile(output_zip_filename, 'w', zipfile.ZIP_DEFLATED, allowZip64 = True) as zipf:
         process_copy_list(zipf, SEQUENCE_DIR_COPY_LIST, indir, indir, seq)
 
 def copy_split_files(indir, outdir, split="sm"):
@@ -252,12 +262,11 @@ def copy_split_files(indir, outdir, split="sm"):
         set_permissions_recursively(out_dir, 0o775)  # Set directory permission to 755 (rwxr-xr-x)
 
 def main(args):
-    download_type, seq, split = args.download_type, args.seq, args.size
+    outdir, download_type, seq, split = args.outdir, args.download_type, args.seq, args.size
     indir="/robodata/arthurz/Datasets/CODa_dev"
     # indir="/scratch/arthurz/Datasets/CODa_tiny"
 
     if download_type=="sequence":
-        outdir="/scratch/arthurz/Datasets/CODa_seq"
         if not os.path.exists(outdir):
             print("Making outdir if only one additional folder needed %s"%outdir)
             os.makedirs(outdir)
@@ -273,8 +282,6 @@ def main(args):
             for _ in tqdm.tqdm(pool.imap_unordered(copy_sequence_files, 
                 zip(indir_list, outdir_list, seq_list)), total=num_seq):
                 pass
-            else:
-                seq_int = int(seq)
         else:
             seq_int = int(seq)
             assert seq_int in valid_seq_ints, f'Invalid sequence {seq} specified'
@@ -285,7 +292,6 @@ def main(args):
         valid_splits = ["tiny", "sm", "md", "full"]
         assert split in valid_splits, "Split %s not in valid splits" % (split)
 
-        outdir="/scratch/arthurz/Datasets/CODa_%s" % split
         if not os.path.exists(outdir):
             print("Making outdir if only one additional folder needed %s"%outdir)
             os.makedirs(outdir)

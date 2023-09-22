@@ -1,7 +1,15 @@
 import math
 import os
 import json
+import matplotlib
 from matplotlib import pyplot as plt
+matplotlib.use("pgf")
+matplotlib.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+})
 import numpy as np
 import seaborn as sns
 import pandas as pd

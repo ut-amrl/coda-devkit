@@ -25,8 +25,12 @@ from scripts.gen_lidar_egocomp import compensate_frame
 pose_q = queue.Queue()
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--traj', default="0",
-                    help="number of trajectory, e.g. 1")
+parser.add_argument('-t', '--traj', default="0",
+                    help="number of trajectory, defaults to 0")
+parser.add_argument('-f', '--frame', default="0",
+                    help="lidar frame to begin at, defaults to 0")
+parser.add_argument('-hz', default=1,
+                    help="lidar publish rate, defaults to 1 Hz")
 
 def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor", do_frame_comp=False):
     bin_np = read_bin(bin_path)
@@ -60,7 +64,7 @@ def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor", do_frame
         ts = rospy.Time.now()
 
     # Publish pc to rviz
-    pub_pc_to_rviz(full_bin_np, pc_pub, ts, point_type="xyz", frame_id=frame_id)
+    pub_pc_to_rviz(full_bin_np, pc_pub, ts, point_type="x y z i", frame_id=frame_id)
 
 def pose_handler(data):
     print("Received LeGO-LOAM pose message")
@@ -81,6 +85,8 @@ def pose_to_str(pose_ros):
 if __name__ == '__main__':
     args = parser.parse_args()
     trajectory = int(args.traj)
+    start_frame = int(args.frame)
+    pub_hz = int(args.hz)
 
     rospy.init_node('bin_to_pointcloud_publisher', anonymous=True)
 
@@ -105,8 +111,8 @@ if __name__ == '__main__':
     frame_to_ts_path = join(indir, "timestamps", "%i.txt"%trajectory)
     frame_to_ts_np = np.fromfile(frame_to_ts_path, sep=' ').reshape(-1,)
 
-    pc_pub_rate = rospy.Rate(2)
-    imu_pub_rate = rospy.Rate(4)
+    pc_pub_rate = rospy.Rate(pub_hz)
+    imu_pub_rate = rospy.Rate(pub_hz * 4) # Assume 4 times speed increase
     # Set pc publisher
     pc_pub = rospy.Publisher(ouster_topic, PointCloud2, queue_size=5)
     imu_pub = rospy.Publisher(imu_topic, Imu, queue_size=5)
@@ -123,7 +129,6 @@ if __name__ == '__main__':
     else:
         rospy.loginfo("Found {} .bin files in the directory.".format(len(bin_paths)))
 
-        start_frame = 0
         lidar_ts = frame_to_ts_np[start_frame]
         # imu_index = max(np.searchsorted(imu_np[:, 0], lidar_ts)-1, 0) # Start one frame before
 
@@ -151,7 +156,7 @@ if __name__ == '__main__':
                 print("pose str ", pose_str)
                 pose_txt.write(pose_str + "\n")
                 pose_txt.close()
-        
+            # import pdb; pdb.set_trace()
         # num_frames_published = 0
         # for bin_path in bin_paths:
         #     filename = bin_path.split('/')[-1]

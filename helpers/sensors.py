@@ -64,7 +64,7 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="x
         if point_type=="xyz":
             pc = np.dstack((pc, xyz_points))
         elif point_type=="i":
-            pc = np.dstack((pc, rf))
+            pc = np.dstack((pc, signal))
         elif point_type=="t":
             pc = np.dstack((pc, ts_points))
     pc = pc.astype(np.float32)
@@ -251,11 +251,9 @@ def process_compressed_image(img_data, encoding="bgr8"):
     # Decode mono16 separately due to compressed decoding bug in CvBridge()
     # import pdb; pdb.set_trace()
     if encoding=="mono16":
-        import pdb; pdb.set_trace()
         dt = np.dtype('<B') # little endian
         compressed_image_np = np.frombuffer(img_data.data, dtype=dt)
         image_np = cv2.imdecode(compressed_image_np, -1)
-        import pdb; pdb.set_trace()
     else:
         cv_image = CvBridge().compressed_imgmsg_to_cv2(img_data, desired_encoding=encoding)
         image_np = np.array(cv_image)

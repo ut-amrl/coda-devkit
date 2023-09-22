@@ -10,8 +10,8 @@ verbose: True    # Debugging
 
 sync_topics: [
   "/ouster/lidar_packets",
-  # "/stereo/left/image_raw/compressed",
-  # "/stereo/right/image_raw/compressed"
+  "/stereo/left/image_raw/compressed",
+  "/stereo/right/image_raw/compressed"
 ]
 
 # sync_method: "FIFO"
