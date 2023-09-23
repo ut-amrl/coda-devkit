@@ -34,7 +34,7 @@ def read_bbox_file(file_path):
     anno_file   = open(file_path, 'r')
     anno_json   = json.load(anno_file)
 
-    bbox_annotations = np.empty((len(anno_json["3dbbox"]), 11), dtype=np.float16) # x, y, z, l, w, h, r, p, y
+    bbox_annotations = np.empty((len(anno_json["3dbbox"]), 11), dtype=np.float32) # x, y, z, l, w, h, r, p, y
     for idx, annotation in enumerate(anno_json["3dbbox"]):
         classId             = BBOX_CLASS_TO_ID[annotation['classId']]
         instanceId          = annotation["instanceId"].split(':')[-1]
@@ -42,7 +42,7 @@ def read_bbox_file(file_path):
         l, w, h             = annotation["l"], annotation["w"], annotation["h"]
         r, p, y             = annotation["r"], annotation["p"], annotation["y"]
 
-        bbox_annotations[idx] = np.array([px, py, pz, l, w, h, r, p, y, classId, instanceId], dtype=np.float16)
+        bbox_annotations[idx] = np.array([px, py, pz, l, w, h, r, p, y, classId, instanceId], dtype=np.float32)
 
     return bbox_annotations
 
@@ -73,8 +73,8 @@ if __name__ == "__main__":
         # Downsample the point cloud
         downsampled_cloud = downsample_point_cloud(point_cloud, vdownsample_factor, hdownsample_factor)
 
-        # Change to float16 to save space
-        downsampled_cloud = downsampled_cloud.astype(np.float16)
+        # Change to float16 to save space, increases runtime
+        downsampled_cloud = downsampled_cloud.astype(np.float32)
 
         # Save the downsampled point cloud
         save_bin_file(downsampled_cloud, pc_outpath)

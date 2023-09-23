@@ -234,7 +234,7 @@ def vis_annos_rviz(args):
 
                 # Augment ego pc with colormap and ds
                 nontrans_lidar_np = np.hstack((lidar_np, point_cloud_cm))
-                downsampled_cloud = downsample_point_cloud(nontrans_lidar_np, 2, 2).astype(np.float16)
+                downsampled_cloud = downsample_point_cloud(nontrans_lidar_np, 2, 2)
 
                 assert os.path.exists(log_dir), f'{log_dir} does not exist, exiting...'
                 pc_outpath = f'{log_dir}/{last_frame}.bin'
@@ -293,7 +293,7 @@ def vis_annos_rviz(args):
             cam1_image = cv2.imread(cam1_file, cv2.IMREAD_COLOR)
 
             if os.path.exists(sem_file):
-                cam0_image = project_3dpoint_image(cam0_image, lidar_np,        os1_to_cam0_ext_file, cam0_intrinsics_file, sem_file
+                cam0_image = project_3dpoint_image(cam0_image, lidar_np, os1_to_cam0_ext_file, cam0_intrinsics_file, sem_file
                 )
 
                 cam1_image = project_3dpoint_image(cam1_image, lidar_np, os1_to_cam1_ext_file, cam1_intrinsics_file, sem_file

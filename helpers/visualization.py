@@ -162,8 +162,8 @@ def apply_rgb_cmap(img_path, bin_np, calib_ext_file, calib_intr_file, return_pc_
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
 
     in_bounds = np.logical_and(
-            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
-            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
         )
 
     valid_point_mask = in_bounds & pts_mask
@@ -181,8 +181,8 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
     image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
 
     in_bounds = np.logical_and(
-            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1024),
-            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1224)
+            np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),
+            np.logical_and(image_pts[:, 1]>=0, image_pts[:, 1]<1024)
         )
 
     valid_point_mask = in_bounds & pts_mask
