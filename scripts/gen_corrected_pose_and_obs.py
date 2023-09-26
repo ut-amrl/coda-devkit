@@ -38,13 +38,13 @@ def grab_json(trajectory):
     pose_correction = json.load(f) # dictionary
     f.close()
 
-    JSON_NAMES = ["start_arr", "end_arr", "yaw_arr"]
-    start_arr, end_arr, yaw_arr = [], [], []
+    JSON_NAMES = ["start_arr", "end_arr", "mode_arr", "angle_arr"]
+    start_arr, end_arr, mode_arr, angle_arr = [], [], [], []
 
     if trajectory in pose_correction.keys():
         traj_dict = pose_correction[trajectory]
-        start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
-    return [start_arr, end_arr, yaw_arr]
+        start_arr, end_arr, mode_arr, angle_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]], traj_dict[JSON_NAMES[3]]
+    return [start_arr, end_arr, mode_arr, angle_arr]
 
 def pose_np_to_mat(pose_np):
     """
@@ -93,7 +93,7 @@ def get_rotation_mat(mode, angle):
     rot_mat = r.as_matrix() 
     return rot_mat
 
-def apply_affine(pose_mat, start, end, mode='yaw', angle=0, trans=np.zeros((1, 3))):
+def apply_affine(pose_mat, start, end, mode, angle=0, trans=np.zeros((1, 3))):
     '''
     INPUT
         pose_mat - (N, 4, 4)
@@ -154,8 +154,9 @@ def saveas_txt(traj, pose_np):
     print(f'\n[txt] Trajectory {traj} saved in {save_dir}')
 
 def saveas_pcd(traj, route, pose_np, obs = False):
-    save_dir = f"./poses_cor/{route}/"
+    save_dir = f"./poses_cor/"
     pcd = o3d.geometry.PointCloud()
+
     pcd.points = o3d.utility.Vector3dVector(pose_np)
     if obs == True:
         fpath = os.path.join(save_dir, f"{traj}_obs.pcd")
@@ -166,23 +167,23 @@ def saveas_pcd(traj, route, pose_np, obs = False):
 
 
 def main(trajectory, route):
+    indir = "/home/arnavbagad/coda-devkit/UNB"
 
-    indir = "/robodata/arthurz/Datasets/CODa_dev"
-    pose_path = f"{indir}/poses/{trajectory}.txt"
+    pose_path = f"{indir}/{trajectory}.txt"
     pose_global = np.loadtxt(pose_path).reshape(-1, 8) # original poses from LeGO-LOAM
-
-    start_arr, end_arr, yaw_arr = grab_json(trajectory)
+    print(trajectory)
+    start_arr, end_arr, mode_arr, angle_arr = grab_json(trajectory)
 
     pose_mat = pose_np_to_mat(pose_global)
 
     # Step 1) Apply rotation about global origin
-    start, end, yaw = start_arr.pop(0), end_arr.pop(0), yaw_arr.pop(0)
-    pose_mat = apply_affine(pose_mat, start, end, mode='yaw', angle=yaw, trans = np.zeros((1, 3)))
+    start, end, mode, angle = start_arr.pop(0), end_arr.pop(0), mode_arr.pop(0), angle_arr.pop(0)
+    pose_mat = apply_affine(pose_mat, start, end, mode, angle, trans = np.zeros((1, 3)))
 
     # Step 2) Apply rotation about local origin
     while len(start_arr) != 0:
-        start, end, yaw = start_arr.pop(0), end_arr.pop(0), yaw_arr.pop(0)        
-        pose_mat = apply_affine(pose_mat, start, end, mode='yaw', angle=yaw, trans = np.zeros((1, 3)))
+        tart, end, mode, angle = start_arr.pop(0), end_arr.pop(0), mode_arr.pop(0), angle_arr.pop(0)        
+        pose_mat = apply_affine(pose_mat, start, end, mode, angle, trans = np.zeros((1, 3)))
 
     pose_global = pose_mat_to_np(pose_global, pose_mat)
 
@@ -199,7 +200,8 @@ if __name__ == "__main__":
     GDC  = [0,1,3,4,5,18,19]
     GUAD = [2,7,12,16,17,21]
     WCP  = [6,9,10,11,13,20,22]
-    route = "GUAD"
-    for trajectory in [12]:
+    UNB  = [8,82,83,14,141,142,143,15,151,152,153] 
+    route = "UNB"
+    for trajectory in [141]:
         main(str(trajectory), route)
     print("\n\nGenerating all corrected poses done.\n\n")

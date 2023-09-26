@@ -50,7 +50,12 @@
         "end_arr": [
             -1
         ],
-        "yaw_arr": [
+        "mode_arr": [
+            "yaw",
+            "roll",
+            "pitch"
+        ],
+        "angle_arr": [
             -2.2
         ]
     },
@@ -96,6 +101,28 @@
         ],
         "yaw_arr": [
             0
+        ]
+    },
+    "82": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            86.5
+        ]
+    },
+    "83": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            -92
         ]
     },
     "9": {
@@ -173,6 +200,106 @@
         ],
         "yaw_arr": [
             0
+        ]
+    },
+    "14": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            -2
+        ]
+    },
+    "141": {
+        "start_arr": [
+            0,
+            0,
+            0
+        ],
+        "end_arr": [
+            -1,
+            -1,
+            -1
+        ],
+        "mode_arr": [
+            "yaw",
+            "roll",
+            "pitch"
+        ],
+        "angle_arr": [
+            -10,
+            200,
+            100
+        ]
+        
+    },
+    "142": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            90
+        ]
+    },
+    "143": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            2.7
+        ]
+    },
+    "15": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            -3
+        ]
+    },
+    "151": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            5
+        ]
+    },
+    "152": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            88.5
+        ]
+    },
+    "153": {
+        "start_arr": [
+            0
+        ],
+        "end_arr": [
+            -1
+        ],
+        "yaw_arr": [
+            6
         ]
     },
     "16": {

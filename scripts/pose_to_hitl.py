@@ -150,7 +150,7 @@ def find_closest_frame(pose_np, timestamp_np, indir, trajectory):
         pose_ts = pose[0]
         closest_lidar_frame = np.searchsorted(timestamp_np, pose_ts, side='left')
         frame_list.append(closest_lidar_frame)
-        bin_path = set_filename_dir(indir, "3d_raw", "os1", trajectory, closest_lidar_frame, include_name=True)
+        bin_path = set_filename_dir(indir, "3d_raw", "os1", "14", closest_lidar_frame, include_name=True)
         bin_path_list.append(bin_path)
 
     return bin_path_list, frame_list
@@ -249,7 +249,8 @@ def apply_manual_correction_obs(trajectory, pc_np_filtered, n_pcs, pose_np):
 
 def save_hitl_input(trajectory, route, hitl_corrected=False):
     pose_np = None
-    indir = "/robodata/arthurz/Datasets/CODa_dev/poses"
+    # indir = "/robodata/arthurz/Datasets/CODa_dev/poses"
+    indir = "/home/arnavbagad/coda-devkit/UNB" # Corrected Pose
     pose_path = os.path.join(indir, f"{trajectory}.txt")
     pose_np = np.loadtxt(pose_path).reshape(-1, 8)
     # if hitl_corrected:
@@ -264,7 +265,8 @@ def save_hitl_input(trajectory, route, hitl_corrected=False):
 
     # Get timestamp array
     CODa_dev_dir = "/robodata/arthurz/Datasets/CODa_dev"
-    ts_path  = f"{CODa_dev_dir}/timestamps/{trajectory}_frame_to_ts.txt"
+    # ts_path  = f"{CODa_dev_dir}/timestamps/{trajectory}_frame_to_ts.txt"
+    ts_path  = f"{CODa_dev_dir}/timestamps/14.txt"
     timestamp_np = np.loadtxt(ts_path).reshape(-1)
     
     outdir   = f"./cloud_to_laser/%s" % trajectory
@@ -282,66 +284,70 @@ def save_hitl_input(trajectory, route, hitl_corrected=False):
 
     traj_list = [trajectory] * len(pose_of_frame_list)
 
-    # pool = Pool(processes=96)
-    # pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list, traj_list), chunksize=32)
-    # pool.close() 
-    # pool.join()
+    pool = Pool(processes=96)
+    pool.map(process_pc, zip(pose_of_frame_list, frame_list, bin_path_list, outdir_list, traj_list), chunksize=32)
+    pool.close() 
+    pool.join()
 
     print("Pool process done.")
 
     obs_xyz, n_pcs = get_obs(frame_list, outdir)
+
+    return (obs_xyz, n_pcs)
     
-    HITL = False
+    # HITL = False
 
-    if not HITL:
+    # if not HITL:
 
-        print("Applying manual correction and saving")
+    #     print("Applying manual correction and saving")
 
-        # Rotation correction
-        obs_xyz_man = apply_manual_correction_obs(trajectory, obs_xyz, n_pcs, pose_np[:, 1:4])
-        # Trnaslation correction
-        # obs_xyz_man[:, :2] = obs_xyz_man[:, :2] + np.array([-3.5, -0.0])
+    #     # Rotation correction
+    #     obs_xyz_man = apply_manual_correction_obs(trajectory, obs_xyz, n_pcs, pose_np[:, 1:4])
+    #     # Trnaslation correction
+    #     # obs_xyz_man[:, :2] = obs_xyz_man[:, :2] + np.array([-3.5, -0.0])
 
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(obs_xyz)
-        fpath = f"./obs_xyz/{route}/{trajectory}_org.pcd"
-        o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+    #     pcd = o3d.geometry.PointCloud()
+    #     pcd.points = o3d.utility.Vector3dVector(obs_xyz)
+    #     fpath = f"./obs_xyz/{route}/{trajectory}_org.pcd"
+    #     o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
 
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(obs_xyz_man)
-        fpath = f"./obs_xyz/{route}/{trajectory}_man.pcd"
-        o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
+    #     pcd = o3d.geometry.PointCloud()
+    #     pcd.points = o3d.utility.Vector3dVector(obs_xyz_man)
+    #     fpath = f"./obs_xyz/{route}/{trajectory}_man.pcd"
+    #     o3d.io.write_point_cloud(fpath, pcd, write_ascii=False)
     
-    else:
-        np_bin = np.zeros((len(obs_xyz), 16))
-        np_bin[:, :3]  = get_pose(pose_np, n_pcs)
-        np_bin[:, 3:6] = obs_xyz
-        print("Normal vectors start.")
-        np_bin[:, 5:7] = get_normal(obs_xyz)
-        print("Normal vectors done.")
-        np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
+    # else:
+    #     np_bin = np.zeros((len(obs_xyz), 16))
+    #     np_bin[:, :3]  = get_pose(pose_np, n_pcs)
+    #     np_bin[:, 3:6] = obs_xyz
+    #     print("Normal vectors start.")
+    #     np_bin[:, 5:7] = get_normal(obs_xyz)
+    #     print("Normal vectors done.")
+    #     np_bin[:, 7:]  = cov_gen(n_of_bin=len(pose_np), n_pcs=n_pcs)
         
-        # Round up values
-        np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
-        np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 6)
+    #     # Round up values
+    #     np_bin[:, :7] = np.around(np_bin[:, :7], decimals = 4)
+    #     np_bin[:, 7:] = np.around(np_bin[:, 7:], decimals = 6)
 
-        n_unique = len(np.unique(np_bin[:, :2], axis=0))
-        print(f"Unique: {n_unique}")
+    #     n_unique = len(np.unique(np_bin[:, :2], axis=0))
+    #     print(f"Unique: {n_unique}")
 
-        print("\nSaving text")
-        save_txt(np_bin, trajectory, route, hitl_corrected)
+    #     print("\nSaving text")
+    #     save_txt(np_bin, trajectory, route, hitl_corrected)
 
 if __name__ == "__main__":
     
     GDC  = [0,1,3,4,5,18,19]
     GUAD = [2,7,12,16,17,21]
     WCP  = [6,9,10,11,13,20,22]
+    UNB  = [8,82,83,14,141,142,143,15,151,152,153]
 
-    # route = "GDC"
-    route = "GUAD"
-    # route = "WCP"
+    #route = "GDC"
+    #route = "GUAD"
+    #route = "WCP"
+    route = "UNB"
 
-    trajs = [17]
+    trajs = [141]
     for i in trajs:
         print(f"\nStarted Trajectory {i}")
         trajectory = str(i)

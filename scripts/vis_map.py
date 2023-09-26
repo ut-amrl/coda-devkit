@@ -85,8 +85,7 @@ def find_overlapping_pc(pose_np, pc):
 def main():
     TRAJ_name = list(TRAJECTORY.keys())[1]
     trajectory_list = TRAJECTORY[TRAJ_name]
-    
-    trajectory_list =  [2, 12]
+    trajectory_list = [83,143,153]
 
     outdir = './json'
     fpath = os.path.join(outdir, 'pose_correction.json')
@@ -101,7 +100,7 @@ def main():
     for i in range(len(trajectory_list)):
         trajectory = str(trajectory_list[i])
         print("---"*10 + f"\nTrajectory {trajectory}")
-        pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/{trajectory}.txt"
+        pose_path = f"/home/arnavbagad/coda-devkit/UNB/{trajectory}.txt"
         pose_np = np.loadtxt(pose_path).reshape(-1, 8)
 
         # pose_np = pose_np[:1000]

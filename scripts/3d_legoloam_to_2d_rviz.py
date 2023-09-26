@@ -182,10 +182,10 @@ def main(args):
     pose_tag    = args.pose_tag
 
     # trajectory = traj
-    indir = "/robodata/arthurz/Datasets/CODa_dev"
-    pose_path = f"{indir}/poses/{trajectory}.txt"
+    indir = "/home/arnavbagad/coda-devkit/UNB"
+    pose_path = f"{indir}/{trajectory}.txt"
     # pose_path = f"{trajectory}.txt"
-    ts_path = f"{indir}/timestamps/{trajectory}_frame_to_ts.txt"
+    ts_path = f"/robodata/arthurz/Datasets/CODa_dev/timestamps/{trajectory}.txt"
     outdir  = f"./cloud_to_laser/%s" % trajectory
 
     if not os.path.exists(outdir):
