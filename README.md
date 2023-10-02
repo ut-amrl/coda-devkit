@@ -45,7 +45,7 @@ To run the 3D object detection models from CODa, refer to CODa's sister Github r
 <b>model training configurations</b> to reproduce the results in our paper.
 
 # Citation
-If you use our dataset of the tools, we would appreciate if you cite both our paper and dataset.
+If you use our dataset of the tools, we would appreciate if you cite both our [paper](https://arxiv.org/abs/2309.13549) and [dataset](https://dataverse.tdl.org/dataset.xhtml?persistentId=doi:10.18738/T8/BBOQMV).
 
 ### Paper Citation
 ```
