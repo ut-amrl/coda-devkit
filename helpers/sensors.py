@@ -4,7 +4,8 @@ import yaml
 import shutil
 
 #Sys Tools
-from more_itertools import nth
+# from more_itertools import nth
+import itertools
 
 #ROS
 import numpy as np
@@ -23,6 +24,12 @@ from helpers.constants import *
 import sensor_msgs
 
 def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="xyz i t"):
+    def nth(iterable, n, default=None):
+        try:
+            return next(itertools.islice(iterable, n, n+1))
+        except StopIteration:
+            return default
+
     #Process Header
     packets = client.Packets(packet_arr, os1_info)
     scans = client.Scans(packets)

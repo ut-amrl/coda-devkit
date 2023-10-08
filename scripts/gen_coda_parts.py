@@ -45,12 +45,14 @@ parser.add_argument('-sz', '--size', default="tiny",
 def task_files(meta_path, task, return_frames=True):
     json_dict = json.load(open(meta_path, 'r'))
 
+    frames_list = []
     files_list = []
+    if task not in json_dict:
+        return files_list, frames_list
     splits = ["training", "validation", "testing"]
     for split in splits:
         files_list.extend(json_dict[task][split])
     
-    frames_list = []
     if return_frames:
         for subpath in files_list:
             annofile = subpath.split('/')[-1]
@@ -209,8 +211,10 @@ def copy_sequence_files(args):
         process_copy_list(zipf, SEQUENCE_DIR_COPY_LIST, indir, indir, seq)
 
 def copy_split_files(indir, outdir, split="sm"):
-    
-    meta_dir = join(indir, "metadata_%s"%split)
+    if split!="full":
+        meta_dir = join(indir, "metadata_%s"%split)
+    else:
+        meta_dir = join(indir, "metadata")
     meta_files = [meta_file for meta_file in os.listdir(meta_dir) if meta_file.endswith(".json")]
     meta_files = sorted(meta_files, key=lambda mfile: int(mfile.split('.')[0]))
 

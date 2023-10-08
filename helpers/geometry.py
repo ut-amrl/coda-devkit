@@ -251,7 +251,7 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
     anno_file   = open(anno_filepath, 'r')
     anno_json   = json.load(anno_file)
 
-    output_mask = np.zeros((pc.shape[0], ), dtype=np.bool8)
+    output_mask = np.zeros((pc.shape[0], ), dtype=bool)
     for idx, annotation in enumerate(anno_json["3dbbox"]):
         #Pose processing
         px, py, pz          = annotation["cX"], annotation["cY"], annotation["cZ"]
@@ -367,8 +367,8 @@ def get_safe_projs(rmat, tvec, distCoeffs, obj_pts):
     obj_pts_rel_cam = np.squeeze([[np.matmul(rmat, pt) + tvec] for pt in obj_pts], axis=1)
 
     # Define the homogenous coordiantes
-    x_homo_vals = (obj_pts_rel_cam[:, 0] / obj_pts_rel_cam[:, 2]).astype(np.complex)
-    y_homo_vals = (obj_pts_rel_cam[:, 1] / obj_pts_rel_cam[:, 2]).astype(np.complex)
+    x_homo_vals = (obj_pts_rel_cam[:, 0] / obj_pts_rel_cam[:, 2]).astype(complex)
+    y_homo_vals = (obj_pts_rel_cam[:, 1] / obj_pts_rel_cam[:, 2]).astype(complex)
 
     # Define the distortion terms, and vectorize calculating of powers of x_homo_vals
     #   and y_homo_vals
@@ -484,11 +484,15 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
     points_3d = points_3d[:, :3]
     d = np.array(d).reshape(1, -1)
     image_points, _ = cv2.projectPoints(points_3d, R, T, K, d)
-    image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
     
+    MAX_INT32 = np.iinfo(np.int32).max
+    MIN_INT32 = np.iinfo(np.int32).min
+    image_points = np.clip(image_points, MIN_INT32, MAX_INT32)
+    image_points = np.swapaxes(image_points, 0, 1).astype(np.int32)
+
     if use_dist:
         image_points_nodist, _ = cv2.projectPoints(points_3d, R, T, K, np.zeros((5,)))
-        image_points_nodist     = np.swapaxes(image_points_nodist, 0, 1).astype(np.int32)
+        image_points_nodist     = np.swapaxes(image_points_nodist, 0, 1) #.astype(np.int32)
         _, num_points, _ = image_points_nodist.shape
 
         points_3d = points_3d[np.all(points_3d!=0, axis=-1)]
@@ -498,10 +502,14 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
         safe_image_points[0, safe_image_points_mask, :] = image_points[0, safe_image_points_mask, :]
         unsafe_image_points_mask = np.delete(np.arange(0, num_points), safe_image_points_mask)
         safe_image_points[0, unsafe_image_points_mask, :] = image_points_nodist[0, unsafe_image_points_mask, :]
-        image_points = safe_image_points.astype(np.int32)
+        image_points = safe_image_points
     else:
         image_points, _ = cv2.projectPoints(points_3d, R, T, K, np.zeros((5,)))
-        image_points     = np.swapaxes(image_points, 0, 1).squeeze().astype(np.int32)
+        image_points     = np.swapaxes(image_points, 0, 1).squeeze()
+
+    # Cast to image points to pixel ints
+    image_points = np.clip(image_points, MIN_INT32, MAX_INT32)
+    image_points = image_points.astype(np.int32)
 
     return image_points
 
@@ -570,7 +578,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file, check_
     """
 
     all_image_points = np.empty((0,8,2), dtype=np.int32)
-    all_points_fov_mask = np.empty( (0, 8), dtype=np.bool)
+    all_points_fov_mask = np.empty( (0, 8), dtype=bool)
     all_valid_obj_idx   = np.empty( (0, 1), dtype=np.int32)
     for annotation_idx, annotation in enumerate(tred_annotation["3dbbox"]):
         tred_corners = get_3dbbox_corners(annotation)

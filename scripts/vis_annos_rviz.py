@@ -98,7 +98,7 @@ def vis_annos_rviz(args):
     calib_dir       = join(indir, CALIBRATION_DIR, sequence)
     lidar_ts_dir    = join(indir, TIMESTAMPS_DIR,
                                     f"{sequence}.txt")
-    poses_dir       = join(indir, POSES_DIR)
+    poses_dir       = join(indir, POSES_DIR, "global")
     
     # Pose DATA
     pose_file   = join(poses_dir, f'{sequence}.txt')
@@ -130,8 +130,12 @@ def vis_annos_rviz(args):
         stereo_img_files = stereo_img_files[stereo_sort_indices]
         stereo_img_ts = stereo_img_ts[stereo_sort_indices]
 
+    pose_skip = 1
     last_frame = 0
-    for pose in pose_np:
+    for pose_idx, pose in enumerate(pose_np):
+        if pose_idx % pose_skip != 0:
+            continue
+        print(f'Publishing sensor info at pose {pose_idx}')
         # Get Pose
         pose_ts, x, y, z, qw, qx, qy, qz = pose
         base_pose = np.eye(4)
@@ -319,7 +323,6 @@ def vis_annos_rviz(args):
             cam1_msg   = CvBridge().cv2_to_imgmsg(cam1_image)
             cam1_msg.header.stamp = lidar_ts
             cam1_pub.publish(cam1_msg)
-
 
         # Publish Stereo Depth Image if it exists
         if os.path.exists(stereo_img_dir):

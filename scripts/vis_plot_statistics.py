@@ -1,11 +1,14 @@
 import os
 import itertools
 from os.path import join
-import seaborn as sns
 import sys
+
 import matplotlib
+import seaborn as sns
 matplotlib.use('Agg')
+matplotlib.rcParams['text.usetex'] = False
 import matplotlib.pyplot as plt
+
 import pandas as pd 
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
@@ -56,7 +59,7 @@ def count_labels(labels_list, labels_dictionary, annotated_data):
         labels_dictionary[cls_name] += counts[cls_index]
     return labels_dictionary
 
-def plot_counts(indir, outdir):
+def plot_counts(indir, outdir, wide=True):
     semantic_dir = join(indir, SEMANTIC_LABEL_DIR, "os1")
     files = (absoluteFilePaths(semantic_dir))
     labels_list = np.array(list(SEM_CLASS_TO_ID.keys()))
@@ -120,7 +123,10 @@ def plot_counts(indir, outdir):
     #Plot data in bargraph (Using Seaborn)
     #Run export DISPLAY=:0.0 before plotting.
 
-    sns.set(rc={'figure.figsize':(30,25)})
+    if not wide:
+        sns.set(rc={'figure.figsize':(30,25)})  # For TALL Plot
+    else:
+        sns.set(rc={'figure.figsize':(50,25)})  # For WIDE Plot
 
     # colors = ["firebrick", "gold", "orange", "purple", "hotpink", "palegreen", "darkcyan", "darkblue", "khaki", "lightcoral", "lawngreen", "teal", "sienna", "plum", "slateblue", "darkorchid", "slategray", "aqua", "magenta", "thistle", "peachpuff", "navy", "skyblue", "mediumvioletred"]
     sns.set_style("darkgrid")
@@ -152,19 +158,46 @@ def plot_counts(indir, outdir):
         'Metal Floor':      'Metal',
         'Threshold':        'Boundary'
     }
+    class_to_shortname_dict ={
+        'Road Pavement':    'Road Pave.', 
+        'Concrete':         'Concrete', 
+        'Speedway Bricks':  'Swy. Bricks', 
+        'Dirt Paths':       'Dirt Paths', 
+        'Short Vegetation': 'Short Veg.', 
+        'Carpet':           'Carpet', 
+        'Porcelain Tile':   'Porc. Tile', 
+        'Pebble Pavement':  'Peb. Pave.', 
+        'Patterned Tile':   'Pat. Tile', 
+        'Dark Marble Tiling':   'Dark Tile', 
+        'Grass':            'Grass', 
+        'Red Bricks':       'Red Bricks', 
+        'Crosswalk':        'Crosswalk', 
+        'Rocks':            'Rocks',  
+        'Stairs':           'Stairs', 
+        'Wood Panel':       'Wood Panel', 
+        'Light Marble Tiling':  'Light Tile', 
+        'Unknown':          'Unknown',
+        'Metal Grates':     'Met. Grat.', 
+        'Door Mat':         'Door Mat', 
+        'Dome Mat':         'Dome Mat',
+        'Blond Marble Tiling':  'Blond Tile',
+        'Metal Floor':      'Met. Flo.',
+        'Threshold':        'Threshold'
+    }
     floor_type_list = []
+    floor_counts_list = []
+    floor_short_name_list = []
     for floor in keys:
         floor_type_list.append(class_to_type_dict[floor])
-
-    floor_counts_list = []
-    for floor in keys:
         floor_counts_list.append(labels_counts_dictionary[floor])
+        floor_short_name_list.append(class_to_shortname_dict[floor])
 
     #Create dataframe with each label names, group, and counts.
     df = pd.DataFrame({'Labels': keys,
         'Type': floor_type_list,
         'Proportion': values,
         'Counts': floor_counts_list,
+        'ShortName': floor_short_name_list,
         'Colors': colors})
     df = df.sort_values(by=['Type'], ascending=False, kind='mergesort').reset_index()
     #Plot and set fields.
@@ -176,29 +209,40 @@ def plot_counts(indir, outdir):
     # Set the figure size
     # ax = sns.barplot(x='Type', y='Proportion', hue='Labels', data=df, palette=colors, width=1)
     # sns.set_palette(df['Colors'])
-    ax = sns.barplot(x='Labels', y='Proportion', data=df, palette=df['Colors'], width=1)
+    if not wide:
+        ax = sns.barplot(x='Labels', y='Proportion', data=df, palette=df['Colors'], width=1)
+    else:
+        ax = sns.barplot(x='ShortName', y='Proportion', data=df, palette=df['Colors'], width=1)
 
     # # Create legend handles
     import matplotlib.patches as mpatches
     legend_handles = [mpatches.Patch(color=color, label=label) for color, label in zip(df['Colors'], df['Labels'])]
 
     # Remove x-ticks
-    plt.xticks([])
-    plt.legend(handles=legend_handles, title='Terrain Class', bbox_to_anchor=(1.145, 1.17), loc='upper right', ncol=1, fontsize=32)
+    # plt.xticks([])
+    if not wide:
+        plt.legend(handles=legend_handles, title='Terrain Class', bbox_to_anchor=(1.145, 1.17), loc='upper right', ncol=1, fontsize=32)
+        ax.set(xlabel=None)
+        plt.grid(color='gray', linestyle='solid', axis='both')
+    else: # For wide plot put x ticks as classes
+        plt.xticks(rotation=90, fontsize=40)
+        ax.grid(which='major', axis='y', linestyle='solid', color='gray', linewidth=2)
+        ax.set(xlabel='Terrain Classes')
+        plt.subplots_adjust(bottom=0.2)
+
     # ax.legend(loc='upper right', fontsize=36, ncol=2)
-    ax.set(xlabel=None)
     ax.set(ylabel="% Total Annotations")
 
-    for idx, i in enumerate(ax.patches):
-        p = i.get_height()
-        p_text = f'{p:.3f}'
-        x = i.get_x() + i.get_width()/2
-        y = i.get_y() + p + 0.001
+    if not wide:
+        for idx, i in enumerate(ax.patches):
+            p = i.get_height()
+            p_text = f'{p:.3f}'
+            x = i.get_x() + i.get_width()/2
+            y = i.get_y() + p + 0.001
 
-        plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=40, rotation=90)
-        print("counts ", df['Counts'][idx], " idx ", idx)
+            plt.text(x, y, df['Counts'][idx], ha='center', va='bottom', size=40, rotation=90)
+            print("counts ", df['Counts'][idx], " idx ", idx)
 
-    plt.grid(color='gray', linestyle='solid', axis='both')
     print(labels_dictionary)
     sns.despine()
     #Save locally
@@ -450,10 +494,11 @@ def plot_label_counts(indir, outdir, splits=["training", "validation", "testing"
         
 def plot_label_weather(indir, outdir, splits=["training", "validation", "testing"], 
     counts_file="GEN_object_weather.json"):
+    
     metadata_dir = join(indir, METADATA_DIR)
     metadata_files = file_paths = [file_name for file_name in os.listdir(metadata_dir)
               if os.path.isfile(os.path.join(metadata_dir, file_name))]
-    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data_multi.json")
+    traj_weather_path = join(os.getcwd(), "helpers", "helper_utils", "weather_data_multi_singlecat.json")
     traj_weather_dict = json.load(open(traj_weather_path, 'r'))
     weather_list = []
     for traj_weather_list in traj_weather_dict.values():
@@ -485,14 +530,23 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
                     for obj_dict in obj_anno_dict:
                         counts_dict[obj_dict["classId"]][weather] += 1
             print("Finished meta file %s" % meta_path)
-
+        
         # Save cached label counts
         with open(counts_cache, "w") as counts_cache_file:
             counts_dict_str = {k: str(v) for k, v in counts_dict.items()}
             json.dump(counts_dict_str, counts_cache_file)
 
-    counts_dict = json.load(open(counts_cache, 'r'))
+        total_cls_counts = 0
+        for cls_name, cls_weather_counts in counts_dict.items():
+            weather_counts_total = 0
+            for weather_count in cls_weather_counts.values():
+                weather_counts_total += weather_count
+            total_cls_counts += weather_counts_total
 
+        print("Total counts ", total_cls_counts)
+
+    counts_dict = json.load(open(counts_cache, 'r'))
+    
     def str_to_dict(string):
         # remove the curly braces from the string
         string = string.strip('{}')
@@ -623,7 +677,7 @@ def plot_label_weather(indir, outdir, splits=["training", "validation", "testing
         plot_paths.append(plot_path)
         plt.savefig(plot_path, format='png', dpi=300)
         plt.clf()
-
+        
         plot_idx += 1
         start_class_index = end_class_index
         end_class_index = max(end_class_index + classes_per_plot, end_class_index)
@@ -660,6 +714,7 @@ def check_num_annotations(indir, task=SEMANTIC_SEGMENTATION_TASK):
         print("Split %s number of frames %i" % (split, len(split_list)))
         num_frames += len(split_list)
     print("Total number of frames across all splits %i"%num_frames)
+
     return annotation_files
 
 def convert_ts_to_military(ts_np):
@@ -837,6 +892,7 @@ def plot_combined_label_location(indir, outdir, counts_file="GEN_location_counts
             columns=weather_list)
         df_list.append(df)
 
+    plt.rcParams['text.usetex'] = False
     fig, axes = plt.subplots(1, 1, figsize=(10, 7), sharex=True)
     sns.set(style="whitegrid")
     weather_cmap = colors.ListedColormap(list(weather_color_palette.values()))
@@ -844,7 +900,10 @@ def plot_combined_label_location(indir, outdir, counts_file="GEN_location_counts
         weather_label_count_dict['Time of Day'], title="", cmap=weather_cmap)
     
     plt_path = join(outdir, 'GEN_location_counts.png')
+    
     print("Saving Label Location Counts Plot to ", plt_path)
+    print( plt.get_backend())
+
     fig.savefig(plt_path, format='png', dpi=300)
   
 
@@ -975,8 +1034,6 @@ def plot_jrdb_graph(indir, outdir, counts_file="jrdbft.json"):
     jrdb_path = join(os.getcwd(), "helpers", "helper_utils", counts_file)
     jrdb_dict = json.load(open(jrdb_path, 'r'))
 
-    # import pdb; pdb.set_trace()
-
     datasets = jrdb_dict.keys()
 
     # for dataset in datasets:
@@ -1083,6 +1140,8 @@ def main(args):
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
+    matplotlib.use('Agg')
+    matplotlib.rcParams['text.usetex'] = False
     check_num_annotations(indir)
 
     if args.plot_type=="semantichist": # Figure 9

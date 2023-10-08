@@ -14,7 +14,7 @@ from helpers.constants import BBOX_ID_TO_COLOR, BBOX_CLASS_TO_ID, SEM_ID_TO_COLO
 from helpers.visualization import apply_semantic_cmap
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--indir', required=True
+parser.add_argument('--indir', required=True,
                     help="Directory path with files downloaded from CODa")
 parser.add_argument('--traj', default="0",
                     help="number of trajectory, e.g. 1")

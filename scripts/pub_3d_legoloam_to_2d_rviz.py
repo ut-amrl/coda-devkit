@@ -34,7 +34,7 @@ def main(args):
     global option
     trajectory, option = args.traj, args.option
     indir = "/robodata/arthurz/Datasets/CODa_dev"
-    pose_path = f"{indir}/poses/{trajectory}.txt"
+    pose_path = f"{indir}/poses/global/{trajectory}.txt"
     # pose_path = f"{trajectory}.txt"
     ts_path = f"{indir}/timestamps/{trajectory}.txt"
     bin_dir   = f"{indir}/3d_comp/os1/{trajectory}/"
