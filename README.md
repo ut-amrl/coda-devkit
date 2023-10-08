@@ -45,7 +45,7 @@ To run the 3D object detection models from CODa, refer to CODa's sister Github r
 <b>model training configurations</b> to reproduce the results in our paper.
 
 # Citation
-If you use our dataset of the tools, we would appreciate if you cite both our paper and dataset.
+If you use our dataset of the tools, we would appreciate if you cite both our [paper](https://arxiv.org/abs/2309.13549) and [dataset](https://dataverse.tdl.org/dataset.xhtml?persistentId=doi:10.18738/T8/BBOQMV).
 
 ### Paper Citation
 ```
@@ -69,3 +69,81 @@ doi = {10.18738/T8/BBOQMV},
 url = {https://doi.org/10.18738/T8/BBOQMV}
 }
 ```
+
+## Dataset Metadata
+The following table is necessary for this dataset to be indexed by search
+engines such as <a href="https://g.co/datasetsearch">Google Dataset Search</a>.
+<div itemscope itemtype="http://schema.org/Dataset">
+<table>
+  <tr>
+    <th>property</th>
+    <th>value</th>
+  </tr>
+  <tr>
+    <td>name</td>
+    <td><code itemprop="name">UT CODa: UT Campus Object Dataset</code></td>
+  </tr>
+  <tr>
+    <td>alternateName</td>
+    <td><code itemprop="alternateName">UT Campus Object Dataset</code></td>
+  </tr>
+  <tr>
+    <td>url</td>
+    <td><code itemprop="url">https://github.com/ut-amrl/coda-devkit</code></td>
+  </tr>
+  <tr>
+    <td>sameAs</td>
+    <td><code itemprop="sameAs">https://amrl.cs.utexas.edu/coda/</code></td>
+  </tr>
+    <tr>
+    <td>sameAs</td>
+    <td><code itemprop="sameAs">https://dataverse.tdl.org/dataset.xhtml?persistentId=doi:10.18738/T8/BBOQMV</code></td>
+  </tr>
+  <tr>
+    <td>description</td>
+    <td><code itemprop="description">The UT Campus Object Dataset is a large-scale multiclass, multimodal egocentric urban robot dataset operated by human operators under a variety of weather, lighting, and viewpoint variations. We release this dataset publicly and pretrained models to help advance egocentric perception and navigation research in urban environments.</code></td>
+  </tr>
+  <tr>
+    <td>provider</td>
+    <td>
+      <div itemscope itemtype="http://schema.org/Organization" itemprop="provider">
+        <table>
+          <tr>
+            <th>property</th>
+            <th>value</th>
+          </tr>
+          <tr>
+            <td>name</td>
+            <td><code itemprop="name">Automous Mobile Robotics Laboratory</code></td>
+          </tr>
+          <tr>
+            <td>sameAs</td>
+            <td><code itemprop="sameAs">https://amrl.cs.utexas.edu</code></td>
+          </tr>
+        </table>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td>license</td>
+    <td>
+      <div itemscope itemtype="http://schema.org/CreativeWork" itemprop="license">
+        <table>
+          <tr>
+            <th>property</th>
+            <th>value</th>
+          </tr>
+          <tr>
+            <td>name</td>
+            <td><code itemprop="name">UT Campus Object Dataset License Agreement for Non-Commercial Use (Oct 2023)</code></td>
+          </tr>
+          <tr>
+            <td>url</td>
+            <td><code itemprop="url">https://dataverse.tdl.org/dataset.xhtml?persistentId=doi:10.18738/T8/BBOQMV&version=1.2&selectTab=termsTab</code></td>
+          </tr>
+        </table>
+      </div>
+    </td>
+  </tr>
+</table>
+</div>
