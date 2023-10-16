@@ -42,8 +42,6 @@ parser.add_argument('--outdir', default="%s/plots" % os.getcwd(),
 parser.add_argument('--plot_type', default="semantichist",
                     help="Select a histogram type to show: semantichit,  ")
 
-#Done with help of Chaitanya
-
 #Get all file paths to iterate through
 def absoluteFilePaths(directory):
     for dirpath, _, filenames in os.walk(directory):

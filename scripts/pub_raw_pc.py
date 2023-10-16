@@ -29,10 +29,10 @@ parser.add_argument('-t', '--traj', default="0",
                     help="number of trajectory, defaults to 0")
 parser.add_argument('-f', '--frame', default="0",
                     help="lidar frame to begin at, defaults to 0")
-parser.add_argument('-hz', default=1,
+parser.add_argument('-hz', type=float, default=1,
                     help="lidar publish rate, defaults to 1 Hz")
 
-def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor", do_frame_comp=False):
+def publish_single_bin(bin_path, pc_pub, frame, ts=None, frame_id="os_sensor", do_frame_comp=False):
     bin_np = read_bin(bin_path)
 
     if do_frame_comp:
@@ -64,7 +64,7 @@ def publish_single_bin(bin_path, pc_pub, ts=None, frame_id="os_sensor", do_frame
         ts = rospy.Time.now()
 
     # Publish pc to rviz
-    pub_pc_to_rviz(full_bin_np, pc_pub, ts, point_type="x y z i", frame_id=frame_id)
+    pub_pc_to_rviz(full_bin_np, pc_pub, ts, point_type="x y z i", frame_id=frame_id, seq=frame)
 
 def pose_handler(data):
     print("Received LeGO-LOAM pose message")
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     trajectory = int(args.traj)
     start_frame = int(args.frame)
-    pub_hz = int(args.hz)
+    pub_hz = float(args.hz)
 
     rospy.init_node('bin_to_pointcloud_publisher', anonymous=True)
 
@@ -147,7 +147,7 @@ if __name__ == '__main__':
             # Publish latest lidar message
             bin_path = bin_paths[frame]
             rospy.loginfo("Publishing file: " + bin_path)
-            publish_single_bin(bin_path, pc_pub, lidar_ts)
+            publish_single_bin(bin_path, pc_pub, frame, lidar_ts)
             pc_pub_rate.sleep()
             while not pose_q.empty():
                 pose_txt = open(pose_path, 'a')

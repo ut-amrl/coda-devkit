@@ -23,7 +23,7 @@ from helpers.sensors import read_sem_label
 from helpers.geometry import *
 from helpers.calibration import load_extrinsic_matrix
 
-def pub_pc_to_rviz(pc, pc_pub, ts, point_type="x y z", frame_id="os_sensor", publish=True):
+def pub_pc_to_rviz(pc, pc_pub, ts, point_type="x y z", frame_id="os_sensor", seq=0, publish=True):
     if not isinstance(ts, rospy.Time):
         ts = rospy.Time.from_sec(ts)
 
@@ -105,6 +105,7 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="x y z", frame_id="os_sensor", pub
     pc_msg.header            = std_msgs.msg.Header()
     pc_msg.header.stamp      = ts
     pc_msg.header.frame_id   = frame_id
+    pc_msg.header.seq        = seq
 
     pc_msg.point_step = all_bytes_np.shape[-1]
     pc_msg.row_step     = pc_msg.width * pc_msg.point_step
@@ -210,7 +211,8 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
         image_np = cv2.circle(image_np, (pt[0], pt[1]), radius=SEM_POINT_SIZE, color=color_map[pt_idx].tolist(), thickness=-1)
     return image_np
 
-def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
+def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image,
+    draw_inst=False):
     """
     Projects 3D Bbox to 2d image
     """
@@ -235,7 +237,9 @@ def project_3dbbox_image(anno_dict, calib_ext_file, calib_intr_file, image):
         obj_id = BBOX_CLASS_TO_ID[anno_dict["3dbbox"][bbox_idx]["classId"]]
         obj_color = BBOX_ID_TO_COLOR[obj_id]
 
-        image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color)
+        image = draw_bbox(image, valid_points, valid_point_mask, color=obj_color, bbox_dict=anno_dict["3dbbox"][bbox_idx])
+        # if draw_inst:
+        #     draw_inst_label(image, valid_points, valid_point_mask, )
     return image
 
 def project_3dto2d_bbox_image(anno_dict, calib_ext_file, calib_intr_file):

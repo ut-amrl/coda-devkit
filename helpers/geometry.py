@@ -26,7 +26,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
-from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR
+from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR, BBOX_ID_TO_COLOR
 
 def find_closest_pose(pose_np, target_ts):
     """
@@ -662,7 +662,62 @@ def redistribute_rgb(r, g, b):
     gray = threshold - x * m
     return int(gray + x * r), int(gray + x * g), int(gray + x * b)
 
-def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, img_w=1223, img_h=1023):
+def draw_inst_label(image, bbox_2d_pts, valid_point_mask, bbox_dict, img_w=1223, img_h=1023):
+    instanceId = bbox_dict['instanceId'].replace(':', ' ')
+    obj_id = BBOX_CLASS_TO_ID[bbox_dict["classId"]]
+    obj_color = BBOX_ID_TO_COLOR[obj_id]
+
+    text = instanceId
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fontScale = 0.9
+    thickness = 2
+    text_size, _ = cv2.getTextSize(text, font, fontScale, thickness)
+    text_w, text_h = text_size
+
+    available_points = np.where(valid_point_mask)[0]
+    # old_to_new_index_map = np.zeros((8,), dtype=np.int32)
+    # old_to_new_index_map[available_points] = np.arange(0, available_points.shape[0])
+    # try:
+    # print(available_points)
+    # try:
+    #     valid_points = bbox_2d_pts[available_points, :]
+    # except:
+        # import pdb; pdb.set_trace()
+    if instanceId=="Tree 1":
+        import pdb; pdb.set_trace()
+    
+    valid_points = bbox_2d_pts
+    valid_points[:,0] = np.clip(valid_points[:,0], a_min=text_h, a_max=img_h-text_h)
+    valid_points[:,1] = np.clip(valid_points[:,1], a_min=text_w, a_max=img_w-text_w)
+    x_anchor, y_anchor = min(valid_points[:,0]), min(valid_points[:,1])
+
+    org = (x_anchor, y_anchor)
+
+    label_image = cv2.rectangle(image, org, (org[0] + text_w, org[1] - text_h), (255, 255, 255), -1)
+    label_image = cv2.putText(label_image, text, org, font, fontScale, obj_color, thickness, cv2.LINE_AA, False)
+    # cv2.imwrite("test.png", label_image)
+    # import pdb; pdb.set_trace()
+    return label_image
+
+def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), bbox_dict=None, thickness=4, img_w=1223, img_h=1023):
+    def draw_instlabel(orig_image, bbox_dict, x_anchor, y_anchor):
+        instanceId = bbox_dict['instanceId'].replace(':', ' ')
+        obj_id = BBOX_CLASS_TO_ID[bbox_dict["classId"]]
+        obj_color = BBOX_ID_TO_COLOR[obj_id]
+
+        text = instanceId
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fontScale = 0.6
+        thickness = 2
+        text_size, _ = cv2.getTextSize(text, font, fontScale, thickness)
+        text_w, text_h = text_size
+
+        org = (x_anchor, y_anchor+text_h)
+
+        label_image = cv2.rectangle(orig_image, org, (org[0] + text_w, org[1] - text_h), (255, 255, 255), -1)
+        label_image = cv2.putText(label_image, text, org, font, fontScale, obj_color, thickness, cv2.LINE_AA, False)
+        return label_image
+
     #Draws 4 rectangles Left, Right, Top, Bottom
     available_points = np.where(valid_points)[0]
     # available_points = np.arange(8, dtype=np.int32)
@@ -670,6 +725,9 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, im
     old_to_new_index_map[available_points] = np.arange(0, available_points.shape[0])
     brighter_color = tuple([c*1.8 for c in color])
     color = (redistribute_rgb(brighter_color[0], brighter_color[1], brighter_color[2]))
+
+    instlabel_exists = bbox_dict==None
+    labelanchor_x, labelanchor_y = 10000, 10000
     try:
         #Vert Beams
         for i in range(0, 4):
@@ -680,9 +738,11 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, im
                 p1 = tuple(bbox_2d_pts[si])
                 p2 = tuple(bbox_2d_pts[ei])
                 _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
+                
+                labelanchor_x = min(labelanchor_x, p2[0])
+                labelanchor_y = min(labelanchor_y, p2[1])
                
                 image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
-
         # Horizontal Beams
         for i in range(0, 8, 2):
             if i in available_points and i+1 in available_points:
@@ -715,6 +775,10 @@ def draw_bbox(image, bbox_2d_pts, valid_points, color=(0,0,255), thickness=4, im
                 p2 = tuple(bbox_2d_pts[ei])
                 _, p1, p2 = cv2.clipLine((0,0,img_w,img_h), p1, p2)
                 image = cv2.line(image, p1, p2, color, thickness, cv2.LINE_AA)
+
+        if not instlabel_exists:
+            image = draw_instlabel(image, bbox_dict, labelanchor_x, labelanchor_y)
+            instlabel_exists = True
     except Exception as e:
         print(e)
 

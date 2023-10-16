@@ -128,7 +128,7 @@ def generate_single_anno_file(args):
     image_np = cv2.imread(twod_img_path)
     if "3d_bbox"==modality:
         tred_anno_dict = json.load(open(tred_anno_path))
-        tred_anno_image = project_3dbbox_image(tred_anno_dict, calibextr_path, calibintr_path, image_np)
+        tred_anno_image = project_3dbbox_image(tred_anno_dict, calibextr_path, calibintr_path, image_np, draw_inst=True)
     elif "3d_semantic"==modality:
         pc_path = set_filename_dir(indir, TRED_COMP_DIR, sensor, traj, frame, include_name=True)
         pc_np   = read_bin(pc_path, keep_intensity=False)
