@@ -49,11 +49,13 @@ If you use our dataset of the tools, we would appreciate if you cite both our [p
 
 ### Paper Citation
 ```
-@inproceedings{zhangcoda2023,
-  author = {A. Zhang, C. Eranki, C. Zhang, R. Hong, P. Kalyani, L. Kalyanaraman, A. Gamare, A. Bagad, M. Esteva, J. Biswas},
-  title = {{Towards Robust 3D Robot Perception in Urban Environments: The UT Campus Object Dataset}},
-  booktitle = {},
-  year = {2023}
+@misc{zhang2023robust,
+      title={Towards Robust Robot 3D Perception in Urban Environments: The UT Campus Object Dataset}, 
+      author={Arthur Zhang and Chaitanya Eranki and Christina Zhang and Ji-Hwan Park and Raymond Hong and Pranav Kalyani and Lochana Kalyanaraman and Arsh Gamare and Arnav Bagad and Maria Esteva and Joydeep Biswas},
+      year={2023},
+      eprint={2309.13549},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO}
 }
 ``` 
 
