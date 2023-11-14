@@ -14,6 +14,13 @@ dataset and understand its contents.</b>
 
 ## <a name="Install"></a>Install
 
+We have tested this devkit in the following environments: 
+```
+Python==3.8, 3.9
+Ubuntu 20.04
+gcc==9.4.0
+```
+
 Run the following command to download the development kit. 
 
 ```git clone git@github.com:ut-amrl/coda-devkit.git```
