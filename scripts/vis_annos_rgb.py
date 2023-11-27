@@ -134,6 +134,11 @@ def generate_single_anno_file(args):
         pc_np   = read_bin(pc_path, keep_intensity=False)
         tred_anno_image = project_3dpoint_image(image_np, pc_np, calibextr_path, calibintr_path, tred_anno_path)
 
+    tred_anno_path  = set_filename_dir(indir, "3d_semantic", sensor, traj, frame, include_name=True)
+    pc_path = set_filename_dir(indir, TRED_COMP_DIR, sensor, traj, frame, include_name=True)
+    pc_np   = read_bin(pc_path, keep_intensity=False)
+    tred_anno_image = project_3dpoint_image(tred_anno_image, pc_np, calibextr_path, calibintr_path, tred_anno_path)
+
     dump_calibration_img(outdir, traj, frame, cam_list[0], tred_anno_image)
 
 def generate_annotation_visualization(args):
@@ -201,6 +206,7 @@ def main(args):
         if not os.path.exists(metadata_path):
             print("Trajectory %i does not contain metadata file %s" % (trajectory, metadata_path))
             continue
+
         anno_subpaths = read_metadata_anno(metadata_path, modality=modality)
         num_annos = len(anno_subpaths)
 

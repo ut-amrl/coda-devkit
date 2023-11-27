@@ -47,6 +47,11 @@ parser.add_argument("-c", "--color_type", type=str, default="classId",
                     help="Color map to use for coloring boxes Options: [isOccluded, classId] (Default classId)")
 parser.add_argument("-l", "--log", type=str, default="",
                     help="Logs point cloud and bbox annotations to file for external usage")
+parser.add_argument("-e", "--ego", type=bool, default=False,
+                    help="Published point clouds in egocentric frame")
+parser.add_argument('-a', "--annotate_image", type=bool, default=False, 
+                    help="Annotated images with annotations before publishing")
+
 
 def get_key():
     old_settings = termios.tcgetattr(sys.stdin)
@@ -60,8 +65,7 @@ def get_key():
 def vis_annos_rviz(args):
     indir = os.getenv(ENV_CODA_ROOT_DIR)
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
-    sequence, start_frame, color_type, log_dir = args.sequence, int(args.start_frame), args.color_type, \
-        args.log
+    sequence, start_frame, color_type, log_dir, use_ego, anno_img = args.sequence, int(args.start_frame), args.color_type, args.log, args.ego, args.annotate_image
     rospy.init_node('CODa_publisher')
 
     # Define Frames
@@ -91,14 +95,14 @@ def vis_annos_rviz(args):
 
     # Define TF Broadcaster
     tf_broadcaster = tf2_ros.TransformBroadcaster()
-    rate = rospy.Rate(300)
+    rate = rospy.Rate(80)
     
     # for sequence in sequences:
     # Path to the data
     calib_dir       = join(indir, CALIBRATION_DIR, sequence)
     lidar_ts_dir    = join(indir, TIMESTAMPS_DIR,
                                     f"{sequence}.txt")
-    poses_dir       = join(indir, POSES_DIR, "global")
+    poses_dir       = join(indir, POSES_DIR)
     
     # Pose DATA
     pose_file   = join(poses_dir, f'{sequence}.txt')
@@ -181,7 +185,6 @@ def vis_annos_rviz(args):
         tf_msg.transform.rotation.y = rotation[1]
         tf_msg.transform.rotation.z = rotation[2]
         tf_msg.transform.rotation.w = rotation[3]
-
         tf_broadcaster.sendTransform(tf_msg)
         
         # Get the path to the data
@@ -244,9 +247,21 @@ def vis_annos_rviz(args):
                 pc_outpath = f'{log_dir}/{last_frame}.bin'
                 save_bin_file(downsampled_cloud, pc_outpath)
 
-            pub_pc_to_rviz(trans_lidar_np, lidar_pub, lidar_ts, 
-                point_type=point_type, 
-                frame_id=global_frame)
+            if use_ego:
+                pub_pc_to_rviz(trans_lidar_np, lidar_pub, lidar_ts, 
+                    point_type=point_type, 
+                    frame_id=global_frame)
+            else:
+                trans_lidar_xyz = trans_lidar_np[:, :3]
+
+                GtoL                = np.linalg.inv(LtoG)
+                homo_lidar_np       = np.hstack((trans_lidar_xyz, np.ones((trans_lidar_xyz.shape[0], 1))))
+                ego_homo_lidar_np       = (GtoL @ homo_lidar_np.T).T
+                ego_homo_lidar_np       = ego_homo_lidar_np[:, :3].reshape(-1, 3).astype(np.float32)
+                ego_lidar_np            = np.hstack((ego_homo_lidar_np, trans_lidar_np[:, 3:]))
+                pub_pc_to_rviz(ego_lidar_np, lidar_pub, lidar_ts, 
+                    point_type="x y z r g b", 
+                    frame_id=lidar_frame)
 
 
         # Publish the 3D Bounding Box
@@ -296,25 +311,26 @@ def vis_annos_rviz(args):
             # Camera 1
             cam1_image = cv2.imread(cam1_file, cv2.IMREAD_COLOR)
 
-            if os.path.exists(sem_file):
-                cam0_image = project_3dpoint_image(cam0_image, lidar_np, os1_to_cam0_ext_file, cam0_intrinsics_file, sem_file
-                )
+            if anno_img:
+                if os.path.exists(sem_file):
+                    cam0_image = project_3dpoint_image(cam0_image, lidar_np, os1_to_cam0_ext_file, cam0_intrinsics_file, sem_file
+                    )
 
-                cam1_image = project_3dpoint_image(cam1_image, lidar_np, os1_to_cam1_ext_file, cam1_intrinsics_file, sem_file
-                )
+                    cam1_image = project_3dpoint_image(cam1_image, lidar_np, os1_to_cam1_ext_file, cam1_intrinsics_file, sem_file
+                    )
 
-            # Project 3D Bounding Box to 2D
-            if os.path.exists(bbox_file):
-                bbox_3d_json = json.load(open(bbox_file, 'r'))
-                cam0_image = project_3dbbox_image(
-                    bbox_3d_json, os1_to_cam0_ext_file, cam0_intrinsics_file,
-                    cam0_image
-                )
+                # Project 3D Bounding Box to 2D
+                if os.path.exists(bbox_file):
+                    bbox_3d_json = json.load(open(bbox_file, 'r'))
+                    cam0_image = project_3dbbox_image(
+                        bbox_3d_json, os1_to_cam0_ext_file, cam0_intrinsics_file,
+                        cam0_image
+                    )
 
-                cam1_image = project_3dbbox_image(
-                    bbox_3d_json, os1_to_cam1_ext_file, cam1_intrinsics_file,
-                    cam1_image
-                )
+                    cam1_image = project_3dbbox_image(
+                        bbox_3d_json, os1_to_cam1_ext_file, cam1_intrinsics_file,
+                        cam1_image
+                    )
 
             cam0_msg   = CvBridge().cv2_to_imgmsg(cam0_image)
             cam0_msg.header.stamp = lidar_ts
@@ -338,7 +354,7 @@ def vis_annos_rviz(args):
 
             cam3_msg.header.stamp = cam3_ts
             cam3_pub.publish(cam3_msg)
-
+        # import pdb; pdb.set_trace()
         rate.sleep()
 
 

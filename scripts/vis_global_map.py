@@ -99,22 +99,22 @@ def main():
     for i in range(len(trajectory_list)):
         trajectory = str(trajectory_list[i])
         print("---"*10 + f"\nTrajectory {trajectory}")
-        pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/dense/{trajectory}.txt"
+        pose_path = f"/robodata/arthurz/Datasets/CODa_dev/poses/global/{trajectory}.txt"
         pose_np = np.loadtxt(pose_path).reshape(-1, 8)
         
         start_arr, end_arr, yaw_arr = [], [], []
 
-        if trajectory in pose_correction.keys():
-            traj_dict = pose_correction[trajectory]
-            start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
+        # if trajectory in pose_correction.keys():
+        #     traj_dict = pose_correction[trajectory]
+        #     start_arr, end_arr, yaw_arr = traj_dict[JSON_NAMES[0]], traj_dict[JSON_NAMES[1]], traj_dict[JSON_NAMES[2]]
         
         # for pose in pose_np:
-        # # for pose in pose_np:
         #     _, x, y, z, _, _, _, _ = pose
         #     m = add_marker(x, y, z, m, COLORS[0])
         # print(f"Before color: {COLORS[0]}")
         
-        corrected_pose_np = correct_pose(pose_np, start_arr, end_arr, yaw_arr)
+        # corrected_pose_np = correct_pose(pose_np, start_arr, end_arr, yaw_arr)
+        corrected_pose_np = pose_np
         # import pdb; pdb.set_trace()
 
         # find_overlapping_pc(corrected_pose_np[:, 1:3], corrected_pose_np[5100, 1:3])

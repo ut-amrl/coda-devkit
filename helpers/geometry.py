@@ -26,6 +26,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
+from liegroups import SE3, SO3
+
 from helpers.constants import BBOX_CLASS_TO_ID, NONRIGID_CLASS_IDS, BBOX_CLASS_VIZ_LIST, SEM_ID_TO_COLOR, BBOX_ID_TO_COLOR
 
 def find_closest_pose(pose_np, target_ts):
@@ -102,6 +104,20 @@ def densify_poses_between_ts(pose_np, ts_np):
 
     return out_pose_np
 
+def xyz_quaternion_to_SE3(x, y, z, qw, qx, qy, qz) -> SE3:
+    """Convert the [x, y, z, qw, qx, qy, qz] to an SE(3) transformation matrix"""
+    r = SO3.from_quaternion([qw, qx, qy, qz], "wxyz")
+    transformation_matrix = np.eye(4)
+    transformation_matrix[:3, :3] = r.as_matrix()
+    transformation_matrix[:3, 3] = [x, y, z]
+    return SE3.from_matrix(transformation_matrix, normalize=True)
+
+def SE3_to_xyz_quaternion(transformation_matrix: np.ndarray) -> np.ndarray:
+    """Convert the SE(3) transformation matrix to [x, y, z, qw, qx, qy, qz]"""
+    r = SO3.from_matrix(transformation_matrix[:3, :3])
+    t = transformation_matrix[:3, 3]
+    return np.concatenate([t, r.to_quaternion("wxyz")])
+
 def inter_pose(posea, poseb, sensor_ts):
     """
     Interpolate pose between `posea` and `poseb` at `sensor_ts`.
@@ -124,30 +140,19 @@ def inter_pose(posea, poseb, sensor_ts):
         return posea
     elif sensor_ts>=tsb:
         return poseb
-
-    quata = posea[4:]
-    quatb = poseb[4:]
-    transa  = posea[1:4]
-    transb  = poseb[1:4]
-
+    
+    posea_SE3 = xyz_quaternion_to_SE3(*posea[1:])
+    poseb_SE3 = xyz_quaternion_to_SE3(*poseb[1:])
+    pose_change = posea_SE3.inv().as_matrix() @ poseb_SE3.as_matrix()
+    xi = SE3.from_matrix(pose_change, True).log()
+    
     tparam = abs(sensor_ts - tsa) / (tsb - tsa)
-    inter_trans = transa + tparam * (transb - transa)
-
-    key_times = [tsa, tsb]
-    key_rots = R.from_quat(
-        [
-            [quata[1], quata[2], quata[3], quata[0]], [quatb[1], quatb[2], quatb[3], quatb[0]]
-        ]
+    interpolated_pose = (
+        posea_SE3.as_matrix() @ SE3.exp(tparam * xi).as_matrix()
     )
-    slerp = Slerp(key_times, key_rots)
-    times = [sensor_ts]
+    new_pose = SE3_to_xyz_quaternion(interpolated_pose)
+    new_pose = np.concatenate((sensor_ts, new_pose), axis=None)
 
-    inter_quat = slerp(times).as_quat()[0]
-    inter_quat = [inter_quat[3], inter_quat[0], inter_quat[1], inter_quat[2]]
-
-    new_pose = np.concatenate((sensor_ts, inter_trans, inter_quat), axis=None)
-
-    assert np.sum(np.isnan(new_pose))==0, "Interpolated pose is nan exiting..."
     return new_pose
 
 def bbox_transform(annotation, trans, use_quat=False):
