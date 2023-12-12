@@ -40,9 +40,6 @@ _DATATYPES[PointField.UINT32]  = ('I', 4)
 _DATATYPES[PointField.FLOAT32] = ('f', 4)
 _DATATYPES[PointField.FLOAT64] = ('d', 8)
 
-OS1_PACKETS_PER_FRAME = 64
-OS1_POINTCLOUD_SHAPE    = [1024, 128, 3]
-
 """
 DATASET DIRECTORY DEFINITIONS
 """
@@ -55,35 +52,24 @@ TWOD_RECT_DIR           = "2d_rect"
 METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
-TWOD_PROJ_DIR           = "2d_proj"
+# TWOD_PROJ_DIR           = "2d_proj"
 POSES_DIR               = "poses"
 DENSE_POSES_DIR         = "dense"
 DENSE_POSES_FULL_DIR    = "poses/dense"
 TIMESTAMPS_DIR          = "timestamps"
 
-DATASET_L1_DIR_LIST = [
-    METADATA_DIR,
-    CALIBRATION_DIR,
-    TIMESTAMPS_DIR,
-    TWOD_RAW_DIR,
-    TWOD_RECT_DIR,
-    TRED_RAW_DIR,
-    TRED_COMP_DIR,
-    TRED_BBOX_LABEL_DIR,
-    TWOD_BBOX_LABEL_TYPE,
-    SEMANTIC_LABEL_DIR,
-    TWOD_PROJ_DIR,
-    POSES_DIR
-]
+DEFAULT_FILETYPES = {
+    "2d_raw": "png",
+    "3d_raw": "bin",
+    "3d_comp": "bin",
+    "3d_semantic": "bin",
+    "3d_bbox": "json",
+    "2d_rect": "jpg",
+    "poses": "txt",
+    "timestamps": "txt"
+}
 
-DATASET_L2_DIR_LIST = [
-    "%s/imu" % POSES_DIR,
-    "%s/gps" % POSES_DIR,
-    "%s/mag" % POSES_DIR,
-    "%s/gpsodom" % POSES_DIR,
-    "%s/inekfodom" % POSES_DIR,
-    "%s/%s" % (POSES_DIR, DENSE_POSES_DIR)
-]
+DEFAULT_POINTCLOUD_SHAPE = [1024, 128]
 
 """
 Annotation Mappings
@@ -453,52 +439,20 @@ SEM_ID_TO_COLOR = [
 """
 Manifest file generation sensor to subdirectory mappings
 """
-SENSOR_DIRECTORY_SUBPATH = {
-    #Depth
-    "/ouster/lidar_packets": "%s/os1"%TRED_RAW_DIR,
-    "/camera/depth/image_raw/compressed": "%s/cam2"%TRED_RAW_DIR,
-    "/zed/zed_node/depth/depth_registered": "%s/cam3"%TRED_RAW_DIR,
-    #RGB
-    "/stereo/left/image_raw/compressed": "2d_raw/cam0",
-    "/stereo/right/image_raw/compressed": "2d_raw/cam1",
-    "/camera/rgb/image_raw/compressed": "2d_raw/cam2",
-    "/zed/zed_node/left/image_rect_color/compressed": "2d_raw/cam3",
-    "/zed/zed_node/right/image_rect_color/compressed": "2d_raw/cam4",
-    #Inertial
-    "/vectornav/IMU": "poses/imu",
-    "/vectornav/Mag": "poses/mag",
-    "/vectornav/GPS": "poses/gps",
-    "/vectornav/Odom": "poses/gpsodom",
-    "/husky_velocity_controller/odom": "poses/inekfodom"
-}
+from nav_msgs.msg import Odometry
+from tf2_msgs.msg import TFMessage
+from sensor_msgs.msg import PointCloud2, CompressedImage, Imu, MagneticField, Image, NavSatFix
 
-SENSOR_DIRECTORY_FILETYPES = {
-    #Depth
-    "%s/os1"%TRED_RAW_DIR: "bin",
-    "%s/cam2"%TRED_RAW_DIR: "png",
-    "%s/cam3"%TRED_RAW_DIR: "png",
-    #RGB
-    "2d_raw/cam0": "png",
-    "2d_raw/cam1": "png",
-    "2d_raw/cam2": "png",
-    "2d_raw/cam3": "png",
-    "2d_raw/cam4": "png",
-    "2d_rect/cam0": "jpg",
-    "2d_rect/cam1": "jpg",
-    #Labels
-    "%s/cam0"%TWOD_BBOX_LABEL_TYPE: "txt", # KITTI FORMAT
-    "%s/cam1"%TWOD_BBOX_LABEL_TYPE: "txt",
-    "%s/os1"%TRED_BBOX_LABEL_DIR: "json",
-    "%s/os1"%SEMANTIC_LABEL_DIR: "bin",
-    "%s/os1"%TRED_COMP_DIR: "bin",
-    "%s/cam0"%TWOD_PROJ_DIR: "jpg",
-    "%s/cam1"%TWOD_PROJ_DIR: "jpg",
-    #Inertial
-    "poses/imu": "txt",
-    "poses/mag": "txt",
-    "poses/gps": "txt",
-    "poses/gpsodom": "txt",
-    "poses/inekfodom": "txt"
+ROSTYPE_TO_CLASS = {
+    "sensor_msgs/Image": Image,
+    "sensor_msgs/CompressedImage": CompressedImage,
+    "ouster_ros/PacketMsg": PointCloud2,
+    "sensor_sgs/PointCloud2": PointCloud2,
+    "sensor_msgs/Imu": Imu,
+    "sensor_msgs/MagneticField": MagneticField,
+    "sensor_msgs/NavSatFix": NavSatFix,
+    "nav_msgs/Odometry": Odometry,
+    "tf2_msgs/TFMessage": TFMessage
 }
 
 """

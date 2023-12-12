@@ -91,8 +91,6 @@ def pub_pc_to_rviz(pc, pc_pub, ts, point_type="x y z", frame_id="os_sensor", seq
     field_names = point_type.split(" ")
     for field_idx, field_name in enumerate(field_names):
         next_field_col_np = pc[:, field_idx].reshape(-1, 1)
-        # import pdb; pdb.set_trace()
-
         all_bytes_np, all_fields_list = add_field(
             all_bytes_np, next_field_col_np, field_name, all_fields_list
         )

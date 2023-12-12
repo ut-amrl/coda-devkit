@@ -1,5 +1,6 @@
 import os
 import pdb
+import json
 import yaml
 import shutil
 
@@ -23,12 +24,37 @@ import matplotlib.pyplot as plt
 from helpers.constants import *
 import sensor_msgs
 
-def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="xyz i t"):
+def read_ouster_info(os_metadata):
+    """
+    os_metadata - path to OS1 metadata file
+    """
+    # Use backup ouster metadata file if not found 
+    if not os.path.exists(os_metadata):
+        default_os  = os.path.join("helpers/helper_utils/OS1metadata.json")
+        print("Ouster metadata not found at %s, using default at %s" %
+            (os_metadata, default_os))
+        os_metadata = default_os
+
+    #Load OS1 metadata file
+    with open(os_metadata, 'r') as f:
+        os1_dict = json.load(f)
+    with open(os_metadata, 'r') as f:
+        os1_info = client.SensorInfo(f.read())
+
+    return os1_dict, os1_info
+
+def process_ouster_packet(
+    os1_info, os1_dict, packet_arr, topic, sensor_ts, point_fields="x y z i t"
+    ):
     def nth(iterable, n, default=None):
         try:
             return next(itertools.islice(iterable, n, n+1))
         except StopIteration:
             return default
+    OS1_POINTCLOUD_SHAPE = (
+        os1_dict['data_format']['columns_per_frame'], 
+        os1_dict['data_format']['pixels_per_column']
+    )
 
     #Process Header
     packets = client.Packets(packet_arr, os1_info)
@@ -53,10 +79,6 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="x
     xyzlut              = client.XYZLut(os1_info)
     xyz_points          = client.destagger(os1_info, xyzlut(rg))
 
-    # Homogeneous xyz coordinates
-    homo_xyz    = np.ones((xyz_points.shape[0], xyz_points.shape[1], 1))
-    xyz_points  = np.dstack((xyz_points, homo_xyz))
-
     #Change from LiDAR to sensor coordinate system
     signal      = np.expand_dims(signal, axis=-1)
     rf          = np.expand_dims(rf, axis=-1)
@@ -64,34 +86,31 @@ def process_ouster_packet(os1_info, packet_arr, topic, sensor_ts, point_types="x
     rg          = np.expand_dims(rg, axis=-1)
     nr          = np.expand_dims(nr, axis=-1)
     ring        = np.expand_dims(ring, axis=-1)
-    
-    pc = np.empty((xyz_points.shape[0], xyz_points.shape[1], 0))
-    point_type_list = point_types.split(' ')
-    for point_type in point_type_list:
-        if point_type=="xyz":
-            pc = np.dstack((pc, xyz_points))
-        elif point_type=="i":
-            pc = np.dstack((pc, signal))
-        elif point_type=="t":
-            pc = np.dstack((pc, ts_points))
-    pc = pc.astype(np.float32)
 
-    # pc = np.dstack((xyz_points, signal, ts_points, rf, ring, nr, rg)).astype(np.float32)
+    pc = np.empty((xyz_points.shape[0], xyz_points.shape[1], 0))
+    point_fields = point_fields.split(' ')
+    pc = xyz_points
+    for point_field in point_fields:
+        if point_field=="i":
+            pc = np.dstack((pc, signal))
+        elif point_field=="t":
+            pc = np.dstack((pc, ts_points))
+        elif point_field=="ri":
+            pc = np.dstack(((pc, ring)))
+        elif point_field not in ["x", "y", "z"]:
+            raise NotImplementedError
+    pc = pc.astype(np.float32)
 
     return pc, sensor_ts
 
-def set_filename_by_topic(topic, trajectory, frame):
-    sensor_subpath  = SENSOR_DIRECTORY_SUBPATH[topic]
+def set_filename_by_topic(topic, sensor_subpath, filetype, trajectory, frame):
     sensor_prefix   = sensor_subpath.replace("/", "_") #get sensor name
-    sensor_filetype = SENSOR_DIRECTORY_FILETYPES[sensor_subpath]
-
     sensor_filename = "%s_%s_%s.%s" % (sensor_prefix, str(trajectory), 
-        str(frame), sensor_filetype)
+        str(frame), filetype)
 
     return sensor_filename
 
-def set_filename_by_prefix(modality, sensor_name, trajectory, frame):
-    filetype = SENSOR_DIRECTORY_FILETYPES['/'.join([modality, sensor_name])]
+def set_filename_by_prefix(modality, sensor_name, filetype, trajectory, frame):
     sensor_filename = "%s_%s_%s_%s.%s" % (
         modality, 
         sensor_name, 
@@ -108,7 +127,11 @@ def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, inclu
 
     filepath = os.path.join(indir, modality, sensor_name, trajectory)
     if include_name:
-        filename = set_filename_by_prefix(modality, sensor_name, trajectory, str(frame))
+        assert modality in DEFAULT_FILETYPES.keys(), f'Modality {modality} not supported...'
+        filetype = DEFAULT_FILETYPES[modality]
+        filename = set_filename_by_prefix(
+            modality, sensor_name, filetype, trajectory, str(frame)
+        )
         return os.path.join(filepath, filename)
     return filepath
 
@@ -146,7 +169,7 @@ def read_sem_label(label_path):
     return sem_tred_np
 
 def read_bin(bin_path, keep_intensity=True):
-    num_points = OS1_POINTCLOUD_SHAPE[0]*OS1_POINTCLOUD_SHAPE[1]
+    num_points = DEFAULT_POINTCLOUD_SHAPE[0]*DEFAULT_POINTCLOUD_SHAPE[1]
     bin_np = np.fromfile(bin_path, dtype=np.float32).reshape(num_points, -1)
 
     if not keep_intensity:
@@ -250,13 +273,11 @@ def process_image(img_data, encoding="passthrough"):
     sensor_ts = img_data.header.stamp
     cv_image = CvBridge().imgmsg_to_cv2(img_data, desired_encoding=encoding)
     image_np = np.array(cv_image)
-
     return image_np, sensor_ts
 
 def process_compressed_image(img_data, encoding="bgr8"):
     sensor_ts = img_data.header.stamp
     # Decode mono16 separately due to compressed decoding bug in CvBridge()
-    # import pdb; pdb.set_trace()
     if encoding=="mono16":
         dt = np.dtype('<B') # little endian
         compressed_image_np = np.frombuffer(img_data.data, dtype=dt)
@@ -296,7 +317,11 @@ def process_imu(imu_data, trans):
         imu_data.linear_acceleration.x, imu_data.linear_acceleration.y,
         imu_data.linear_acceleration.z, 0
     ])
-    orientation = R.from_quat(orientation).as_euler('xyz', degrees=True)
+    try:
+        orientation = R.from_quat(orientation).as_euler('xyz', degrees=True)
+    except ValueError as e:
+        print("process_imu(): Invalid quarternion error ", e)
+        orientation = R.from_quat([0,0,0,1]).as_euler('xyz', degrees=True)
     orientation = np.append(orientation, 0)
 
     # Transform imu coordinates to sensor coordinate frame

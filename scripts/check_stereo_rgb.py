@@ -14,9 +14,9 @@ from helpers.sensors import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--traj', default="0",
+parser.add_argument('-t', '--traj', default="0",
                     help="Select a trajectory to visualize ")
-parser.add_argument('--frame', default="0",
+parser.add_argument('-f', '--frame', default="0",
                     help="Select a frame to visualize ")
 
 def extract_ts(img_file):

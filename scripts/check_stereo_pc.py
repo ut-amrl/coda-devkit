@@ -18,8 +18,10 @@ from scipy.spatial.transform import Rotation as R
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--traj', default="0",
+parser.add_argument('-t', '--traj', default="0",
                     help="Select a trajectory 0-22")
+parser.add_argument('-n', '--namespace', default="coda",
+                    help="Select a namespace to use for published topics")
 # parser.add_argument('--cam', default="cam3",
 #                     help="Select a stereo camera to visualize (cam2, cam3)")
 
@@ -87,6 +89,7 @@ def process_stereo_to_pointcloud(depth_img_path, calib_intr_path, calib_extr_pat
 
 def main(args):
     traj    = args.traj
+    namespace = args.namespace
     camid   = "cam3" #args.cam
     indir   = os.getenv(ENV_CODA_ROOT_DIR)
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
@@ -102,8 +105,8 @@ def main(args):
     depth_range = [STEREO_SETTINGS[camid]['min_depth'], STEREO_SETTINGS[camid]['max_depth'] ]
 
     # Set up ROS publishers for transformed depth image and point cloud
-    depth_pc_pub = rospy.Publisher(f'/coda/{camid}/depth_cloud', PointCloud2, queue_size=10)
-    lidar_pc_pub = rospy.Publisher('/coda/ouster/points', PointCloud2, queue_size=10)
+    depth_pc_pub = rospy.Publisher(f'/{namespace}/{camid}/depth_cloud', PointCloud2, queue_size=10)
+    lidar_pc_pub = rospy.Publisher(f'/{namespace}/ouster/points', PointCloud2, queue_size=10)
     rate = rospy.Rate(5)
 
     # Read all 3d_files from directory

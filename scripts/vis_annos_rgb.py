@@ -51,7 +51,8 @@ def dump_calibration_img(outdir, traj, frame, cam_id, pt_image_np):
     if not os.path.exists(out_image_dir):
         print("Output image directory %s  does not exist, creating now..." % out_image_dir)
         os.makedirs(out_image_dir)
-    out_image_file = set_filename_by_prefix(TWOD_RECT_DIR, cam_id, traj, frame)
+    filetype = DEFAULT_FILETYPES[TWOD_RECT_DIR]
+    out_image_file = set_filename_by_prefix(TWOD_RECT_DIR, cam_id, filetype, traj, frame)
     out_image_path = join(out_image_dir, out_image_file)
 
     # Write trajectory and frame to calibration image
@@ -99,11 +100,17 @@ def generate_calibration_summary(args):
     for frame, ts in enumerate(frame_to_ts_np):
         if frame % cfg['fr']==0:
             for cam_list_idx, cam_id in enumerate(cam_list):
-                twod_img_file   = set_filename_by_prefix(TWOD_RECT_DIR, cam_id, traj, frame)
+                twod_filetype   = DEFAULT_FILETYPES[TWOD_RECT_DIR]
+                twod_img_file   = set_filename_by_prefix(
+                    TWOD_RECT_DIR, cam_id, twod_filetype, traj, frame
+                )
                 twod_img_path = os.path.join(twod_paths[cam_list_idx], twod_img_file)
                 image_np = cv2.imread(twod_img_path)
 
-                tred_bin_file = set_filename_by_prefix(TRED_COMP_DIR, "os1", traj, frame)
+                tred_filetype   = DEFAULT_FILETYPES[TRED_COMP_DIR]
+                tred_bin_file = set_filename_by_prefix(
+                    TRED_COMP_DIR, "os1", tred_filetype, traj, frame
+                )
                 tred_bin_path = join(tred_path, tred_bin_file)
                 bin_np = read_bin(tred_bin_path)
                 pt_image_np = project_3dpoint_image(image_np, bin_np, calibextr_path, calibintr_path)
@@ -179,7 +186,6 @@ def main(args):
 
     This script can be used to project the point cloud to corresponding images. 
     """
-
     indir               = os.getenv(ENV_CODA_ROOT_DIR)
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     outdir              = args.outdir

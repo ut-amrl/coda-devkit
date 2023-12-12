@@ -47,6 +47,8 @@ parser.add_argument("-c", "--color_type", type=str, default="classId",
                     help="Color map to use for coloring boxes Options: [isOccluded, classId] (Default classId)")
 parser.add_argument("-l", "--log", type=str, default="",
                     help="Logs point cloud and bbox annotations to file for external usage")
+parser.add_argument("-n", "--namespace", type=str, default="coda",
+                    help="Select a namespace to use for published topics")
 
 def get_key():
     old_settings = termios.tcgetattr(sys.stdin)
@@ -62,6 +64,7 @@ def vis_annos_rviz(args):
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     sequence, start_frame, color_type, log_dir = args.sequence, int(args.start_frame), args.color_type, \
         args.log
+    namespace = args.namespace
     rospy.init_node('CODa_publisher')
 
     # Define Frames
@@ -69,12 +72,12 @@ def vis_annos_rviz(args):
     base_frame   = 'os_sensor'
     lidar_frame  = 'os_sensor'
 
-    lidar_pub   = rospy.Publisher('/coda/ouster/points', PointCloud2, queue_size=10)
-    cam0_pub    = rospy.Publisher('/coda/cam0', Image, queue_size=10)
-    cam1_pub    = rospy.Publisher('/coda/cam1', Image, queue_size=10)
-    bbox_3d_pub = rospy.Publisher('/coda/bbox_3d', MarkerArray, queue_size=10)
-    pose_pub    = rospy.Publisher('/coda/pose', PoseStamped, queue_size=10)
-    cam3_pub    = rospy.Publisher('/coda/cam3/depth', Image, queue_size=10)
+    lidar_pub   = rospy.Publisher(f'/{namespace}/ouster/points', PointCloud2, queue_size=10)
+    cam0_pub    = rospy.Publisher(f'/{namespace}/cam0', Image, queue_size=10)
+    cam1_pub    = rospy.Publisher(f'/{namespace}/cam1', Image, queue_size=10)
+    bbox_3d_pub = rospy.Publisher(f'/{namespace}/bbox_3d', MarkerArray, queue_size=10)
+    pose_pub    = rospy.Publisher(f'/{namespace}/pose', PoseStamped, queue_size=10)
+    cam3_pub    = rospy.Publisher(f'/{namespace}/cam3/depth', Image, queue_size=10)
 
     trajectory_pub    = rospy.Publisher('/trajectory', Marker, queue_size=10)
     trajectory_marker = Marker()

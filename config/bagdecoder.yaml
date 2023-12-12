@@ -8,44 +8,63 @@ gen_data: True   # Generates data files
 viz_topics: True     # Republish sensor messages
 verbose: True    # Debugging
 
-sync_topics: [
-  "/ouster/lidar_packets",
-  "/stereo/left/image_raw/compressed",
-  "/stereo/right/image_raw/compressed"
-]
+# Synchronization parameters
+sync_method: "HARDWARE_SYNC_METHOD"
+trigger_topic: "/ouster/lidar_packets"
 
-# sync_method: "FIFO"
+point_fields: "x y z i t ri" # xyz, intensity, time, ring 
 
-sensor_topics: [
-  #Transforms
-  # "/tf",
-  # "/tf_static",
-
-  #OS1
-  "/ouster/lidar_packets", 
-
-  #Kinect
-  # "/camera/depth/image_raw/compressed",
-  # "/camera/rgb/image_raw/compressed",
-
-  #FLIR
-  "/stereo/left/image_raw/compressed",
-  "/stereo/right/image_raw/compressed",
-
-  #Vectornav
-  "/vectornav/GPS",
-  "/vectornav/IMU",
-  "/vectornav/Mag",
-  "/vectornav/Odom",
-
-  #ZED
-  # "/zed/zed_node/depth/depth_registered",
-  # "/zed/zed_node/left/image_rect_color/compressed",
-  # "/zed/zed_node/right/image_rect_color/compressed",
-
-  #Odometry
-  "/husky_velocity_controller/odom"
-]
+sensor_topics: 
+  "/ouster/lidar_packets":
+    id: "os1"
+    sync: True
+    save_subdir: "3d_raw/os1"
+    save_ext: "bin" 
+  "/stereo/left/image_raw/compressed":
+    id: "cam0"
+    sync: True
+    save_subdir: "2d_raw/cam0"
+    save_ext: "jpg" 
+  "/stereo/right/image_raw/compressed": 
+    id: "cam1"
+    sync: True
+    save_subdir: "2d_raw/cam1"
+    save_ext: "jpg" 
+  "/stereo/fisheye_left/image_raw/compressed": 
+    id: "cam2"
+    sync: True
+    save_subdir: "2d_raw/cam2"
+    save_ext: "jpg" 
+  "/stereo/fisheye_right/image_raw/compressed": 
+    id: "cam3"
+    sync: True
+    save_subdir: "2d_raw/cam3"
+    save_ext: "jpg" 
+  "/stereo/fisheye_back/image_raw/compressed": 
+    id: "cam4"
+    sync: True
+    save_subdir: "2d_raw/cam4"
+    save_ext: "jpg" 
+  "/vectornav/GPS": 
+    id: "gps"
+    sync: False
+    save_subdir: "poses/gps"
+    save_ext: "txt"
+  "/vectornav/IMU": 
+    id: "imu"
+    sync: False
+    save_subdir: "poses/imu"
+    save_ext: "txt" 
+  "/vectornav/Mag": 
+    id: "mag"
+    sync: False
+    save_subdir: "poses/mag"
+    save_ext: "txt" 
+  "/vectornav/Odom": 
+    id: "odom"
+    sync: False
+    save_subdir: "poses/gpsodom"
+    save_ext: "txt" 
 
 bags_to_process: ["1673884184.bag"] #Leave empty to process all bags in directory
 bags_to_traj_ids: [0] # Leave empty to assign ids in sequential order from 0

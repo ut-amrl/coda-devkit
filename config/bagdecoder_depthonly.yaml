@@ -8,44 +8,23 @@ gen_data: True   # Generates data files
 viz_topics: True     # Republish sensor messages
 verbose: True    # Debugging
 
-sync_topics: [
-  # "/ouster/lidar_packets",
-  # "/stereo/left/image_raw/compressed",
-  # "/stereo/right/image_raw/compressed"
-]
+# Synchronization parameters
+sync_method: "HARDWARE_SYNC_METHOD"
+trigger_topic: "/ouster/lidar_packets"
 
-# sync_method: "FIFO"
+point_fields: "x y z i t ri" # xyz, intensity, time, ring 
 
-sensor_topics: [
-  #Transforms
-  # "/tf",
-  # "/tf_static",
-
-  #OS1
-  # "/ouster/lidar_packets", 
-
-  #Kinect
-  "/camera/depth/image_raw/compressed",
-  # "/camera/rgb/image_raw/compressed",
-
-  #FLIR
-  # "/stereo/left/image_raw/compressed",
-  # "/stereo/right/image_raw/compressed",
-
-  #Vectornav
-  # "/vectornav/GPS",
-  # "/vectornav/IMU",
-  # "/vectornav/Mag",
-  # "/vectornav/Odom",
-
-  #ZED
-  "/zed/zed_node/depth/depth_registered",
-  # "/zed/zed_node/left/image_rect_color/compressed",
-  # "/zed/zed_node/right/image_rect_color/compressed",
-
-  #Odometry
-  # "/husky_velocity_controller/odom"
-]
+sensor_topics: 
+  "/camera/depth/image_raw/compressed":
+    id: "cam2"
+    sync: False
+    save_subdir: "3d_raw/cam2"
+    save_ext: "png" 
+  "/zed/zed_node/depth/depth_registered":
+    id: "cam3"
+    sync: False
+    save_subdir: "3d_raw/cam4"
+    save_ext: "png" 
 
 bags_to_process: ["1675092394.bag"] #Leave empty to process all bags in directory
 bags_to_traj_ids: [10] # Leave empty to assign ids in sequential order from 0

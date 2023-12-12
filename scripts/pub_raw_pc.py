@@ -32,6 +32,8 @@ parser.add_argument('-f', '--frame', default="0",
 parser.add_argument('-hz', type=float, default=1,
                     help="lidar publish rate, defaults to 1 Hz")
 
+OS1_POINTCLOUD_SHAPE  = [1024, 128]
+
 def publish_single_bin(bin_path, pc_pub, frame, ts=None, frame_id="os_sensor", do_frame_comp=False):
     bin_np = read_bin(bin_path)
 
@@ -112,7 +114,7 @@ if __name__ == '__main__':
     frame_to_ts_np = np.fromfile(frame_to_ts_path, sep=' ').reshape(-1,)
 
     pc_pub_rate = rospy.Rate(pub_hz)
-    imu_pub_rate = rospy.Rate(pub_hz * 4) # Assume 4 times speed increase
+    imu_pub_rate = rospy.Rate(pub_hz * 2) # Assume 2 times speed increase
     # Set pc publisher
     pc_pub = rospy.Publisher(ouster_topic, PointCloud2, queue_size=5)
     imu_pub = rospy.Publisher(imu_topic, Imu, queue_size=5)
@@ -130,32 +132,32 @@ if __name__ == '__main__':
         rospy.loginfo("Found {} .bin files in the directory.".format(len(bin_paths)))
 
         lidar_ts = frame_to_ts_np[start_frame]
-        # imu_index = max(np.searchsorted(imu_np[:, 0], lidar_ts)-1, 0) # Start one frame before
+        imu_index = max(np.searchsorted(imu_np[:, 0], lidar_ts)-1, 0) # Start one frame before
 
         # Publish all .bin files in the directory + imu data
         for frame in range(start_frame, len(bin_paths)):
             lidar_ts = frame_to_ts_np[frame]
 
-            # # Publish all imu messages earlier than this frame
-            # imu_ts = imu_np[imu_index][0]
-            # while imu_ts < lidar_ts and imu_index < len(imu_np):
-            #     pub_imu_to_rviz(imu_np[imu_index], imu_pub)
-            #     imu_index += 1
-            #     imu_ts = imu_np[imu_index][0]
-            #     imu_pub_rate.sleep()
+            # Publish all imu messages earlier than this frame
+            imu_ts = imu_np[imu_index][0]
+            while imu_ts < lidar_ts and imu_index < len(imu_np):
+                pub_imu_to_rviz(imu_np[imu_index], imu_pub)
+                imu_index += 1
+                imu_ts = imu_np[imu_index][0]
+                imu_pub_rate.sleep()
 
             # Publish latest lidar message
             bin_path = bin_paths[frame]
             rospy.loginfo("Publishing file: " + bin_path)
             publish_single_bin(bin_path, pc_pub, frame, lidar_ts)
             pc_pub_rate.sleep()
-            while not pose_q.empty():
-                pose_txt = open(pose_path, 'a')
-                pose = pose_q.get()
-                pose_str = pose_to_str(pose)
-                print("pose str ", pose_str)
-                pose_txt.write(pose_str + "\n")
-                pose_txt.close()
+            # while not pose_q.empty():
+            #     pose_txt = open(pose_path, 'a')
+            #     pose = pose_q.get()
+            #     pose_str = pose_to_str(pose)
+            #     print("pose str ", pose_str)
+            #     pose_txt.write(pose_str + "\n")
+            #     pose_txt.close()
             # import pdb; pdb.set_trace()
         # num_frames_published = 0
         # for bin_path in bin_paths:
