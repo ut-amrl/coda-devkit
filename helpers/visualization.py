@@ -176,8 +176,10 @@ def apply_rgb_cmap(img_path, bin_np, calib_ext_file, calib_intr_file, return_pc_
     pt_color_map = np.stack((pt_color_map[:, 2], pt_color_map[:, 1], pt_color_map[:, 0]), axis=-1)
     return pt_color_map, valid_point_mask
 
-def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None):
-    image_pts, pts_mask = project_3dto2d_points(bin_np, calib_ext_file, calib_intr_file)
+def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, colormap=None, use_rectified=False):
+    image_pts, pts_mask = project_3dto2d_points(
+        bin_np, calib_ext_file, calib_intr_file, use_rectified=use_rectified
+    )
 
     in_bounds = np.logical_and(
             np.logical_and(image_pts[:, 0]>=0, image_pts[:, 0]<1224),

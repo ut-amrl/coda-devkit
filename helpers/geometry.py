@@ -274,7 +274,7 @@ def get_points_in_bboxes(pc, anno_filepath, verbose=True):
             output_mask[pc_indices] = 1
     return output_mask
 
-def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None):
+def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None, use_rectified=False):
     """
     Project 3D points from lidar space to 2D image space using camera calibration information.
 
@@ -304,29 +304,43 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None)
     #Compute ego lidar to ego camera coordinate systems (Extrinsic)
     if isinstance(calib_ext_file, str):
         calib_ext = open(calib_ext_file, 'r')
-        calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
+        calib_ext_dict = yaml.safe_load(calib_ext)
+        calib_ext = calib_ext_dict['extrinsic_matrix']
         ext_homo_mat    = np.array(calib_ext['data']).reshape(
             calib_ext['rows'], calib_ext['cols']
         )
     else: # Overloaded function to also accept matrix inputs
         ext_homo_mat = calib_ext_file
+
     if wcs_pose is not None:
         #Transform PC from WCS to ego lidar
         pc_np_homo = np.hstack((pc_np, np.ones(pc_np.shape[0], 1)))
         pc_np = (np.linalg.inv(wcs_pose) @ pc_np_homo.T).T[:, :3]
-
+    
+    np.set_printoptions(suppress=True)
     #Load projection, rectification, distortion camera matrices
     intr_ext    = open(calib_intr_file, 'r')
     intr_ext    = yaml.safe_load(intr_ext)
 
-    K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
-    d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, k3, p1, p2
+    if use_rectified:
+        T_lidar_to_rect = np.array(calib_ext_dict['projection_matrix']['data']).reshape(
+            calib_ext_dict['projection_matrix']['rows'], calib_ext_dict['projection_matrix']['cols']
+        )
+        pc_homo = np.hstack((pc_np, np.ones((pc_np.shape[0], 1))))
+        pc_rect_cam = T_lidar_to_rect @ pc_homo.T
+        
+        image_points= pc_rect_cam / pc_rect_cam[-1, :]
 
-    image_points = projectPointsWithDist(pc_np[:, :3].astype(np.float64), ext_homo_mat[:3, :3], 
-        ext_homo_mat[:3, 3], K, d, use_dist=False)
+        MAX_INT32 = np.iinfo(np.int32).max
+        MIN_INT32 = np.iinfo(np.int32).min
+        image_points = np.clip(image_points.T, MIN_INT32, MAX_INT32)
+        image_points = image_points.astype(np.int32)
+    else:
+        K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
+        d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, p1, p2, k3
 
-    # bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
-    #     bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
+        image_points = projectPointsWithDist(pc_np[:, :3].astype(np.float64), ext_homo_mat[:3, :3], 
+            ext_homo_mat[:3, 3], K, d, use_dist=False)
 
     valid_points_mask = get_pointsinfov_mask(
         (ext_homo_mat[:3, :3]@pc_np[:, :3].T).T+ext_homo_mat[:3, 3])
@@ -502,7 +516,7 @@ def projectPointsWithDist(points_3d, R, T, K, d, use_dist=True):
         safe_image_points[0, safe_image_points_mask, :] = image_points[0, safe_image_points_mask, :]
         unsafe_image_points_mask = np.delete(np.arange(0, num_points), safe_image_points_mask)
         safe_image_points[0, unsafe_image_points_mask, :] = image_points_nodist[0, unsafe_image_points_mask, :]
-        image_points = safe_image_points
+        image_points = safe_image_points.squeeze()
     else:
         image_points, _ = cv2.projectPoints(points_3d, R, T, K, np.zeros((5,)))
         image_points     = np.swapaxes(image_points, 0, 1).squeeze()
@@ -799,3 +813,16 @@ def get_pointsinfov_mask(points):
     in_fov_mask = np.abs(angles_vec[:,0]) <= 1.57 #0.785398
 
     return in_fov_mask
+
+def rectify_image(img_path, intrinsics, alpha=0): # alpha=0 keeps all pixels
+    img = np.array(cv2.imread(img_path))
+    w, h = intrinsics['image_width'], intrinsics['image_height']
+    K = np.float32(intrinsics['camera_matrix']['data']).reshape(3, 3)
+    D = np.float32(intrinsics['distortion_coefficients']['data'])
+    P = np.float32(intrinsics['projection_matrix']['data']).reshape(3, 4)
+    R = np.float32(intrinsics['rectification_matrix']['data']).reshape(3, 3)
+    
+    mapx, mapy = cv2.initUndistortRectifyMap(K, D, R, P, (w,h), cv2.CV_32FC1)
+    img_rect = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
+
+    return img_rect

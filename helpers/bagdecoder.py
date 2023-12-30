@@ -45,7 +45,7 @@ class BagDecoder(object):
             self.gen_dataset_structure(self.outdir, self.sensor_topics)
 
         #Load sync publisher
-        rospy.init_node('coda', anonymous=True)
+        rospy.init_node(self.namespace, anonymous=True)
         self.pub_rate = rospy.Rate(10) # Publish at 10 hz
         self.topic_to_type = None
 
@@ -64,11 +64,12 @@ class BagDecoder(object):
 
     def load_settings(self):
         if self.is_config_dict:
-            settings = self._settings_fp
+            settings = self.settings_fp
         else:
             settings = yaml.safe_load(open(self.settings_fp, 'r'))
 
         #Load bag file directory
+        self.namespace         = settings["namespace"]
         self.repository_root   = settings["repository_root"]
         self.bag_date          = settings["bag_date"]
         self.bag_dir           = os.path.join(self.repository_root, self.bag_date)
@@ -99,13 +100,14 @@ class BagDecoder(object):
             self.bags_to_process = self.all_bags
 
         # Load LiDAR decoder settings
-        self.lidar_info_path = settings['lidar_info_path']
+        self.lidar_info_path = settings['lidar_info_path'] if "lidar_info_path" in settings else "./helpers/helper_utils/OS1metadata.json"
         if "/ouster/lidar_packets" in self.sensor_topics:
             os_metadata = os.path.join(self.bag_dir, self.lidar_info_path)
             self.os1_dict, self.os1_info = read_ouster_info(os_metadata)
 
             self.OS1_PACKETS_PER_FRAME = int(self.os1_dict['data_format']['columns_per_frame'] /
             self.os1_dict['data_format']['columns_per_packet'])
+            self.OS1_SCAN_FREQUENCY = self.os1_dict['lidar_mode'].split("x")[-1]
 
     def setup_sensor_topics(self, topic_to_type):
         if topic_to_type==None:
@@ -121,7 +123,7 @@ class BagDecoder(object):
             
             if topic_class!=None:
                 topics_pubs[topic] = rospy.Publisher(
-                    f'/coda{topic}', topic_class, queue_size=10
+                    f'/{self.namespace}{topic}', topic_class, queue_size=10
                 )
                 topics_msg_queue[topic] = []
             else:
@@ -176,10 +178,10 @@ class BagDecoder(object):
             topic_to_type = {topic_entry['topic']:topic_entry['type'] \
                 for topic_entry in rosbag_info['topics']}
             topic_pubs, topic_msg_queues = self.setup_sensor_topics(topic_to_type)
-                    
+            
             #Create frame to timestamp map
             frame_to_ts_path= os.path.join(self.outdir, "timestamps", f'{traj_idx}.txt')
-            if self.gen_data:
+            if self.gen_data and self.exists_sync_topics():
                 self.reset_stale_files(frame_to_ts_path, traj_idx)
                 if self.verbose:
                     print(f'Writing frame to timestamp map to {frame_to_ts_path}\n')
@@ -193,45 +195,57 @@ class BagDecoder(object):
                 'qp_scan_queue': []
             } 
             bagfile = rosbag.Bag(bag_fp, chunk_threshold=200000000) # 200MB chunk size
-            for topic, msg, ts in rosbag.Bag(bag_fp).read_messages():
-                if topic in self.sensor_topics.keys():
-                    topic_type = topic_to_type[topic]
-                    info = self.sensor_topics[topic]
+            with tqdm.tqdm_notebook(total = bagfile.get_message_count()) as pbar:
+                for topic, msg, ts in bagfile.read_messages():
+                    pbar.update(1)
+                    if topic in self.sensor_topics.keys():
+                        topic_type = topic_to_type[topic]
+                        info = self.sensor_topics[topic]
 
-                    # Process topic and update msg with point cloud if all packets received
-                    if topic_type=="ouster_ros/PacketMsg":
-                        lidar_state_dict, msg = self.qpacket(topic, topic_type, msg, ts, lidar_state_dict)
-                        if msg is not None: # Convert points numpy to pointcloud2
-                            msg = pub_pc_to_rviz(
-                                    msg, topic_pubs[topic], ts,  
-                                    point_type=self.point_fields, 
-                                    seq=lidar_state_dict['frame'],
-                                    publish=False
+                        # Process topic and update msg with point cloud if all packets received
+                        if topic_type=="ouster_ros/PacketMsg":
+                            lidar_state_dict, msg = self.qpacket(topic, topic_type, msg, ts, lidar_state_dict)
+                            if msg is not None: # Convert points numpy to pointcloud2
+                                ts = lidar_state_dict['qp_ts']
+                                msg = pub_pc_to_rviz(
+                                        msg, topic_pubs[topic], ts,  
+                                        point_type=self.point_fields, 
+                                        seq=lidar_state_dict['frame'],
+                                        publish=False
+                                    )
+
+                        #2 Synchronize and save topics
+                        if info['sync'] and msg is not None:
+                            sync_dict = synchronizer.synchronize(topic, msg)
+                            
+                            if sync_dict is not None:
+                                # Save sync topic
+                                self.save_sync_topics(
+                                    sync_dict, 
+                                    topic_to_type, 
+                                    traj_idx, 
+                                    lidar_state_dict['frame'],
+                                    frame_to_ts_path
                                 )
+                                lidar_state_dict['frame'] += 1
 
-                    #2 Synchronize and save topics
-                    if info['sync'] and msg is not None:
-                        sync_dict = synchronizer.synchronize(topic, msg)
-                        
-                        if sync_dict is not None:
-                            # Save sync topic
-                            self.save_sync_topics(
-                                sync_dict, 
-                                topic_to_type, 
-                                traj_idx, 
-                                lidar_state_dict['frame'],
-                                frame_to_ts_path
-                            )
-                            lidar_state_dict['frame'] += 1
-
+                                if self.vis_topics:
+                                    self.pub_sync_topics(topic_pubs, sync_dict)
+                        elif not info['sync']:
+                            self.save_topic(msg, topic, topic_type, traj_idx, ts)
                             if self.vis_topics:
-                                self.pub_sync_topics(topic_pubs, sync_dict)
-                    elif not info['sync']:
-                        self.save_topic(msg, topic, topic_type, traj_idx, ts)
-                        if self.vis_topics:
-                            topic_pubs[topic].publish(msg)
+                                topic_pubs[topic].publish(msg)
 
             print("Completed processing bag ", bag_fp)
+
+    def exists_sync_topics(self):
+        """
+        Check if any topics exist
+        """
+        for topic, info in self.sensor_topics.items():
+            if info['sync']:
+                return True
+        return False
 
     def pub_sync_topics(self, topic_pubs, sync_dict):
         for topic, msg in sync_dict['topics'].items():
@@ -262,7 +276,8 @@ class BagDecoder(object):
         pc_np = None
         if packet.frame_id!=state_dict['qp_frame_id']:
             if state_dict['qp_counter']==self.OS1_PACKETS_PER_FRAME:
-                pc_np, _ = self.process_topic(topic, topic_type, state_dict['qp_scan_queue'], ts)
+                pc_np, ts = self.process_topic(topic, topic_type, state_dict['qp_scan_queue'], ts)
+                state_dict['qp_ts'] = ts # Update timestamp to earliest packet
 
             state_dict['qp_counter']    = 0
             state_dict['qp_frame_id']   = packet.frame_id
@@ -280,7 +295,7 @@ class BagDecoder(object):
 
         save_subdir = join(topic_type_subpath, str(trajectory))
         save_dir = os.path.join(self.outdir, save_subdir)
-        filename = set_filename_by_topic(topic, save_subdir, save_ext, trajectory, frame)
+        filename = set_filename_by_topic(topic, topic_type_subpath, save_ext, trajectory, frame)
         filepath = os.path.join(save_dir, filename)
 
         if not self.gen_data:
@@ -358,29 +373,6 @@ class BagDecoder(object):
             data = msg
         return data, sensor_ts
 
-    """
-    Post processing functions for generated datasets
-    """
-    def rectify_images(self, num_workers):
-        cam0_dir = os.path.join(self._outdir, TWOD_RAW_DIR, 'cam0')
-        assert os.path.isdir(cam0_dir), "Camera 0 directory not found at %s " % cam0_dir
-        trajectories = sorted([int(traj) for traj in next(os.walk(cam0_dir))[1]])
-
-        outdirs = [self._outdir]*len(trajectories)
-        cam_calibrations = []
-        for traj in trajectories:
-            #Load calibrations if they exist
-            calibrations_path = os.path.join(self._outdir, "calibrations", str(traj))
-            if os.path.exists(calibrations_path):
-                print("Calibrations directory exists %s, loading calibrations" % calibrations_path)
-                cam_calibrations.append(self.load_cam_calibrations(self._outdir, traj))
-
-            assert cam_calibrations!=None, "No camera calibrations found for traj %i" % traj
-
-        pool = Pool(processes=num_workers)
-        for _ in tqdm.tqdm(pool.imap_unordered(self.rectify_image, zip(outdirs, trajectories, cam_calibrations)), total=len(trajectories)):
-            pass
-
     @staticmethod
     def densify_poses(poses_indir, poses_outdir, ts_dir, gen_data=True):
         if not os.path.exists(poses_outdir):
@@ -406,43 +398,6 @@ class BagDecoder(object):
                 print("Saving dense poses for trajectory %s at path %s" % (traj, pose_file_path))
                 np.savetxt(pose_file_path, dense_poses, fmt="%10.6f", delimiter=" ")
         print("Done generating dense poses...")
-
-    @staticmethod
-    def rectify_image(args):
-        """
-        Rectifies all images for a single trajectory
-        """
-        outdir, traj, cam_calibration = args
-        cams = ['cam0', 'cam1']
-        for cam in cams:
-            cam_dir = os.path.join(outdir, TWOD_RAW_DIR, cam)
-            cam_out_dir = os.path.join(outdir, TWOD_RECT_DIR, cam)
-            if not os.path.exists(cam_out_dir):
-                print("Creating %s rectified dir at %s " % (cam, cam_dir))
-                os.mkdir(cam_out_dir)
-
-            img_dir = os.path.join(outdir, '2d_raw', cam, str(traj))
-            img_dir_files = os.listdir(img_dir)
-            img_dir_files = sorted(img_dir_files, key=lambda x: int(x.split('.')[0].split('_')[-1]))
-            
-            rect_img_dir = os.path.join(img_dir.replace('raw', 'rect'))
-
-            for img_file in img_dir_files:
-                _, _, _, frame = get_filename_info(img_file)
-                img_path = os.path.join(img_dir, img_file)
-                rect_img_file   = set_filename_by_prefix(TWOD_RECT_DIR, cam, traj, frame)
-
-                if not os.path.exists(rect_img_dir):
-                    os.makedirs(rect_img_dir)
-                if os.path.isfile(img_path):
-                    intrinsics = cam_calibration['%s_intrinsics'%cam]
-
-                    rectified_img_np = rectify_image(img_path, intrinsics)
-
-                    rect_img_path = os.path.join(rect_img_dir, rect_img_file)
-                    success = cv2.imwrite(rect_img_path, rectified_img_np)
-                    if not success:
-                        print("Error writing rectified image to %s " % (rect_img_path))
 
     @staticmethod
     def load_cam_calibrations(outdir, trajectory):

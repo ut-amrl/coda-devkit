@@ -21,12 +21,12 @@ SPLIT_DIR_COPY_LIST = [TWOD_RECT_DIR, TRED_COMP_DIR, TRED_BBOX_LABEL_DIR, SEMANT
 SEQUENCE_DIR_COPY_LIST = {
     TWOD_RECT_DIR: { "cam0": {"%s"}, "cam1": {"%s"} },
     TRED_BBOX_LABEL_DIR: { "os1": {"%s"} },
-    # TRED_RAW_DIR: { "cam3": { "%s" }},
+    TRED_RAW_DIR: { "cam3": { "%s" }},
     TRED_COMP_DIR: { "os1": {"%s"} },
     SEMANTIC_LABEL_DIR: { "os1": {"%s"} },
     CALIBRATION_DIR: { "%s" },
     METADATA_DIR: { "%s.json" },
-    POSES_DIR: { "%s.txt": { "" }, "imu": {"%s.txt"}, "mag": {"%s.txt"} },
+    POSES_DIR: { "dense": {"%s.txt"}, "dense_global": {"%s.txt"}, "imu": {"%s.txt"}, "mag": {"%s.txt"} },
     TIMESTAMPS_DIR: { "%s.txt" }
 }
 
@@ -88,15 +88,17 @@ def copy_single_traj_files(args):
     full_frames_list = sorted(full_frames_list, key=lambda frame: int(frame))
 
     print("Start copying %i files from traj %s to %s" % (len(full_frames_list), traj, outdir))
-
+    
     # Copy 2d_raw, 3d_comp, 3d bbox, 3d semantic files
     for subset_dir in SPLIT_DIR_COPY_LIST:
         modality= subset_dir
         # Default to downloading cam0, cam1, and os1 for now
         if subset_dir==TWOD_RAW_DIR or subset_dir==TWOD_RECT_DIR:
             sensor_list = ["cam0", "cam1"]
-        else:
+        elif subset_dir==TRED_COMP_DIR:
             sensor_list = ["os1"]
+        elif subset_dir==TRED_RAW_DIR: # don't copy unsynchronized data
+            continue
         
         subset_frames_list = full_frames_list
         if subset_dir == TRED_BBOX_LABEL_DIR:
@@ -104,14 +106,13 @@ def copy_single_traj_files(args):
         elif subset_dir == SEMANTIC_LABEL_DIR:
             subset_frames_list = sem_frames_list
 
-        # Copy all subdirectory files for outdir
+        # Copy all subdirectory files for outdir (synchronized)
         for sensor in sensor_list:
-            
             for frame in subset_frames_list:
                 frame_in_path = set_filename_dir(indir, modality, sensor, traj, frame, include_name=True)
                 frame_out_path = set_filename_dir(outdir, modality, sensor, traj, frame, include_name=True)
                 if not os.path.exists(frame_in_path):
-                    print("Skipped {frame_in_path} bc it")
+                    print(f'Skipped {frame_in_path} bc it does not exist')
                     continue
 
                 shutil.copyfile(frame_in_path, frame_out_path)
@@ -130,6 +131,9 @@ def copy_sequence_files(args):
             |_ seq
     |_ 3d_bbox
         |_ os1
+            |_ seq
+    |_ 3d_raw
+        |_ cam3
             |_ seq
     |_ 3d_comp
         |_ os1
@@ -233,8 +237,10 @@ def copy_split_files(indir, outdir, split="sm"):
         for subset_dir in SPLIT_DIR_COPY_LIST:
             if subset_dir==TWOD_RECT_DIR:
                 sensor_list = ["cam0", "cam1"]
-            else:
+            elif subset_dir==TRED_COMP_DIR:
                 sensor_list = ["os1"]
+            elif subset_dir==TRED_RAW_DIR:
+                sensor_list = ["cam3"]
             
             for sensor in sensor_list:
                 traj_path = join(outdir, subset_dir, sensor, traj)
@@ -243,6 +249,7 @@ def copy_split_files(indir, outdir, split="sm"):
                     os.makedirs(traj_path)
 
         # copy_single_traj_files((indir, outdir, meta_path, split))
+
     pool = Pool(processes=32)
     for _ in tqdm.tqdm(pool.imap_unordered(copy_single_traj_files, \
         zip(indir_list, outdir_list, meta_path_list, split_list)), total=len(meta_files)):
@@ -250,8 +257,24 @@ def copy_split_files(indir, outdir, split="sm"):
 
     # Copy smaller files separately
     metadata_dir = METADATA_DIR if split=="full" else METADATA_DIR + "_%s"%split
-    input_full_dir = [metadata_dir, TIMESTAMPS_DIR, DENSE_POSES_FULL_DIR, CALIBRATION_DIR]
-    output_full_dir = [METADATA_DIR, TIMESTAMPS_DIR, DENSE_POSES_FULL_DIR, CALIBRATION_DIR]
+    input_full_dir = [
+        metadata_dir, 
+        TIMESTAMPS_DIR, 
+        DENSE_POSES_FULL_DIR, 
+        DENSE_POSES_GLOBAL_FULL_DIR,
+        CALIBRATION_DIR,
+        POSES_IMU_DIR,
+        POSES_MAG_DIR
+    ]
+    output_full_dir = [
+        METADATA_DIR, 
+        TIMESTAMPS_DIR, 
+        DENSE_POSES_FULL_DIR, 
+        DENSE_POSES_GLOBAL_FULL_DIR, 
+        CALIBRATION_DIR,
+        POSES_IMU_DIR,
+        POSES_MAG_DIR
+    ]
 
     for dir_idx in range(len(input_full_dir)):
         input_subdir = input_full_dir[dir_idx]
@@ -267,7 +290,7 @@ def copy_split_files(indir, outdir, split="sm"):
 
 def main(args):
     outdir, download_type, seq, split = args.outdir, args.download_type, args.seq, args.size
-    indir="/robodata/arthurz/Datasets/CODa_dev"
+    indir="/robodata/arthurz/Datasets/CODa_v2"
     # indir="/scratch/arthurz/Datasets/CODa_tiny"
 
     if download_type=="sequence":

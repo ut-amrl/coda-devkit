@@ -25,7 +25,7 @@ ENV_CODA_ROOT_DIR = 'CODA_ROOT_DIR'
 """
 VISUALIZATION SETTINGS
 """
-SEM_POINT_SIZE = 2 # pixels
+SEM_POINT_SIZE = 1 # pixels
 
 """
 SENSOR PROCESSING CONSTANTS
@@ -52,21 +52,24 @@ TWOD_RECT_DIR           = "2d_rect"
 METADATA_DIR            = "metadata"
 CALIBRATION_DIR         = "calibrations"
 TWOD_RAW_DIR            = "2d_raw"
-# TWOD_PROJ_DIR           = "2d_proj"
+TWOD_PROJ_DIR           = "2d_proj"
 POSES_DIR               = "poses"
 DENSE_POSES_DIR         = "dense"
 DENSE_POSES_FULL_DIR    = "poses/dense"
+DENSE_POSES_GLOBAL_FULL_DIR    = "poses/dense_global"
+POSES_IMU_DIR           = "poses/imu"
+POSES_MAG_DIR           = "poses/mag"
 TIMESTAMPS_DIR          = "timestamps"
 
 DEFAULT_FILETYPES = {
-    "2d_raw": "png",
-    "3d_raw": "bin",
-    "3d_comp": "bin",
-    "3d_semantic": "bin",
-    "3d_bbox": "json",
-    "2d_rect": "jpg",
-    "poses": "txt",
-    "timestamps": "txt"
+    "2d_raw": ["png"],
+    "3d_raw": ["bin", "png"],
+    "3d_comp": ["bin"],
+    "3d_semantic": ["bin"],
+    "3d_bbox": ["json"],
+    "2d_rect": ["png"],
+    "poses": ["txt"],
+    "timestamps": ["txt"]
 }
 
 DEFAULT_POINTCLOUD_SHAPE = [1024, 128]

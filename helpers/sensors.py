@@ -12,6 +12,7 @@ import itertools
 import numpy as np
 np.float = np.float64  # temp fix for following import https://github.com/eric-wieser/ros_numpy/issues/37
 import ros_numpy # Used in sensor_msgs.msg apt-get install ros-noetic-ros-numpy
+import rospy
 
 #Libraries
 import cv2
@@ -101,7 +102,12 @@ def process_ouster_packet(
             raise NotImplementedError
     pc = pc.astype(np.float32)
 
-    return pc, sensor_ts
+    # Interpolate original point cloud timestamp according ouster SDK
+    # https://github.com/ouster-lidar/ouster-ros/blob/5a08f89e21dabfb78ae359f9bfc4ba869a275104/src/lidar_packet_handler.h#L151
+    delta_ts = max(0, (ts[-1] - init_ts)*1e-9) # in seconds
+    received_ts = rospy.Time(sensor_ts.to_sec() - delta_ts)
+
+    return pc, received_ts
 
 def set_filename_by_topic(topic, sensor_subpath, filetype, trajectory, frame):
     sensor_prefix   = sensor_subpath.replace("/", "_") #get sensor name
@@ -120,20 +126,24 @@ def set_filename_by_prefix(modality, sensor_name, filetype, trajectory, frame):
         )
     return sensor_filename
 
-def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=False):
+def set_filename_dir(indir, modality, sensor_name, trajectory, frame=None, include_name=False, check_exist=False):
     assert (frame is not None and include_name) or (frame is None and not include_name), \
         f'Invalid frame {frame} and include name argument {include_name} combination...'
     trajectory = str(trajectory)
 
-    filepath = os.path.join(indir, modality, sensor_name, trajectory)
+    filedir = os.path.join(indir, modality, sensor_name, trajectory)
     if include_name:
         assert modality in DEFAULT_FILETYPES.keys(), f'Modality {modality} not supported...'
-        filetype = DEFAULT_FILETYPES[modality]
-        filename = set_filename_by_prefix(
-            modality, sensor_name, filetype, trajectory, str(frame)
-        )
-        return os.path.join(filepath, filename)
-    return filepath
+
+        for filetype in DEFAULT_FILETYPES[modality]:
+            filename = set_filename_by_prefix(
+                modality, sensor_name, filetype, trajectory, str(frame)
+            )
+            filepath = os.path.join(filedir, filename)
+            if not check_exist or os.path.exists(filepath):
+                return filepath
+            
+    return filedir
 
 def get_filename_info(filename):
     filename_prefix  = filename.split('.')[0]
@@ -144,24 +154,6 @@ def get_filename_info(filename):
     trajectory      = filename_prefix[3]
     frame           = filename_prefix[4]
     return (modality, sensor_name, trajectory, frame)
-
-def get_calibration_info(filepath):
-    filename = filepath.split('/')[-1]
-    filename_prefix = filename.split('.')[0]
-    filename_split = filename_prefix.split('_')
-
-    calibration_info = None
-    src, tar = filename_split[1], filename_split[-1]
-    if len(filename_split) > 3:
-        #Sensor to Sensor transform
-        extrinsic = yaml.safe_load(open(filepath, 'r'))
-        calibration_info = extrinsic
-    else:
-        #Intrinsic transform
-        intrinsic = yaml.safe_load(open(filepath, 'r'))
-        calibration_info = intrinsic
-    
-    return calibration_info, src, tar
 
 def read_sem_label(label_path):
     assert os.path.exists(label_path), "%s does not exist " % label_path
@@ -277,6 +269,7 @@ def process_image(img_data, encoding="passthrough"):
 
 def process_compressed_image(img_data, encoding="bgr8"):
     sensor_ts = img_data.header.stamp
+
     # Decode mono16 separately due to compressed decoding bug in CvBridge()
     if encoding=="mono16":
         dt = np.dtype('<B') # little endian
@@ -287,23 +280,6 @@ def process_compressed_image(img_data, encoding="bgr8"):
         image_np = np.array(cv_image)
 
     return image_np, sensor_ts
-
-def rectify_image(img_path, intrinsics):
-    img = np.array(cv2.imread(img_path))
-    w, h = intrinsics['image_width'], intrinsics['image_height']
-    #Need to be float32s to match cv type
-    K = np.float32(intrinsics['camera_matrix']['data']).reshape(3,3)
-    D = np.float32(intrinsics['distortion_coefficients']['data'])
-    
-    Kn, roi = cv2.getOptimalNewCameraMatrix(K, D, (w,h), 1, (w,h))
-    mapx, mapy = cv2.initUndistortRectifyMap(K,D, None, Kn, (w,h), 5)
-    img_rect = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
-
-    #Uncomment below to crop rectified image
-    # x,y,w,h = roi
-    # img_rect = img_rect[y:y+h, x:x+w]
-    return img_rect
-
 
 def process_imu(imu_data, trans):
     orientation = np.array([
@@ -342,9 +318,6 @@ def process_imu(imu_data, trans):
     imu_data.linear_acceleration.y  = l_trans[1]
     imu_data.linear_acceleration.z  = l_trans[2]
     return imu_data, imu_data.header.stamp
-
-# def process_vnav_odometry(odom_data, trans):
-
 
 def process_mag(mag_data):
     pass

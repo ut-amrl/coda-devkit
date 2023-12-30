@@ -28,7 +28,7 @@ class Synchronize(object):
             self._print_queue_sizes()
             # print("Sync message header ", msg.header)
             print(f'Topic {topic} timestamp: {msg.header.stamp.to_sec()}')
-
+        
         #2 Correct frames with dropped packets
         if self.sync_method == 'HARDWARE_SYNC_METHOD':
             self._hardware_sync()
@@ -56,7 +56,7 @@ class Synchronize(object):
             if topic==self.trigger_topic:
                 sync_dict['ts'] = msg.header.stamp
             sync_dict['topics'][topic] = msg
-
+        
         return sync_dict
     
     def _print_queue_sizes(self):

@@ -1,7 +1,8 @@
 repository_root: "/robodata/husky_logs/CODa_bags"
 # repository_root: "/robodata/arthurz/Datasets/CODa_sync_bags"
-dataset_output_root: "/robodata/arthurz/Datasets/CODa_dev"
-bag_date: "20230130"
+dataset_output_root: "/robodata/arthurz/Datasets/CODa_test"
+bag_date: "20230116"
+namespace: "coda"
 
 #Bag Decoder Settings
 gen_data: True   # Generates data files
@@ -11,20 +12,20 @@ verbose: True    # Debugging
 # Synchronization parameters
 sync_method: "HARDWARE_SYNC_METHOD"
 trigger_topic: "/ouster/lidar_packets"
-
 point_fields: "x y z i t ri" # xyz, intensity, time, ring 
 
-sensor_topics: 
+sensor_topics:
   "/camera/depth/image_raw/compressed":
     id: "cam2"
     sync: False
     save_subdir: "3d_raw/cam2"
-    save_ext: "png" 
+    save_ext: "png"
+  # ZED Topics
   "/zed/zed_node/depth/depth_registered":
     id: "cam3"
     sync: False
-    save_subdir: "3d_raw/cam4"
-    save_ext: "png" 
+    save_subdir: "3d_raw/cam3"
+    save_ext: "png"
 
-bags_to_process: ["1675092394.bag"] #Leave empty to process all bags in directory
-bags_to_traj_ids: [10] # Leave empty to assign ids in sequential order from 0
+bags_to_process: ["1673884184.bag"] #Leave empty to process all bags in directory
+bags_to_traj_ids: [0] # Leave empty to assign ids in sequential order from 0
