@@ -18,8 +18,8 @@ from scipy.spatial.transform import Rotation as R
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', '--traj', default="0",
-                    help="Select a trajectory 0-22")
+parser.add_argument('-s', '--sequence', default="0",
+                    help="Select a sequence [0, 1, 10, 11, 12]")
 parser.add_argument('-n', '--namespace', default="coda",
                     help="Select a namespace to use for published topics")
 # parser.add_argument('--cam', default="cam3",
@@ -88,17 +88,17 @@ def process_stereo_to_pointcloud(depth_img_path, calib_intr_path, calib_extr_pat
     return trans_pc_np
 
 def main(args):
-    traj    = args.traj
+    seq    = args.sequence
     namespace = args.namespace
     camid   = "cam3" #args.cam
     indir   = os.getenv(ENV_CODA_ROOT_DIR)
     assert indir is not None, f'Directory for CODa cannot be found, set {ENV_CODA_ROOT_DIR}'
     # stereo_dir = "/robodata/arthurz/Datasets/CODa_cal"
-    depth_dir   = join(indir, TRED_RAW_DIR, camid, str(traj))
-    pc_dir      = join(indir, TRED_COMP_DIR, "os1", str(traj))
-    ts_path     = join(indir, TIMESTAMPS_DIR, f'{traj}.txt')
-    calib_extr_path = join(indir, CALIBRATION_DIR, str(traj), f'calib_os1_to_{camid}.yaml')
-    calib_intr_path = join(indir, CALIBRATION_DIR, str(traj), f'calib_{camid}_intrinsics.yaml')
+    depth_dir   = join(indir, TRED_RAW_DIR, camid, str(seq))
+    pc_dir      = join(indir, TRED_COMP_DIR, "os1", str(seq))
+    ts_path     = join(indir, TIMESTAMPS_DIR, f'{seq}.txt')
+    calib_extr_path = join(indir, CALIBRATION_DIR, str(seq), f'calib_os1_to_{camid}.yaml')
+    calib_intr_path = join(indir, CALIBRATION_DIR, str(seq), f'calib_{camid}_intrinsics.yaml')
     rospy.init_node('coda_check_stereo')
 
     assert camid in STEREO_SETTINGS, f'Cam with id {camid} not found in stereo depth range defintions...'
@@ -130,7 +130,7 @@ def main(args):
         # Find closest point cloud to ts
         closest_lidar_frame = np.searchsorted(ts_np, depth_ts, side='left')
         lidar_ts = ts_np[closest_lidar_frame]
-        lidar_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", str(traj), closest_lidar_frame, include_name=True)
+        lidar_path = set_filename_dir(indir, TRED_RAW_DIR, "os1", str(seq), closest_lidar_frame, include_name=True)
         lidar_np = read_bin(lidar_path, keep_intensity=True)
 
         pub_pc_to_rviz(lidar_np, lidar_pc_pub, lidar_ts, point_type="x y z i")

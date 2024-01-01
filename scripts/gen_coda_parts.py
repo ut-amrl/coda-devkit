@@ -30,6 +30,11 @@ SEQUENCE_DIR_COPY_LIST = {
     TIMESTAMPS_DIR: { "%s.txt" }
 }
 
+SEQUENCE_DEPTH_COPY_LIST = { # Copy over RGB and depth images
+    TRED_RAW_DIR: { "cam3": { "%s" }},
+    TWOD_RAW_DIR: {"cam3": {"%s"}, "cam4": {"%s"}}
+}
+
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -154,7 +159,7 @@ def copy_sequence_files(args):
     |_ timestamps
         |_ seq.txt
     """
-    indir, outdir, seq = args
+    indir, outdir, seq, seq_dir_copy_list = args
     def copy_leaf_item(args):
         zipf, src, root = args
 
@@ -212,7 +217,7 @@ def copy_sequence_files(args):
     output_zip_filename = join(outdir, f'{seq}.zip')
     print(f'Copying files to {output_zip_filename}')
     with zipfile.ZipFile(output_zip_filename, 'w', zipfile.ZIP_DEFLATED, allowZip64 = True) as zipf:
-        process_copy_list(zipf, SEQUENCE_DIR_COPY_LIST, indir, indir, seq)
+        process_copy_list(zipf, seq_dir_copy_list, indir, indir, seq)
 
 def copy_split_files(indir, outdir, split="sm"):
     if split!="full":
@@ -293,27 +298,35 @@ def main(args):
     indir="/robodata/arthurz/Datasets/CODa_v2"
     # indir="/scratch/arthurz/Datasets/CODa_tiny"
 
-    if download_type=="sequence":
+    if download_type=="sequence" or download_type=="depthonly":
         if not os.path.exists(outdir):
             print("Making outdir if only one additional folder needed %s"%outdir)
             os.makedirs(outdir)
 
-        valid_seq_ints = np.arange(0, 23)
+        # Modify files for stereo depth only dataset
+        if download_type=="depthonly":
+            SEQUENCE_DIR_COPY_LIST = SEQUENCE_DEPTH_COPY_LIST
+            valid_seq_ints = np.array([0, 1, 10, 11, 12])
+        else:
+            SEQUENCE_DIR_COPY_LIST = SEQUENCE_DIR_COPY_LIST
+            valid_seq_ints = np.arange(0, 23)
+
         if seq=="all":
             num_seq = len(valid_seq_ints)
             indir_list = [indir] * num_seq
             outdir_list = [outdir] * num_seq
             seq_list = [str(seq_int) for seq_int in valid_seq_ints.tolist()]
+            seq_dir_copy_list = [SEQUENCE_DIR_COPY_LIST] * num_seq
 
             pool = Pool(processes=24)
             for _ in tqdm.tqdm(pool.imap_unordered(copy_sequence_files, 
-                zip(indir_list, outdir_list, seq_list)), total=num_seq):
+                zip(indir_list, outdir_list, seq_list, seq_dir_copy_list)), total=num_seq):
                 pass
         else:
             seq_int = int(seq)
             assert seq_int in valid_seq_ints, f'Invalid sequence {seq} specified'
 
-            copy_sequence_files( (indir, outdir, str(seq)) )
+            copy_sequence_files( (indir, outdir, str(seq), [SEQUENCE_DIR_COPY_LIST]) )
 
     elif download_type=="split":
         valid_splits = ["tiny", "sm", "md", "full"]

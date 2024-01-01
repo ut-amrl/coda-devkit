@@ -129,11 +129,15 @@ def main(args):
         os.makedirs(download_dir)
 
     split_to_download_url = {
-        'tiny': "https://dataverse.tdl.org/api/access/datafile/288159",
+        'tiny': "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/splits/CODa_tiny_split.zip",
+        'small': "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/splits/CODa_sm_split.zip",
+        "medium": "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/splits/CODa_md_split.zip",
+        "full": "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/splits/CODa_full_split.zip"
     }
 
     sequence_to_download_url = {
-        '0': "https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/sequences/0.zip"
+        str(i): f'https://web.corral.tacc.utexas.edu/texasrobotics/web_CODa/sequences/{i}.zip' 
+        for i in range(23) 
     }
 
     assert download_type=='sequence' or download_type=='split', f'Invalid download type argument {download_type}'
