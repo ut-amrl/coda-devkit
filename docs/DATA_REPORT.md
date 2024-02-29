@@ -277,7 +277,7 @@ projection_matrix:
 
 ## Poses
 
-Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset version. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We ensure this by linearly interpolating between our known SLAM poses.
+Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset version. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We ensure this by interpolating between our known SLAM poses using IMU measurements. All poses are in the LiDAR coordinate frame. More info on this can be found in the 3D modality sensor format section in this document.
 
 Example Pose File: (ts x y z qw qx qy qz)
 ```
@@ -314,7 +314,7 @@ ts magx magy magz
 
 ## Timestamps and Frames (timestamps)
 
-`timestamps` - Timestamps for each synchronized frame for the os1, cam0, and cam1. The line index in the file is the frame number and the value on each line is the frame's timestamp. The os1, cam0, and cam1 sensors are hardware synchronized. At the start of each lidar sweep, the os1 electrically begins image capture for cam0 and cam1. We treat each revolution as a single frame and use the timestamp from the os1 as the timestamp for each frame. Note that because the os1 begins the lidar sweep from the back of the robot, there may exist small point cloud image misalignments in the sensor data. Each line in the 
+`timestamps` - Timestamps for each synchronized frame for the os1, cam0, and cam1. The line index in the file is the frame number and the value on each line is the frame's timestamp. The os1, cam0, and cam1 sensors are hardware synchronized. At the start of each lidar sweep, the os1 electrically begins image capture for cam0 and cam1. We treat each revolution as a single frame and use the timestamp from the os1 as the timestamp for each frame. Note that because the os1 begins the lidar sweep from the back of the robot, there may exist small point cloud image misalignments in the sensor data. 
 ```
 1673884185.589118
 .
