@@ -197,6 +197,7 @@ CODa is organized in the following levels: the data modality (2D/3D), sensor typ
     - metadata_small
     - poses
         - dense
+        - dense_global
         - gps
         - gpsodom
         - imu
@@ -277,7 +278,7 @@ projection_matrix:
 
 ## Poses
 
-Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset version. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We ensure this by interpolating between our known SLAM poses using IMU measurements. All poses are in the LiDAR coordinate frame. More info on this can be found in the 3D modality sensor format section in this document.
+Each line contains 8 numbers, the first number being the timestamp for the current measurement. The last 7 numbers are the x, y, z translation and quarternion qw, qx, qy, qz denoting the rigid body transformation to the origin for the current trajectory. We will release updated global poses using the center of all trajectories as the origin in a future dataset version. Poses in the `poses` directory are generated using LeGO-LOAM at a different frequency than the os1 measurements. Most users will want to use poses from the `poses/dense_global` directory there is a one to one correspondence between each line in this pose file to each os1 measurement. We optimize these poses jointly across multiple traversals through an automatic SLAM process with manually imposed constraints. This ensures that they are *globally consistent* Currently, we provide globally consistent poses for all sequences 8, 14, and 15. We refer users to the poses in `poses/dense` directory for sequences 8, 14 and 15. We linearly interpolate the poses from LeGO-LOAM to obtain a one to one correspondence between each pose and os1 measurement. However, these poses are not globally consistent.
 
 Example Pose File: (ts x y z qw qx qy qz)
 ```
