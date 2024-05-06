@@ -204,11 +204,10 @@ class BagDecoder(object):
 
                         # Process topic and update msg with point cloud if all packets received
                         if topic_type=="ouster_ros/PacketMsg":
-                            lidar_state_dict, msg = self.qpacket(topic, topic_type, msg, ts, lidar_state_dict)
+                            lidar_state_dict, msg, ts = self.qpacket(topic, topic_type, msg, ts, lidar_state_dict)
                             if msg is not None: # Convert points numpy to pointcloud2
-                                ts = lidar_state_dict['qp_ts']
                                 msg = pub_pc_to_rviz(
-                                        msg, topic_pubs[topic], ts,  
+                                        msg, topic_pubs[topic], ts
                                         point_type=self.point_fields, 
                                         seq=lidar_state_dict['frame'],
                                         publish=False
@@ -274,19 +273,21 @@ class BagDecoder(object):
         packet = get_ouster_packet_info(self.os1_info, msg.buf)
         
         pc_np = None
+        init_ts = state_dict['qp_ts'] # initial timestamp of scan to process
         if packet.frame_id!=state_dict['qp_frame_id']:
             if state_dict['qp_counter']==self.OS1_PACKETS_PER_FRAME:
-                pc_np, ts = self.process_topic(topic, topic_type, state_dict['qp_scan_queue'], ts)
-                state_dict['qp_ts'] = ts # Update timestamp to earliest packet
+                pc_np, _ = self.process_topic(topic, topic_type,
+                        state_dict['qp_scan_queue'], init_ts)
 
             state_dict['qp_counter']    = 0
             state_dict['qp_frame_id']   = packet.frame_id
             state_dict['qp_scan_queue'] = []
+            state_dict['qp_ts'] = ts # Update timestamp to earliest packet
 
         state_dict['qp_counter'] += 1
         state_dict['qp_scan_queue'].append(packet)
 
-        return state_dict, pc_np
+        return state_dict, pc_np, init_ts
 
     def save_topic(self, data, topic, topic_type, trajectory, frame):
         info = self.sensor_topics[topic]
@@ -353,8 +354,8 @@ class BagDecoder(object):
         data        = None
         sensor_ts   = t
         if topic_type=="ouster_ros/PacketMsg":
-            data, sensor_ts = process_ouster_packet(
-                self.os1_info, self.os1_dict, msg, topic, sensor_ts, point_fields=self.point_fields
+            data = process_ouster_packet(
+                self.os1_info, self.os1_dict, msg, topic, point_fields=self.point_fields
             )
         elif topic_type=="sensor_msgs/Image":
             data, sensor_ts = process_image(msg)

@@ -45,7 +45,7 @@ def read_ouster_info(os_metadata):
     return os1_dict, os1_info
 
 def process_ouster_packet(
-    os1_info, os1_dict, packet_arr, topic, sensor_ts, point_fields="x y z i t"
+    os1_info, os1_dict, packet_arr, topic, point_fields="x y z i t"
     ):
     def nth(iterable, n, default=None):
         try:
@@ -102,12 +102,7 @@ def process_ouster_packet(
             raise NotImplementedError
     pc = pc.astype(np.float32)
 
-    # Interpolate original point cloud timestamp according ouster SDK
-    # https://github.com/ouster-lidar/ouster-ros/blob/5a08f89e21dabfb78ae359f9bfc4ba869a275104/src/lidar_packet_handler.h#L151
-    delta_ts = max(0, (ts[-1] - init_ts)*1e-9) # in seconds
-    received_ts = rospy.Time(sensor_ts.to_sec() - delta_ts)
-
-    return pc, received_ts
+    return pc
 
 def set_filename_by_topic(topic, sensor_subpath, filetype, trajectory, frame):
     sensor_prefix   = sensor_subpath.replace("/", "_") #get sensor name
