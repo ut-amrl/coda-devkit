@@ -1,0 +1,94 @@
+repository_root: "/robodata/ecocar_logs/CACCDataset"
+dataset_output_root: "/robodata/ecocar_logs/processed/CACCDataset"
+bag_date: "20231209"
+namespace: "leva"
+
+lidar_info_path: OS1metadata.json
+
+#Bag Decoder Settings
+gen_data: False   # Generates data files
+vis_topics: True     # Republish sensor messages
+verbose: False    # Debugging
+
+# Synchronization parameters
+sync_method: "HARDWARE_SYNC_METHOD"
+trigger_topic: '/ouster/lidar_packets'
+
+point_fields: "x y z i t" # xyz, intensity, time, ring 
+
+sensor_topics: 
+  "/ouster/lidar_packets":
+    id: "os1"
+    sync: True
+    save_subdir: "3d_raw/os1"
+    save_ext: "bin" 
+  "/stereo/left/image_raw/compressed":
+    id: "cam0"
+    sync: True
+    save_subdir: "2d_raw/cam0"
+    save_ext: "png" 
+  "/stereo/right/image_raw/compressed": 
+    id: "cam1"
+    sync: True
+    save_subdir: "2d_raw/cam1"
+    save_ext: "png" 
+  "/stereo/fisheye_left/image_raw/compressed": 
+    id: "cam2"
+    sync: True
+    save_subdir: "2d_raw/cam2"
+    save_ext: "png" 
+  "/stereo/fisheye_right/image_raw/compressed": 
+    id: "cam3"
+    sync: True
+    save_subdir: "2d_raw/cam3"
+    save_ext: "png" 
+  "/stereo/fisheye_back/image_raw/compressed": 
+    id: "cam4"
+    sync: True
+    save_subdir: "2d_raw/cam4"
+    save_ext: "png" 
+  "/vectornav/GPS": 
+    id: "gps"
+    sync: False
+    save_subdir: "poses/gps"
+    save_ext: "txt"
+  "/vectornav/IMU": 
+    id: "imu"
+    sync: False
+    save_subdir: "poses/imu"
+    save_ext: "txt" 
+  "/vectornav/Mag": 
+    id: "mag"
+    sync: False
+    save_subdir: "poses/mag"
+    save_ext: "txt" 
+  "/vectornav/Odom": 
+    id: "odom"
+    sync: False
+    save_subdir: "poses/gpsodom"
+    save_ext: "txt" 
+
+# bags_to_process: [
+#   "_2023-12-08-17-24-11.bag",
+#   "_2023-12-08-17-28-45.bag",
+#   "_2023-12-08-17-49-36.bag",
+#   "_2023-12-08-18-03-51.bag",
+#   ] #Leave empty to process all bags in directory
+# bags_to_traj_ids: [8, 9, 10, 11] # Leave empty to 
+bags_to_process: [
+  # "FrontageBackward_SC_2023-12-09-16-19-37.bag",
+  # "FrontageForward_SC_2023-12-09-16-05-04.bag",
+  # "I35_Forward_SC_2023-12-09-14-18-28.bag",
+  # "MoPac_Backward_LKAACC_2023-12-09-10-41-23.bag",
+  # "MoPac_Backward_SC_2023-12-09-10-23-19.bag",
+  # "MoPac_Forward_LKAACC_2023-12-09-10-32-25.bag",
+  # "MoPac_Forward_SC_2023-12-09-10-14-32.bag",
+  "Residential_Backward_ACC_2023-12-09-14-41-45.bag"
+  # "calibration1_2023-12-08-17-20-46.bag",
+  # "calibration2_2023-12-08-18-25-27.bag"
+  ] #Leave empty to process all bags in directory
+bags_to_traj_ids: [
+  # 0, 1, 2, 3, 4, 5, 6, 7
+  # 42, 43
+  44
+  ] # Leave empty to assign ids in sequential order from 0

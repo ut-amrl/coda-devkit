@@ -17,7 +17,7 @@ import rospy
 #Libraries
 import cv2
 from cv_bridge import CvBridge
-import open3d as o3d
+# import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 from ouster import client
 import matplotlib.pyplot as plt 

@@ -52,16 +52,19 @@ def save_calibs(calib_dict, calib_dict_path):
     with open(calib_dict_path, 'w') as yaml_file:
         yaml.dump(calib_yaml_dict, yaml_file)
 
-def compute_lidar_to_rect(T_lidar_to_cam_ext, R, P):
-    T_lidar_cam = np.eye(4)
-    T_lidar_cam[:3, :3] = T_lidar_to_cam_ext[:3, :3]
-    T_lidar_cam[:3, 3] = T_lidar_to_cam_ext[:3, 3]
-    T_canon = np.eye(4)
-    T_canon[:3, :3] = R
+def compute_lidar_to_pixels(T_lidar_to_cam_ext, R, P):
+    #1 Camera to rectified camera
+    T_cam_camrect = np.zeros((3, 4))
+    T_cam_camrect[:3, :3] = R
 
-    T_lidar_to_rect = P @ T_canon @ T_lidar_cam
+    #2 Rectified camera to pixels
+    M = P[:3, :3]
+    T_camrect_pixels = M
 
-    return T_lidar_to_rect
+    #3 LiDAR to pixels
+    T_lidar_to_pixels = T_camrect_pixels @ T_cam_camrect @ T_lidar_to_cam_ext
+
+    return T_lidar_to_pixels
 
 def process_single_trajectory(indir, outdir, trajectory):
     trajectory = str(trajectory)
@@ -97,8 +100,8 @@ def process_single_trajectory(indir, outdir, trajectory):
     T_os1_to_cam1 = T_cam0_to_cam1 @ T_os1_to_cam0
     
     # Compute LiDAR to undistorted rectified camera transforms
-    T_lidar_to_rect0 = compute_lidar_to_rect(T_os1_to_cam0, R1, P1)
-    T_lidar_to_rect1 = compute_lidar_to_rect(T_os1_to_cam1, R2, P2)
+    T_lidar_to_rect0 = compute_lidar_to_pixels(T_os1_to_cam0, R1, P1)
+    T_lidar_to_rect1 = compute_lidar_to_pixels(T_os1_to_cam1, R2, P2)
 
     os1_to_cam0_dict = {
         "extrinsic_matrix": T_os1_to_cam0,
@@ -110,6 +113,8 @@ def process_single_trajectory(indir, outdir, trajectory):
     }
 
     np.set_printoptions(suppress=True, precision=8)
+    print("OS1 to cam0 rect", T_lidar_to_rect0)
+    print("OS1 to cam1 rect", T_lidar_to_rect1)
 
     # Save ouster to camera calibrations to matrix
     out_calib0_path = osp.join(out_calib_dir, OS1_CAM0_FILENAME)
@@ -123,8 +128,6 @@ def main(args):
     outdir = "/robodata/arthurz/Datasets/CODa_v2/calibrations"
     sequence = args.sequence
     process_single_trajectory(indir, outdir, sequence)
-
-
 
 if __name__ == '__main__':
     args = parser.parse_args()

@@ -24,8 +24,8 @@ sys.path.append(os.getcwd())
 from helpers.visualization import (clear_marker_array, create_3d_bbox_marker, pub_pose,
                                     project_3dbbox_image, pub_pc_to_rviz, apply_semantic_cmap,
                                     apply_rgb_cmap, project_3dpoint_image)
-from helpers.calibration import load_extrinsic_matrix, load_camera_params
-from helpers.sensors import (get_calibration_info, set_filename_dir, read_bin, read_sem_label)
+from helpers.calibration import load_extrinsic_matrix, load_camera_params, get_calibration_info
+from helpers.sensors import (set_filename_dir, read_bin, read_sem_label)
 from helpers.geometry import pose_to_homo
 from helpers.constants import *
 from scripts.check_stereo_rgb import extract_ts
@@ -101,7 +101,7 @@ def vis_annos_rviz(args):
     calib_dir       = join(indir, CALIBRATION_DIR, sequence)
     lidar_ts_dir    = join(indir, TIMESTAMPS_DIR,
                                     f"{sequence}.txt")
-    poses_dir       = join(indir, POSES_DIR, "global")
+    poses_dir       = join(indir, DENSE_POSES_GLOBAL_FULL_DIR)
     
     # Pose DATA
     pose_file   = join(poses_dir, f'{sequence}.txt')

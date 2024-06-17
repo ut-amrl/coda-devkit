@@ -85,7 +85,7 @@ class AnnotationDecoder(object):
         anno_dict = self.deepen_decode_bbox(annotation_path, traj)
 
         if self._gen_data:
-            self.save_anno_json(anno_dict)
+            # self.save_anno_json(anno_dict)
             # TODO fix 3d to 2d annotation projection
             self.project_annos_3d_to_2d(anno_dict)
 

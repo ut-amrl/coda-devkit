@@ -326,6 +326,7 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None,
         T_lidar_to_rect = np.array(calib_ext_dict['projection_matrix']['data']).reshape(
             calib_ext_dict['projection_matrix']['rows'], calib_ext_dict['projection_matrix']['cols']
         )
+
         pc_homo = np.hstack((pc_np, np.ones((pc_np.shape[0], 1))))
         pc_rect_cam = T_lidar_to_rect @ pc_homo.T
         
@@ -339,8 +340,12 @@ def project_3dto2d_points(pc_np, calib_ext_file, calib_intr_file, wcs_pose=None,
         K   = np.array(intr_ext['camera_matrix']['data']).reshape(3, 3)
         d   = np.array(intr_ext['distortion_coefficients']['data']) # k1, k2, p1, p2, k3
 
-        image_points = projectPointsWithDist(pc_np[:, :3].astype(np.float64), ext_homo_mat[:3, :3], 
-            ext_homo_mat[:3, 3], K, d, use_dist=False)
+        image_points = projectPointsWithDist(
+            pc_np[:, :3].astype(np.float64), 
+            ext_homo_mat[:3, :3], 
+            ext_homo_mat[:3, 3], 
+            K, d, use_dist=False
+        )
 
     valid_points_mask = get_pointsinfov_mask(
         (ext_homo_mat[:3, :3]@pc_np[:, :3].T).T+ext_homo_mat[:3, 3])
@@ -615,7 +620,7 @@ def project_3dto2d_bbox(tred_annotation, calib_ext_file, calib_intr_file, check_
         P   = np.array(intr_ext['projection_matrix']['data']).reshape(3, 4)
         Re  = np.array(intr_ext['rectification_matrix']['data']).reshape(3, 3)
 
-        image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)
+        image_points = projectPointsWithDist(tred_corners[:, :3], ext_homo_mat[:3, :3], ext_homo_mat[:3, 3], K, d)[np.newaxis,...]
        
         if check_img:
             valid_points_mask = np.logical_and(

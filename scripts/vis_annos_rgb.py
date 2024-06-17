@@ -136,9 +136,10 @@ def generate_single_anno_file(args):
     if "3d_bbox"==modality:
         tred_anno_dict = json.load(open(tred_anno_path))
         tred_anno_image = project_3dbbox_image(tred_anno_dict, calibextr_path, calibintr_path, image_np, draw_inst=True)
-    elif "3d_semantic"==modality:
+    elif "3d_semantic"==modality or TRED_COMP_DIR==modality:
         pc_path = set_filename_dir(indir, TRED_COMP_DIR, sensor, traj, frame, include_name=True)
         pc_np   = read_bin(pc_path, keep_intensity=False)
+
         tred_anno_image = project_3dpoint_image(image_np, pc_np, calibextr_path, calibintr_path, tred_anno_path)
 
     dump_calibration_img(outdir, traj, frame, cam_list[0], tred_anno_image)
@@ -207,6 +208,7 @@ def main(args):
         if not os.path.exists(metadata_path):
             print("Trajectory %i does not contain metadata file %s" % (trajectory, metadata_path))
             continue
+        
         anno_subpaths = read_metadata_anno(metadata_path, modality=modality)
         num_annos = len(anno_subpaths)
 

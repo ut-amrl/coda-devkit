@@ -5,6 +5,12 @@ import pdb
 # Utility Libraries
 import yaml
 
+# For stopping bag decoding
+import sys
+import termios
+import atexit
+from select import select
+
 # ROS Libraries
 import rospy
 import rosbag
@@ -20,7 +26,27 @@ from helpers.geometry import densify_poses_between_ts
 from helpers.synchronization import Synchronize
 
 from multiprocessing import Pool
-import tqdm
+from tqdm import tqdm
+
+def is_data_available():
+    return select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+
+def setup_nonblocking_terminal_input():
+    fd = sys.stdin.fileno()
+    old_term_settings = termios.tcgetattr(fd)
+    new_attr = termios.tcgetattr(fd)
+    new_attr[3] = new_attr[3] & ~(termios.ECHO | termios.ICANON)
+    termios.tcsetattr(fd, termios.TCSANOW, new_attr)
+
+    def restore_terminal_settings():
+        termios.tcsetattr(fd, termios.TCSAFLUSH, old_term_settings)
+
+    atexit.register(restore_terminal_settings)
+
+setup_nonblocking_terminal_input()
+
+print("Press any key to pause/resume. You might need to press 'Enter' after your key press in some terminals.")
+paused = False
 
 class BagDecoder(object):
     """
@@ -44,13 +70,13 @@ class BagDecoder(object):
         if self.gen_data:
             self.gen_dataset_structure(self.outdir, self.sensor_topics)
 
-        #Load sync publisher
-        rospy.init_node(self.namespace, anonymous=True)
-        self.pub_rate = rospy.Rate(10) # Publish at 10 hz
-        self.topic_to_type = None
+        if self.vis_topics:
+            #Load sync publisher
+            rospy.init_node(self.namespace, anonymous=True)
+            self.pub_rate = rospy.Rate(3) # Publish at 10 hz
 
-        # Load bag complete header signal
-        self.bagdecoder_signal = rospy.Publisher('bagdecoder_signal', String, queue_size=10)
+            # Load bag complete header signal
+            self.bagdecoder_signal = rospy.Publisher('bagdecoder_signal', String, queue_size=10)
 
     def gen_dataset_structure(self, outdir, sensor_topics):
         print("Generating processed dataset subdirectories...")
@@ -161,7 +187,9 @@ class BagDecoder(object):
             #1 Signal start of bag processing
             bag_date = os.path.basename(self.bag_dir)
             decode_signal_str = "START %s %s" % (bag_date, bag_file) 
-            self.bagdecoder_signal.publish(decode_signal_str)
+
+            if self.vis_topics:
+                self.bagdecoder_signal.publish(decode_signal_str)
 
             if bag_file not in self.bags_to_process:
                 continue
@@ -195,9 +223,31 @@ class BagDecoder(object):
                 'qp_scan_queue': []
             } 
             bagfile = rosbag.Bag(bag_fp, chunk_threshold=200000000) # 200MB chunk size
-            with tqdm.tqdm_notebook(total = bagfile.get_message_count()) as pbar:
-                for topic, msg, ts in bagfile.read_messages():
-                    pbar.update(1)
+            # Make tqdm progressbar based on message count
+            total_messages = bagfile.get_message_count()
+            # get an iterator for the topic with the frame data
+            bag_iterator = bagfile.read_messages(
+                start_time=rospy.Time.from_sec(1702155518.856068),
+                end_time=rospy.Time.from_sec(1702155538.853548)    
+            )
+            # iterate over the image messages of the given topic
+            try:
+                global paused
+                for topic, msg, ts in tqdm(bag_iterator, total=total_messages):
+                    if is_data_available():
+                        c = sys.stdin.read(1)
+                        paused = not paused
+                        if paused:
+                            print("Paused. Press any key to continue.")
+                        else:
+                            print("Resumed.")
+
+                    while paused:
+                        if is_data_available():
+                            c = sys.stdin.read(1)
+                            paused = False
+                            print("Resumed.")
+
                     if topic in self.sensor_topics.keys():
                         topic_type = topic_to_type[topic]
                         info = self.sensor_topics[topic]
@@ -213,6 +263,7 @@ class BagDecoder(object):
                                         seq=lidar_state_dict['frame'],
                                         publish=False
                                     )
+                                self.pub_rate.sleep()
 
                         #2 Synchronize and save topics
                         if info['sync'] and msg is not None:
@@ -235,8 +286,14 @@ class BagDecoder(object):
                             self.save_topic(msg, topic, topic_type, traj_idx, ts)
                             if self.vis_topics:
                                 topic_pubs[topic].publish(msg)
+            except KeyboardInterrupt:
+                # Handle exit on Control C or Z
+                pass
 
             print("Completed processing bag ", bag_fp)
+
+        # Signal end of bag processing
+        print("Finished processings bags, closing processes...")
 
     def exists_sync_topics(self):
         """

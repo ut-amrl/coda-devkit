@@ -190,8 +190,9 @@ def project_3dpoint_image(image_np, bin_np, calib_ext_file, calib_intr_file, col
     valid_points = image_pts[valid_point_mask, :]
 
     color_map = [(0, 0, 255)] * valid_points.shape[0]
+    
     if colormap is not None and colormap=="camera":
-        os1_to_cam = load_extrinsic_matrix(calib_ext_file)
+        os1_to_cam = load_extrinsic_matrix(calib_ext_file, load_projection=True)
         bin_homo_os1 = np.hstack((bin_np, np.ones( (bin_np.shape[0], 1) ) ))
         bin_homo_cam = (os1_to_cam @ bin_homo_os1.T).T
         valid_z_map = bin_homo_cam[:, 2][valid_point_mask]

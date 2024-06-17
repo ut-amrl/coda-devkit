@@ -2,7 +2,7 @@ import os
 import yaml
 import numpy as np
 
-def load_extrinsic_matrix(extrinsic_file):
+def load_extrinsic_matrix(extrinsic_file, load_projection=False):
     """
     Load extrinsic calibration from file and convert it to a 4x4 homogeneous matrix.
 
@@ -20,7 +20,10 @@ def load_extrinsic_matrix(extrinsic_file):
         Otherwise, it constructs the matrix directly from the 'data' field in the YAML file.
     """
     calib_ext = open(extrinsic_file, 'r')
-    calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
+    if load_projection:
+        calib_ext = yaml.safe_load(calib_ext)['projection_matrix']
+    else:
+        calib_ext = yaml.safe_load(calib_ext)['extrinsic_matrix']
     if "R" in calib_ext.keys() and "T" in calib_ext.keys():
         ext_homo_mat = np.eye(4)
         ext_homo_mat[:3, :3] = np.array(calib_ext['R']['data']).reshape(

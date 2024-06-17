@@ -45,15 +45,22 @@ def main(args):
         #         0, 1, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22
         #     ]
             
-        if subdirs_to_process==-1: # Default to all subdirs
+        if len(settings['bags_to_process'])==0: # Default to all subdirs
             subdirs_to_process = [entry.path for entry in os.scandir(root_repo) if entry.is_dir()]
             traj_ids = np.arange(0, 23).tolist()
+        else:
+            subdirs_to_process = [settings['bag_date']]
+            subdirs_to_process = [os.path.join(root_repo, subdir) for subdir in subdirs_to_process]
+            traj_ids = settings['bags_to_traj_ids']
 
         traj_idx = 0
         for dir_idx, dir_path in enumerate(subdirs_to_process):
-            bag_files = [ subdir_file.path.split('/')[-1] for subdir_file in os.scandir(dir_path) 
-            if subdir_file.path.endswith(".bag") and
-                ( ("calibration" not in subdir_file.path) ^ args.calibrations)] 
+            if len(settings['bags_to_process'])==0:
+                bag_files = [ subdir_file.path.split('/')[-1] for subdir_file in os.scandir(dir_path) 
+                if subdir_file.path.endswith(".bag") and
+                    ( ("calibration" not in subdir_file.path) ^ args.calibrations)] 
+            else:
+                bag_files = settings['bags_to_process']
 
             subdir = dir_path.split('/')[-1]
             # Modify bagdecoder.yaml settings with correct config
