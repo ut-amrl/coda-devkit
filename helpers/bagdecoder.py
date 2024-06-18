@@ -227,6 +227,7 @@ class BagDecoder(object):
             total_messages = bagfile.get_message_count()
             # get an iterator for the topic with the frame data
             bag_iterator = bagfile.read_messages(
+                # TODO: comment out to read all messages
                 start_time=rospy.Time.from_sec(1702155518.856068),
                 end_time=rospy.Time.from_sec(1702155538.853548)    
             )
@@ -264,6 +265,7 @@ class BagDecoder(object):
                                         publish=False
                                     )
                                 self.pub_rate.sleep()
+                        # Add additional topics that require multiple packets to form one sensor message
 
                         #2 Synchronize and save topics
                         if info['sync'] and msg is not None:

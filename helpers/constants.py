@@ -470,18 +470,18 @@ SENSOR_TO_XYZ_FRAME = {
         0, 0, 1, 0.03618,
         0, 0, 0, 1      
     ],
+    "/ouster/imu_packets": [ # TODO: Change from identity
+        1, 0, 0, 0, 
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ],
     "/vectornav/IMU": [
         1, 0, 0,  0, 
         0, -1, 0, 0,
         0, 0, -1, 0,
         0, 0, 0, 1
     ],
-    # "/vectornav/IMU": [
-    #     0, 1, 0,  0, 
-    #     -1, 0, 0, 0,
-    #     0, 0, 1, 0,
-    #     0, 0, 0, 1
-    # ],
     "/vectornav/Odom": [
         -1, 0, 0,  0, 
         0, -1, 0, 0,

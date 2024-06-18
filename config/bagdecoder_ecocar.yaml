@@ -21,52 +21,57 @@ sensor_topics:
     id: "os1"
     sync: True
     save_subdir: "3d_raw/os1"
-    save_ext: "bin" 
-  "/stereo/left/image_raw/compressed":
-    id: "cam0"
-    sync: True
-    save_subdir: "2d_raw/cam0"
-    save_ext: "png" 
-  "/stereo/right/image_raw/compressed": 
-    id: "cam1"
-    sync: True
-    save_subdir: "2d_raw/cam1"
-    save_ext: "png" 
-  "/stereo/fisheye_left/image_raw/compressed": 
-    id: "cam2"
-    sync: True
-    save_subdir: "2d_raw/cam2"
-    save_ext: "png" 
-  "/stereo/fisheye_right/image_raw/compressed": 
-    id: "cam3"
-    sync: True
-    save_subdir: "2d_raw/cam3"
-    save_ext: "png" 
-  "/stereo/fisheye_back/image_raw/compressed": 
-    id: "cam4"
-    sync: True
-    save_subdir: "2d_raw/cam4"
-    save_ext: "png" 
-  "/vectornav/GPS": 
-    id: "gps"
+    save_ext: "bin"
+  "/ouster/imu_packets":
+    id: "os1_imu"
     sync: False
-    save_subdir: "poses/gps"
+    save_subdir: "poses/imu_os1"
     save_ext: "txt"
-  "/vectornav/IMU": 
-    id: "imu"
-    sync: False
-    save_subdir: "poses/imu"
-    save_ext: "txt" 
-  "/vectornav/Mag": 
-    id: "mag"
-    sync: False
-    save_subdir: "poses/mag"
-    save_ext: "txt" 
-  "/vectornav/Odom": 
-    id: "odom"
-    sync: False
-    save_subdir: "poses/gpsodom"
-    save_ext: "txt" 
+  # "/stereo/left/image_raw/compressed":
+  #   id: "cam0"
+  #   sync: True
+  #   save_subdir: "2d_raw/cam0"
+  #   save_ext: "png" 
+  # "/stereo/right/image_raw/compressed": 
+  #   id: "cam1"
+  #   sync: True
+  #   save_subdir: "2d_raw/cam1"
+  #   save_ext: "png" 
+  # "/stereo/fisheye_left/image_raw/compressed": 
+  #   id: "cam2"
+  #   sync: True
+  #   save_subdir: "2d_raw/cam2"
+  #   save_ext: "png" 
+  # "/stereo/fisheye_right/image_raw/compressed": 
+  #   id: "cam3"
+  #   sync: True
+  #   save_subdir: "2d_raw/cam3"
+  #   save_ext: "png" 
+  # "/stereo/fisheye_back/image_raw/compressed": 
+  #   id: "cam4"
+  #   sync: True
+  #   save_subdir: "2d_raw/cam4"
+  #   save_ext: "png" 
+  # "/vectornav/GPS": 
+  #   id: "gps"
+  #   sync: False
+  #   save_subdir: "poses/gps"
+  #   save_ext: "txt"
+  # "/vectornav/IMU": 
+  #   id: "imu"
+  #   sync: False
+  #   save_subdir: "poses/imu"
+  #   save_ext: "txt" 
+  # "/vectornav/Mag": 
+  #   id: "mag"
+  #   sync: False
+  #   save_subdir: "poses/mag"
+  #   save_ext: "txt" 
+  # "/vectornav/Odom": 
+  #   id: "odom"
+  #   sync: False
+  #   save_subdir: "poses/gpsodom"
+  #   save_ext: "txt" 
 
 # bags_to_process: [
 #   "_2023-12-08-17-24-11.bag",
