@@ -7,7 +7,8 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config', default="config/bagdecoder.yaml",
                     help="decode config file (see config/decode.yaml for example)")
-parser.add_argument('-a', '--all_days', type=bool, default=False, help="decode all sudirs or the one specified in .yaml")
+parser.add_argument('-a', '--all_days', default=False, action='store_true',
+                    help="Process all days in the directory instead of yaml")
 parser.add_argument('-p', '--densify_poses', type=bool, default=False, help="Only densify existing poses")
 parser.add_argument('-ca', '--calibrations', type=bool, default=False, help="Only process calibrations")
 

@@ -3,6 +3,7 @@ from os.path import join
 import pdb
 
 # Utility Libraries
+import time
 import yaml
 
 # For stopping bag decoding
@@ -121,9 +122,11 @@ class BagDecoder(object):
             print("Saving topics: ", self.sensor_topics)
 
         self.bags_to_process   = settings['bags_to_process']
-        self.all_bags          = [ file for file in sorted(os.listdir(self.bag_dir)) if os.path.splitext(file)[-1]==".bag"]
         if len(self.bags_to_process)==0:
-            self.bags_to_process = self.all_bags
+            self.bags_to_process = [ file for file in sorted(os.listdir(self.bag_dir)) if os.path.splitext(file)[-1]==".bag"]
+        else:
+            self.bags_to_process = [os.path.join(self.bag_dir, file) for file in self.bags_to_process]
+        assert len(self.bags_to_process)>0, "No bags to process, exiting..."
 
         # Load LiDAR decoder settings
         self.lidar_info_path = settings['lidar_info_path'] if "lidar_info_path" in settings else "./helpers/helper_utils/OS1metadata.json"
@@ -143,6 +146,8 @@ class BagDecoder(object):
         topics_pubs = {}
         topics_msg_queue = {}
         for topic, info in self.sensor_topics.items():
+            if topic not in topic_to_type and info.get('optional', False):
+                continue
             topic_type  = topic_to_type[topic]
             topic_sync  = info['sync']
             topic_class = ROSTYPE_TO_CLASS[topic_type] if topic_type in ROSTYPE_TO_CLASS else None
@@ -158,6 +163,13 @@ class BagDecoder(object):
         return topics_pubs, topics_msg_queue
 
     def reset_stale_files(self, ts_path, trajectory_idx):
+        ts_dir = os.path.dirname(ts_path)
+        if not os.path.exists(ts_dir):
+            print("Creating directory ", ts_dir)
+            os.makedirs(ts_dir)
+        if not os.path.exists(ts_path):
+            print("Creating file ", ts_path)
+            open(ts_path, 'w+').close()
         # Reset timestamps file
         frame_to_ts = open(ts_path, "w+")
         frame_to_ts.close()
@@ -176,7 +188,7 @@ class BagDecoder(object):
         """
         Decodes requested topics in bag file to individual files
         """
-        for traj_idx, bag_file in enumerate(self.all_bags):
+        for traj_idx, bag_file in enumerate(self.bags_to_process):
             print("Bag file ", bag_file)
 
             #0 Setup ros message synchronizer
@@ -194,9 +206,9 @@ class BagDecoder(object):
             if bag_file not in self.bags_to_process:
                 continue
 
-            if len(self.bags_to_traj_ids)==len(self.bags_to_process):
-                bag_idx = self.bags_to_process.index(bag_file)
-                traj_idx = self.bags_to_traj_ids[bag_idx]
+            assert len(self.bags_to_traj_ids)==len(self.bags_to_process), "Trajectory ids not defined for all bags"
+            bag_idx = self.bags_to_process.index(bag_file)
+            traj_idx = self.bags_to_traj_ids[bag_idx]
 
             bag_fp = os.path.join(self.bag_dir, bag_file)
             print("Processing bag ", bag_fp, " as trajectory", traj_idx)
@@ -228,8 +240,8 @@ class BagDecoder(object):
             # get an iterator for the topic with the frame data
             bag_iterator = bagfile.read_messages(
                 # TODO: comment out to read all messages
-                start_time=rospy.Time.from_sec(1702155518.856068),
-                end_time=rospy.Time.from_sec(1702155538.853548)    
+                # start_time=rospy.Time.from_sec(1702155518.856068),
+                # end_time=rospy.Time.from_sec(1702155538.853548)    
             )
             # iterate over the image messages of the given topic
             try:
@@ -252,7 +264,6 @@ class BagDecoder(object):
                     if topic in self.sensor_topics.keys():
                         topic_type = topic_to_type[topic]
                         info = self.sensor_topics[topic]
-
                         # Process topic and update msg with point cloud if all packets received
                         if topic_type=="ouster_ros/PacketMsg":
                             lidar_state_dict, msg = self.qpacket(topic, topic_type, msg, ts, lidar_state_dict)
@@ -264,7 +275,8 @@ class BagDecoder(object):
                                         seq=lidar_state_dict['frame'],
                                         publish=False
                                     )
-                                self.pub_rate.sleep()
+                                # if self.vis_topics:
+                                #     self.pub_rate.sleep()
                         # Add additional topics that require multiple packets to form one sensor message
 
                         #2 Synchronize and save topics
@@ -284,6 +296,8 @@ class BagDecoder(object):
 
                                 if self.vis_topics:
                                     self.pub_sync_topics(topic_pubs, sync_dict)
+                                    # self.pub_rate.sleep()
+                                    time.sleep(0.2)
                         elif not info['sync']:
                             self.save_topic(msg, topic, topic_type, traj_idx, ts)
                             if self.vis_topics:
@@ -401,6 +415,9 @@ class BagDecoder(object):
             proc_data, _ = self.process_topic(topic, topic_type, data, data.header.stamp)
 
             odom_to_txt(proc_data, filepath)   
+        elif topic_type=="std_msgs/Float64MultiArray":
+            proc_data, _ = self.process_topic(topic, topic_type, data, 0)
+            float64_to_txt(proc_data, filepath)
         else:
             if self._verbose:
                 print("Entered undefined topic %s in save, skipping..."%topic)
@@ -430,6 +447,9 @@ class BagDecoder(object):
             data, sensor_ts = process_gps(msg)
         elif topic_type=="nav_msgs/Odometry":
             data = msg
+        elif topic_type=="std_msgs/Float64MultiArray":
+            data = msg.data
+            sensor_ts = msg.data[0]
         return data, sensor_ts
 
     @staticmethod

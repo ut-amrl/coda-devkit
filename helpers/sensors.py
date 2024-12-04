@@ -200,6 +200,13 @@ def imu_to_txt(imu, filename):
         np.savetxt(imu_file, imu_np, fmt='%6.8f', delimiter=" ")
     imu_file.close()
 
+def float64_to_txt(data, filename):
+    ts = data[0]
+    data_np = np.array(data[1:], dtype=np.float64).reshape(1, -1)
+    with open(filename, "a") as data_file:
+        np.savetxt(data_file, data_np, fmt='%6.8f', delimiter=" ")
+    data_file.close()
+
 def mag_to_txt(mag, filename):
     ts = mag.header.stamp.secs + mag.header.stamp.nsecs*1e-9
     mag_np = np.array([

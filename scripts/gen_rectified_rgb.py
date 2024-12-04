@@ -17,7 +17,7 @@ from helpers.constants import *
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--outdir', type=str, default='.', help="Output root directory for rectified images")
-    parser.add_argument('--seq', type=int, default=None, help="Sequence to rectify, default is all")
+    parser.add_argument('--seq', nargs='+', type=int, default=None, help="Sequence to rectify, default is all")
     parser.add_argument('--workers', type=int, default=24)
     args = parser.parse_args()
     return args
@@ -42,11 +42,11 @@ def rectify_sequence(args):
         rect_img_dir = join(rect_dir, str(seq))
         if not os.path.exists(rect_img_dir):
             os.makedirs(rect_img_dir, exist_ok=True)
-
+        print("num files in raw dir ", len(raw_img_dir_files))
         for img_file in raw_img_dir_files:
             _, _, _, frame = get_filename_info(img_file)
             img_path = os.path.join(raw_img_dir, img_file)
-            rect_img_file   = set_filename_by_prefix(TWOD_RECT_DIR, cam, "png", seq, frame)
+            rect_img_file   = set_filename_by_prefix(TWOD_RECT_DIR, cam, "jpg", seq, frame)
 
             if os.path.isfile(img_path):
                 intrinsics = cam_calibration['%s_intrinsics'%cam]
@@ -64,7 +64,7 @@ def rectify_sequences(rootdir, outdir, num_workers=1, seq=None):
     if seq is None:
         sequences = sorted([int(seq) for seq in next(os.walk(cam0_dir))[1]])
     else:
-        sequences = [seq]
+        sequences = seq
 
     indirs = [rootdir]*len(sequences)
     outdirs = [outdir]*len(sequences)
@@ -93,7 +93,7 @@ def main(args):
     if not os.path.exists(outdir):
         print(f'Creating output directory {outdir}')
         os.makedirs(outdir)
-
+    
     #1 Build list of frames to rectify
     rectify_sequences(rootdir, outdir, num_workers, seq=seq)
         

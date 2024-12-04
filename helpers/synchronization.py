@@ -99,13 +99,14 @@ class Synchronize(object):
             while getattr(self, self.trigger_topic).qsize() > 1:
                 getattr(self, self.trigger_topic).get() # Pop erroneous sets
 
-            last_trigger_time = getattr(self, self.trigger_topic)[0].header.stamp.to_sec()
+            last_trigger_time = getattr(self, self.trigger_topic).queue[0].header.stamp.to_sec()  # Get the first element without popping
 
             for topic in self.sync_topics:
                 topic_queue = getattr(self, topic)
-                msg = topic_queue[0]
+                if topic_queue.empty():
+                    continue
+                msg = topic_queue.queue[0]  # Get the first element of the queue without popping
 
                 if msg.header.stamp.to_sec() < last_trigger_time:
                     print(f'Dropped {topic} frame')
-                    topic_queue.get()
-                    import pdb; pdb.set_trace()
+                    topic_queue.get()  # Remove frame that doesn't match the trigger time

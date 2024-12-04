@@ -38,6 +38,7 @@ import sys
 import termios
 import tty
 
+# Example Usage (Sequence 1, Frame 1800, Rate 1Hz): python scripts/vis_annos_rviz.py -s 1 -f 1800 -a -r 1
 parser = argparse.ArgumentParser(description="CODa rviz visualizer")
 parser.add_argument("-s", "--sequence", type=str, default="0", 
                     help="Sequence number (Default 0)")
@@ -45,10 +46,14 @@ parser.add_argument("-f", "--start_frame", type=str, default="0",
                     help="Frame to start at (Default 0)")
 parser.add_argument("-c", "--color_type", type=str, default="classId", 
                     help="Color map to use for coloring boxes Options: [isOccluded, classId] (Default classId)")
+parser.add_argument("-a", "--annotations", action="store_true", default=False, 
+                    help="Whether or not to show annotations")
 parser.add_argument("-l", "--log", type=str, default="",
                     help="Logs point cloud and bbox annotations to file for external usage")
 parser.add_argument("-n", "--namespace", type=str, default="coda",
                     help="Select a namespace to use for published topics")
+parser.add_argument("-p", "--pointcloud_only", action="store_true", help="Only publish point cloud")
+parser.add_argument("-r", "--rate", type=float, default=1.0, help="Rate to publish at")
 
 def get_key():
     old_settings = termios.tcgetattr(sys.stdin)
@@ -65,6 +70,8 @@ def vis_annos_rviz(args):
     sequence, start_frame, color_type, log_dir = args.sequence, int(args.start_frame), args.color_type, \
         args.log
     namespace = args.namespace
+    show_annotations = args.annotations
+    pointcloud_only = args.pointcloud_only
     rospy.init_node('CODa_publisher')
 
     # Define Frames
@@ -75,7 +82,7 @@ def vis_annos_rviz(args):
     lidar_pub   = rospy.Publisher(f'/{namespace}/ouster/points', PointCloud2, queue_size=10)
     cam0_pub    = rospy.Publisher(f'/{namespace}/cam0', Image, queue_size=10)
     cam1_pub    = rospy.Publisher(f'/{namespace}/cam1', Image, queue_size=10)
-    bbox_3d_pub = rospy.Publisher(f'/{namespace}/bbox_3d', MarkerArray, queue_size=10)
+    bbox_3d_pub = rospy.Publisher(f'/{namespace}/gt_bbox_3d', MarkerArray, queue_size=10)
     pose_pub    = rospy.Publisher(f'/{namespace}/pose', PoseStamped, queue_size=10)
     cam3_pub    = rospy.Publisher(f'/{namespace}/cam3/depth', Image, queue_size=10)
 
@@ -94,7 +101,7 @@ def vis_annos_rviz(args):
 
     # Define TF Broadcaster
     tf_broadcaster = tf2_ros.TransformBroadcaster()
-    rate = rospy.Rate(300)
+    rate = rospy.Rate(args.rate)
     
     # for sequence in sequences:
     # Path to the data
@@ -168,7 +175,7 @@ def vis_annos_rviz(args):
 
         if frame < start_frame:
             continue
-
+        print (f'Publishing frame {frame} at pose {pose_idx}')
         # Broadcast TF (odom -> os1)
         tf_msg = tf2_ros.TransformStamped()
         tf_msg.header.stamp = lidar_ts
@@ -206,35 +213,37 @@ def vis_annos_rviz(args):
 
             point_type = "x y z"
             sem_color = None
-            if os.path.exists(cam0_file):
-                sem_color, pc_mask = apply_rgb_cmap(cam0_file, lidar_np, os1_to_cam0_ext_file,
-                    cam0_intrinsics_file, return_pc_mask=True)
+            if not pointcloud_only:
+                if os.path.exists(cam0_file):
+                    sem_color, pc_mask = apply_rgb_cmap(cam0_file, lidar_np, os1_to_cam0_ext_file,
+                        cam0_intrinsics_file, return_pc_mask=True)
 
-                trans_lidar_np = trans_lidar_np[pc_mask, :]
-                sem_color = sem_color[pc_mask, :].astype(np.float32) / 255.0
+                    trans_lidar_np = trans_lidar_np[pc_mask, :]
+                    sem_color = sem_color[pc_mask, :].astype(np.float32) / 255.0
 
-            if os.path.exists(sem_file):
-                sem_color_anno = apply_semantic_cmap(sem_file) / 255.0
-                sem_color_anno = np.array([[b, g, r] for r, g, b in sem_color_anno], dtype=np.float32)
-                
-                if sem_color is not None:
-                    sem_labels = read_sem_label(sem_file).astype(np.int32)
-                    sem_color_anno_fov = sem_color_anno[pc_mask, :]
-                    sem_labels_fov = sem_labels[pc_mask]
+                if show_annotations and os.path.exists(sem_file):
+                    sem_color_anno = apply_semantic_cmap(sem_file) / 255.0
+                    sem_color_anno = np.array([[b, g, r] for r, g, b in sem_color_anno], dtype=np.float32)
+                    
+                    if sem_color is not None:
+                        sem_labels = read_sem_label(sem_file).astype(np.int32)
+                        sem_color_anno_fov = sem_color_anno[pc_mask, :]
+                        sem_labels_fov = sem_labels[pc_mask]
 
-                    sem_label_nonbg = sem_labels_fov!=0
-                    sem_color[sem_label_nonbg] = sem_color_anno_fov[sem_label_nonbg]
-                else:
-                    sem_color = sem_color_anno
+                        sem_label_nonbg = sem_labels_fov!=0
+                        sem_color[sem_label_nonbg] = sem_color_anno_fov[sem_label_nonbg]
+                    else:
+                        sem_color = sem_color_anno
 
-            point_type="x y z r g b"
-            trans_lidar_np = np.hstack((trans_lidar_np, sem_color))
+            if sem_color is not None:
+                point_type="x y z r g b"
+                trans_lidar_np = np.hstack((trans_lidar_np, sem_color))
 
             # Dump to file feature for external visualization
             if log_dir!="":
                 point_cloud_cm = np.ones((pc_mask.shape[0], 3), dtype=np.float16) * 170 # Default point color is grey
                 # Color with semantic label is exists
-                if os.path.exists(sem_file):
+                if show_annotations and os.path.exists(sem_file):
                     sem_label_full_nonbg = sem_labels!=0
                     sem_color_full_nonbg = sem_color_anno[sem_label_full_nonbg, :]*255.0
                     point_cloud_cm[sem_label_full_nonbg, :] = sem_color_full_nonbg # 128*1024 x 3
@@ -253,7 +262,7 @@ def vis_annos_rviz(args):
 
 
         # Publish the 3D Bounding Box
-        if os.path.exists(bbox_file):
+        if show_annotations is not None and os.path.exists(bbox_file):
             bbox_3d_json = json.load(open(bbox_file, 'r'))
 
             # Draw 3d Bounding Box 

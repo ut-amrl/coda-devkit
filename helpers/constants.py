@@ -476,6 +476,18 @@ SENSOR_TO_XYZ_FRAME = {
         0, 0, 1, 0,
         0, 0, 0, 1
     ],
+    "/ouster/imu": [ # Preserve original frame
+        1, 0, 0, 0, 
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ],
+    "/imu/data": [ # Preserve original frame
+        1, 0, 0, 0, 
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    ],
     "/vectornav/IMU": [
         1, 0, 0,  0, 
         0, -1, 0, 0,

@@ -14,6 +14,7 @@ sys.path.append(os.getcwd())
 from helpers.calibration import load_extrinsic_matrix
 
 parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--indir', type=str, help="Input root directory for calibrations")
 parser.add_argument('-s', '--sequence', type=int, default=0, help="Sequence to process")
 
 
@@ -124,8 +125,10 @@ def process_single_trajectory(indir, outdir, trajectory):
     save_calibs(os1_to_cam1_dict, out_calib1_path)
 
 def main(args):
-    indir = "/robodata/arthurz/Datasets/CODa_v2/calibrations"
-    outdir = "/robodata/arthurz/Datasets/CODa_v2/calibrations"
+    # indir = "/robodata/arthurz/Datasets/CODa_v2/calibrations"
+    # outdir = "/robodata/arthurz/Datasets/CODa_v2/calibrations"
+    indir = args.indir
+    outdir = args.indir
     sequence = args.sequence
     process_single_trajectory(indir, outdir, sequence)
 
